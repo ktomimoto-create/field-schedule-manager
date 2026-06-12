@@ -1,0 +1,222 @@
+.audit-log-container {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  padding: 1.5rem;
+}
+
+.audit-log-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  border-bottom: 1px solid var(--border-glass);
+  padding-bottom: 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.audit-title-section h2 {
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 0.25rem;
+}
+
+.audit-title-section .helper-text {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+/* タイムラインレイアウト */
+.audit-timeline-wrapper {
+  position: relative;
+  padding-left: 1rem;
+}
+
+.audit-timeline {
+  position: relative;
+  border-left: 2px solid var(--bg-tertiary);
+  padding: 0.5rem 0 1.5rem 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.audit-timeline-item {
+  position: relative;
+}
+
+/* タイムラインのドット */
+.audit-timeline-dot {
+  position: absolute;
+  left: -29.5px; /* ドットの中心を線に合わせる (left: 0 から margin-left など調整) */
+  top: 6px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--bg-tertiary);
+  border: 2px solid var(--primary);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+  transition: all 0.2s ease;
+}
+
+.audit-timeline-item:hover .audit-timeline-dot {
+  background: var(--accent);
+  box-shadow: 0 0 0 4px rgba(217, 70, 239, 0.25);
+  transform: scale(1.1);
+}
+
+/* タイムラインコンテンツカード */
+.audit-timeline-content {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-glass);
+  border-radius: 10px;
+  padding: 1rem;
+  transition: all 0.2s ease;
+  box-shadow: var(--shadow-sm);
+}
+
+.audit-timeline-content:hover {
+  background: var(--bg-card-hover);
+  border-color: var(--primary);
+  transform: translateX(4px);
+  box-shadow: var(--shadow-md);
+}
+
+/* メタ情報行 */
+.audit-log-meta-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  font-size: 0.8rem;
+  margin-bottom: 0.5rem;
+}
+
+.audit-log-time {
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.audit-log-user {
+  color: var(--text-secondary);
+}
+
+.audit-log-user strong {
+  color: var(--text-primary);
+}
+
+/* 物件名バッジ */
+.audit-log-property-badge {
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  padding: 0.15rem 0.5rem;
+  border-radius: 4px;
+  font-weight: 500;
+  border: 1px solid var(--border-glass);
+}
+
+/* アクションバッジ */
+.log-action-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.15rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.action-insert {
+  background: rgba(16, 185, 129, 0.12);
+  color: #10b981;
+  border: 1px solid rgba(16, 185, 129, 0.2);
+}
+
+.action-update {
+  background: rgba(59, 130, 246, 0.12);
+  color: #60a5fa;
+  border: 1px solid rgba(59, 130, 246, 0.2);
+}
+
+.action-delete {
+  background: rgba(239, 68, 68, 0.12);
+  color: #f87171;
+  border: 1px solid rgba(239, 68, 68, 0.2);
+}
+
+/* 詳細説明 */
+.audit-log-details {
+  font-size: 0.875rem;
+  color: var(--text-primary);
+  line-height: 1.4;
+}
+
+/* 「もっと見る」セクション */
+.audit-load-more-section {
+  display: flex;
+  justify-content: center;
+  margin-top: 1.5rem;
+}
+
+.load-more-btn {
+  width: 100%;
+  max-width: 320px;
+  padding: 0.75rem;
+  font-weight: 600;
+}
+
+/* 非管理者アクセス制限表示 */
+.audit-restricted-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 4rem 2rem;
+  text-align: center;
+  gap: 1rem;
+}
+
+.restricted-icon {
+  color: var(--danger);
+  opacity: 0.8;
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0% { transform: scale(1); opacity: 0.8; }
+  50% { transform: scale(1.05); opacity: 1; }
+  100% { transform: scale(1); opacity: 0.8; }
+}
+
+.audit-restricted-card h3 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.audit-restricted-card p {
+  color: var(--text-secondary);
+  max-width: 380px;
+}
+
+/* 空表示 */
+.audit-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 4rem 2rem;
+  color: var(--text-muted);
+}
+
+.placeholder-icon {
+  margin-bottom: 1rem;
+  opacity: 0.5;
+}
+
+/* スピナーサイズ調整 */
+.spinner-sm {
+  width: 16px;
+  height: 16px;
+  border-width: 2px;
+}

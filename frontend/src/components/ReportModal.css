@@ -1,0 +1,312 @@
+.report-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: flex-end; /* モバイルでは下からスライドイン */
+  justify-content: center;
+  z-index: 1000;
+  backdrop-filter: blur(4px);
+  animation: fadeInOverlay 0.2s ease-out;
+}
+
+@media (min-width: 768px) {
+  .report-modal-overlay {
+    align-items: center; /* PCでは中央配置 */
+  }
+}
+
+.report-modal-content {
+  background-color: var(--bg-panel, #ffffff);
+  border-top-left-radius: 20px;
+  border-top-right-radius: 20px;
+  width: 100%;
+  max-width: 600px;
+  padding: 1.5rem;
+  box-shadow: 0 -10px 25px rgba(0, 0, 0, 0.15);
+  animation: slideUpContent 0.25s ease-out;
+  color: var(--text-primary, #1f2937);
+  display: flex;
+  flex-direction: column;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+@media (min-width: 768px) {
+  .report-modal-content {
+    border-radius: 16px;
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+    animation: scaleInContent 0.2s ease-out;
+  }
+}
+
+.report-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.25rem;
+  border-bottom: 1px solid var(--border-glass, rgba(0, 0, 0, 0.08));
+  padding-bottom: 0.75rem;
+}
+
+.report-modal-header h3 {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--text-primary, #111827);
+}
+
+.report-modal-close {
+  background: transparent;
+  border: none;
+  color: var(--text-muted, #9ca3af);
+  cursor: pointer;
+  padding: 0.25rem;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.report-modal-close:hover {
+  background-color: var(--bg-tertiary, #f3f4f6);
+  color: var(--text-primary, #111827);
+}
+
+/* 予定サマリー */
+.report-schedule-summary {
+  background-color: var(--bg-secondary, #f9fafb);
+  border: 1px solid var(--border-glass, rgba(0, 0, 0, 0.05));
+  border-radius: 10px;
+  padding: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.summary-title {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--text-primary, #111827);
+  margin-bottom: 0.5rem;
+}
+
+.summary-desc {
+  font-size: 0.875rem;
+  color: var(--text-secondary, #4b5563);
+  line-height: 1.4;
+  white-space: pre-wrap;
+}
+
+/* フォーム要素 */
+.form-group-report {
+  margin-bottom: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.label-report {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-secondary, #374151);
+}
+
+/* 対応ステータス選択（押しやすい巨大トグル） */
+.report-status-selector {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.5rem;
+}
+
+.btn-status-option {
+  padding: 0.75rem 0.25rem;
+  border: 1px solid var(--border-glass, rgba(0, 0, 0, 0.1));
+  background-color: var(--bg-secondary, #f9fafb);
+  color: var(--text-secondary, #4b5563);
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  text-align: center;
+}
+
+.btn-status-option.active {
+  color: #ffffff;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+.btn-status-option:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* 各ステータスの配色 */
+.btn-status-option.undefined-opt:hover {
+  background-color: #e5e7eb;
+}
+.btn-status-option.undefined-opt.active {
+  background-color: #6b7280; /* Grey */
+  border-color: #6b7280;
+}
+
+.btn-status-option.working-opt:hover {
+  background-color: rgba(245, 158, 11, 0.15);
+}
+.btn-status-option.working-opt.active {
+  background-color: #f59e0b; /* Orange */
+  border-color: #f59e0b;
+}
+
+.btn-status-option.completed-opt:hover {
+  background-color: rgba(16, 185, 129, 0.15);
+}
+.btn-status-option.completed-opt.active {
+  background-color: #10b981; /* Green */
+  border-color: #10b981;
+}
+
+.btn-status-option.cancelled-opt:hover {
+  background-color: rgba(239, 68, 68, 0.15);
+}
+.btn-status-option.cancelled-opt.active {
+  background-color: #ef4444; /* Red */
+  border-color: #ef4444;
+}
+
+/* 時間表示行 */
+.time-row-report {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+.time-input-container {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.form-control-report {
+  background-color: var(--bg-input, #ffffff);
+  border: 1px solid var(--border-glass, rgba(0, 0, 0, 0.15));
+  color: var(--text-primary, #111827);
+  padding: 0.75rem;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  outline: none;
+  width: 100%;
+  transition: border-color 0.2s;
+}
+
+.form-control-report:focus {
+  border-color: var(--primary, #3b82f6);
+}
+
+.btn-time-autofill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  background-color: var(--bg-secondary, #f3f4f6);
+  border: 1px solid var(--border-glass, rgba(0, 0, 0, 0.1));
+  color: var(--text-secondary, #4b5563);
+  padding: 0.75rem 0.75rem;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s;
+}
+
+.btn-time-autofill:hover {
+  background-color: var(--bg-tertiary, #e5e7eb);
+  color: var(--text-primary, #111827);
+}
+
+/* テキストエリア */
+.notes-textarea-container {
+  position: relative;
+}
+
+.textarea-icon {
+  position: absolute;
+  top: 0.85rem;
+  left: 0.75rem;
+  color: var(--text-muted, #9ca3af);
+  pointer-events: none;
+}
+
+.textarea-report {
+  padding-left: 2.25rem;
+  resize: vertical;
+  min-height: 100px;
+  font-family: inherit;
+}
+
+/* フッター */
+.report-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  margin-top: 1.5rem;
+  border-top: 1px solid var(--border-glass, rgba(0, 0, 0, 0.08));
+  padding-top: 1.25rem;
+}
+
+.btn-report-cancel {
+  background-color: var(--bg-secondary, #f3f4f6);
+  border: 1px solid var(--border-glass, rgba(0, 0, 0, 0.1));
+  color: var(--text-secondary, #4b5563);
+  padding: 0.75rem 1.25rem;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-report-cancel:hover {
+  background-color: var(--bg-tertiary, #e5e7eb);
+  color: var(--text-primary, #111827);
+}
+
+.btn-report-save {
+  background-color: var(--primary, #3b82f6);
+  border: none;
+  color: #ffffff;
+  padding: 0.75rem 1.5rem;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 0 4px 6px -1px rgba(59, 130, 246, 0.2);
+}
+
+.btn-report-save:hover {
+  background-color: var(--primary-hover, #2563eb);
+}
+
+.btn-report-save:disabled,
+.btn-report-cancel:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* アニメーション定義 */
+@keyframes fadeInOverlay {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideUpContent {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+
+@keyframes scaleInContent {
+  from { transform: scale(0.95); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}

@@ -1,0 +1,991 @@
+.matrix-board-container {
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 180px);
+  min-height: 650px;
+  overflow: hidden;
+  padding: 1.5rem;
+}
+
+.matrix-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.25rem;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.matrix-title-nav {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+}
+
+.matrix-title-nav h2 {
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.matrix-date-range {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--primary);
+  background: rgba(99, 102, 241, 0.08);
+  padding: 0.3rem 0.8rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(99, 102, 241, 0.2);
+}
+
+.matrix-nav-buttons {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.matrix-legend {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+.info-badge {
+  display: flex;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border-glass);
+  padding: 0.25rem 0.6rem;
+  border-radius: 4px;
+  color: var(--text-muted);
+}
+
+/* スクロール可能なテーブルコンテナ */
+.matrix-table-wrapper {
+  flex: 1;
+  overflow: auto; /* 縦横両方向のスクロールを許可 */
+  border: 1px solid var(--border-glass);
+  border-radius: var(--radius-sm);
+  background: rgba(0, 0, 0, 0.2);
+  box-shadow: inset 0 2px 10px rgba(0, 0, 0, 0.4);
+}
+
+/* 曜日ブロックを横並びにするコンテナ */
+.week-days-container {
+  display: flex;
+  gap: 12px; /* 曜日間の本物の隙間 */
+  width: max-content;
+}
+
+/* 各曜日をカードとしてカプセル化するブロック */
+.day-column-block {
+  flex: 0 0 1500px; /* 各曜日の幅を1500pxに固定 */
+  width: 1500px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-glass);
+  border-radius: 12px; /* 日付ヘッダーとテーブル全体を角丸にする */
+  overflow: hidden; /* 角丸部分からテーブルがはみ出すのを防ぐ */
+  box-shadow: var(--shadow-md);
+  transition: all 0.2s ease;
+  box-sizing: border-box;
+  scroll-margin-top: 110px; /* スクロール時にグローバルヘッダーの下に綺麗に日付が見えるようマージンを確保 */
+}
+
+/* 今日の曜日ブロック全体の強調表示 */
+.today-column {
+  border: 1px solid rgba(99, 102, 241, 0.6) !important;
+  box-shadow: 0 0 15px rgba(99, 102, 241, 0.25), 0 4px 20px rgba(0, 0, 0, 0.4) !important;
+}
+
+/* 曜日並列カレンダーテーブル */
+.day-calendar-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.76rem; /* スプレッドシートに近い高い情報密度 */
+  table-layout: fixed; /* 各セルの横幅をヘッダー/colgroup の指定で固定 */
+}
+
+/* 1段目ヘッダー: 曜日（大結合）ヘッダーのsticky固定 */
+.matrix-day-header-super {
+  position: sticky;
+  top: 0;
+  background: var(--bg-column-header);
+  color: var(--text-primary);
+  padding: 0.5rem;
+  z-index: 20;
+  border-bottom: 1px solid var(--border-glass);
+  border-top: 4px solid #475569; /* デフォルトの平日用カラーバー */
+  height: 38px;
+  box-sizing: border-box;
+}
+
+/* 土日・今日のカラーバー上書き */
+.saturday-column .matrix-day-header-super {
+  border-top-color: #2563eb !important; /* 土曜日の青 */
+}
+
+.sunday-column .matrix-day-header-super {
+  border-top-color: #dc2626 !important; /* 日曜日の赤 */
+}
+
+.today-column .matrix-day-header-super {
+  border-top-color: var(--primary) !important; /* 今日のプライマリ紫 */
+}
+
+.day-header-content-super {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.day-name-super {
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.day-date-super {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+/* 今日の曜日の大ヘッダー強調 */
+.today-header {
+  background: rgba(99, 102, 241, 0.25) !important;
+  color: white !important;
+}
+
+/* 2段目ヘッダー: 各項目ヘッダーのsticky固定 (大ヘッダーの高さ分ずらす) */
+.day-calendar-table th:not(.matrix-day-header-super) {
+  position: sticky;
+  top: 38px; /* 大ヘッダーの高さ(38px)分下げる */
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  font-weight: 600;
+  padding: 0.5rem 0.3rem;
+  border-right: 1px solid var(--border-cell);
+  border-bottom: 2px solid var(--border-glass);
+  z-index: 15;
+  text-align: left;
+  user-select: none;
+  height: 28px;
+  box-sizing: border-box;
+}
+
+
+/* テーブル行 */
+.parallel-calendar-row {
+  border-bottom: 1px solid var(--border-cell);
+}
+
+.parallel-calendar-row:hover {
+  background: var(--bg-card-hover);
+}
+
+/* テーブルセル基本設計 */
+.day-calendar-table td {
+  padding: 0.4rem 0.3rem;
+  border-right: 1px solid var(--border-cell);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: middle;
+  height: 32px;
+}
+
+
+
+/* 今日の列全体の背景を微かにハイライト */
+.today-td {
+  background-color: rgba(99, 102, 241, 0.05);
+}
+
+/* 空行セルのデザイン (スプレッドシートの空欄らしさ) */
+.empty-cell {
+  background: var(--bg-empty);
+  cursor: cell; /* スプレッドシート選択風カーソル */
+}
+
+.empty-cell:hover {
+  background: var(--bg-empty-hover) !important;
+}
+
+/* 予定セルのデザイン区分 */
+/* 確定予定の基本行セル */
+.row-cell-confirmed {
+  background: var(--bg-empty);
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.row-cell-confirmed:hover {
+  background: var(--bg-empty-hover);
+}
+
+/* 仮予定の基本行セル */
+.row-cell-draft {
+  background: var(--bg-empty);
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.row-cell-draft:hover {
+  background: var(--bg-empty-hover);
+}
+
+/* キャンセル（中止）された予定 */
+.row-cell-cancelled {
+  background: var(--bg-primary);
+  color: var(--text-muted);
+  text-decoration: line-through;
+  opacity: 0.5;
+  cursor: pointer;
+}
+
+/* 特殊なセルの装飾 */
+.font-bold-cell {
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.text-muted-cell {
+  color: var(--text-muted);
+}
+
+.time-limit-cell {
+  font-weight: 500;
+}
+
+.staff-tag-cell {
+  padding: 0.1rem 0.3rem;
+  border-radius: 3px;
+  background: var(--bg-tertiary);
+  font-weight: 600;
+  display: inline-block;
+}
+
+/* 週ごとのテーブルブロックのスタイル */
+.week-table-block {
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-secondary); /* 不透明なテーマ背景 */
+  border: 1px solid var(--border-glass);
+  border-radius: var(--radius-sm);
+  padding: 1.25rem;
+  box-shadow: var(--shadow-md);
+  width: max-content; /* テーブル幅に合わせて横に引き伸ばす */
+}
+
+.week-title-badge {
+  display: inline-flex;
+  align-self: flex-start;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: white;
+  background: linear-gradient(135deg, var(--primary), #4f46e5);
+  padding: 0.35rem 1rem;
+  border-radius: 30px;
+  margin-bottom: 1rem;
+  box-shadow: 0 2px 10px rgba(99, 102, 241, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* フリースペース表示エリア */
+.matrix-freespace-header {
+  background: var(--bg-column-header) !important;
+  border-bottom: 1px solid var(--border-glass) !important;
+  border-right: 1px solid var(--border-cell) !important;
+  padding: 0.4rem 0.6rem !important;
+  box-sizing: border-box;
+}
+
+.freespace-content-wrapper {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  align-items: center;
+}
+
+.freespace-badge {
+  font-family: var(--font-sans);
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 0.15rem 0.6rem;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid transparent;
+}
+
+.freespace-badge:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+}
+
+/* 休みバッジ (赤系) */
+.badge-holiday {
+  background: rgba(239, 68, 68, 0.12);
+  border-color: rgba(239, 68, 68, 0.25);
+  color: #f87171;
+}
+
+.badge-holiday:hover {
+  background: #ef4444;
+  border-color: #ef4444;
+  color: white;
+}
+
+/* 社内予定バッジ (青・紫系) */
+.badge-internal {
+  background: rgba(139, 92, 246, 0.12);
+  border-color: rgba(139, 92, 246, 0.25);
+  color: #c084fc;
+}
+
+.badge-internal:hover {
+  background: #8b5cf6;
+  border-color: #8b5cf6;
+  color: white;
+}
+
+/* インライン簡易フォーム */
+.quick-add-form-inline {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: var(--bg-glass);
+  border: 1px solid var(--border-glass);
+  padding: 0.2rem 0.4rem;
+  border-radius: 6px;
+  animation: fadeIn 0.15s ease-out;
+}
+
+.quick-form-control {
+  background: var(--bg-input);
+  border: 1px solid var(--border-glass);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: 0.72rem;
+  padding: 0.2rem 0.4rem;
+  border-radius: 4px;
+  outline: none;
+  height: 24px;
+  box-sizing: border-box;
+}
+
+.quick-form-control:focus {
+  border-color: var(--primary);
+}
+
+.quick-select-worktype {
+  width: 95px;
+}
+
+.quick-select-staff {
+  width: 90px;
+}
+
+.quick-input-time {
+  width: 140px;
+}
+
+.btn-quick-action {
+  font-family: var(--font-sans);
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  border: none;
+  cursor: pointer;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-quick-submit {
+  background: var(--primary);
+  color: white;
+}
+
+.btn-quick-submit:hover {
+  background: var(--primary-hover);
+}
+
+.btn-quick-cancel {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-secondary);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.btn-quick-cancel:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: white;
+}
+
+/* クイック追加起動ボタン */
+.btn-quick-add-trigger {
+  background: rgba(99, 102, 241, 0.08); /* 薄い青紫背景 */
+  border: 1px solid rgba(99, 102, 241, 0.35); /* 実線の枠線 */
+  color: var(--primary, #4f46e5) !important; /* はっきりとしたテーマ色 */
+  font-family: var(--font-sans);
+  font-size: 0.74rem;
+  font-weight: 700; /* 太字 */
+  padding: 0.25rem 0.75rem;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  height: 26px;
+  display: inline-flex;
+  align-items: center;
+  box-shadow: 0 1px 2px rgba(99, 102, 241, 0.1);
+}
+
+.btn-quick-add-trigger:hover {
+  background: var(--primary, #4f46e5) !important;
+  border-color: var(--primary, #4f46e5) !important;
+  color: white !important;
+  box-shadow: 0 2px 6px rgba(99, 102, 241, 0.3);
+}
+
+/* 複数人バッジコンテナとポップアップ */
+.freespace-badge-container {
+  position: relative;
+  display: inline-block;
+}
+
+.freespace-edit-popup {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  transform: none;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-glass);
+  border-radius: 8px;
+  box-shadow: var(--shadow-lg);
+  padding: 0.75rem;
+  z-index: 100;
+  width: 180px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+/* 吹き出し矢印 */
+.popup-arrow {
+  position: absolute;
+  bottom: 100%;
+  left: 20px;
+  transform: none;
+  border-width: 6px;
+  border-style: solid;
+  border-color: transparent transparent var(--bg-secondary) transparent;
+}
+
+/* ポップアップの枠線があるため、枠線用の矢印も表現 */
+.freespace-edit-popup::before {
+  content: '';
+  position: absolute;
+  bottom: 100%;
+  left: 19px;
+  transform: none;
+  border-width: 7px;
+  border-style: solid;
+  border-color: transparent transparent var(--border-glass) transparent;
+  z-index: -1;
+}
+
+.popup-title {
+  margin: 0;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  padding-bottom: 0.25rem;
+  text-align: center;
+}
+
+.popup-buttons-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  max-height: 150px;
+  overflow-y: auto;
+}
+
+.popup-staff-btn {
+  background: var(--bg-primary);
+  border: 1px solid var(--border-glass);
+  color: var(--text-primary);
+  border-radius: 4px;
+  padding: 0.3rem 0.5rem;
+  font-size: 0.75rem;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.2s ease;
+}
+
+.popup-staff-btn:hover {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: white;
+}
+
+.popup-close-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  cursor: pointer;
+  padding: 0.2rem;
+  text-align: center;
+  transition: color 0.2s ease;
+}
+
+.popup-close-btn:hover {
+  color: var(--text-primary);
+}
+
+/* クイックスタッフ選択ドロップダウン */
+.quick-staff-select-container {
+  position: relative;
+  display: inline-block;
+}
+
+.quick-select-staff-trigger {
+  min-width: 100px;
+  text-align: left;
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.quick-staff-dropdown-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-glass);
+  border-radius: 6px;
+  box-shadow: var(--shadow-md);
+  padding: 0.5rem;
+  z-index: 100;
+  width: 160px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.dropdown-actions {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.25rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  padding-bottom: 0.3rem;
+}
+
+.dropdown-action-btn {
+  background: var(--bg-primary);
+  border: 1px solid var(--border-glass);
+  color: var(--text-secondary);
+  border-radius: 3px;
+  font-size: 0.65rem;
+  padding: 0.15rem 0.3rem;
+  cursor: pointer;
+}
+
+.dropdown-action-btn:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-primary);
+}
+
+.dropdown-items-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  max-height: 180px;
+  overflow-y: auto;
+  padding-right: 0.25rem;
+}
+
+/* スクロールバーのカスタマイズ */
+.dropdown-items-list::-webkit-scrollbar,
+.popup-buttons-list::-webkit-scrollbar {
+  width: 4px;
+}
+
+.dropdown-items-list::-webkit-scrollbar-track,
+.popup-buttons-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.dropdown-items-list::-webkit-scrollbar-thumb,
+.popup-buttons-list::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 2px;
+}
+
+.dropdown-checkbox-item {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.72rem;
+  color: var(--text-primary);
+  cursor: pointer;
+  padding: 0.15rem 0.25rem;
+  border-radius: 3px;
+  user-select: none;
+}
+
+.dropdown-checkbox-item:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.dropdown-checkbox-item input[type="checkbox"] {
+  margin: 0;
+  cursor: pointer;
+}
+
+.dropdown-ok-btn {
+  background: var(--primary);
+  border: none;
+  color: white;
+  border-radius: 4px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 0.25rem;
+  cursor: pointer;
+  text-align: center;
+}
+
+.dropdown-ok-btn:hover {
+  background: var(--primary-hover);
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-2px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ポップアップを少し広げる */
+.freespace-edit-popup {
+  width: 220px !important;
+  max-height: 400px;
+}
+
+.popup-form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  text-align: left;
+}
+
+.popup-input-label {
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.popup-input-time-field {
+  width: 100% !important;
+  height: 24px;
+}
+
+.popup-checkboxes-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  max-height: 120px;
+  overflow-y: auto;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-glass);
+  border-radius: 4px;
+  padding: 0.35rem;
+}
+
+/* スクロールバーの調整 */
+.popup-checkboxes-list::-webkit-scrollbar {
+  width: 4px;
+}
+.popup-checkboxes-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+.popup-checkboxes-list::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 2px;
+}
+
+.popup-checkbox-item {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.72rem;
+  color: var(--text-primary);
+  cursor: pointer;
+  padding: 0.15rem 0.25rem;
+  border-radius: 3px;
+  user-select: none;
+}
+
+.popup-checkbox-item:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.popup-checkbox-item input[type="checkbox"] {
+  margin: 0;
+  cursor: pointer;
+}
+
+.popup-actions-row {
+  display: flex;
+  gap: 0.35rem;
+  margin-top: 0.25rem;
+}
+
+.popup-actions-row .btn-quick-action {
+  flex: 1;
+}
+
+.popup-divider {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.1);
+  margin: 0.25rem 0;
+}
+
+.popup-delete-btn {
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  color: #f87171;
+  font-family: var(--font-sans);
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 0.25rem;
+  border-radius: 4px;
+  cursor: pointer;
+  text-align: center;
+  transition: all 0.2s ease;
+  width: 100%;
+}
+
+.popup-delete-btn:hover:not(:disabled) {
+  background: #ef4444;
+  border-color: #ef4444;
+  color: white;
+}
+
+.popup-delete-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* カレンダージャンプ時の一時的ハイライト効果 */
+.jump-highlight {
+  animation: pulseHighlight 1.5s ease-out;
+}
+
+@keyframes pulseHighlight {
+  0% {
+    background-color: rgba(99, 102, 241, 0.4) !important;
+    box-shadow: 0 0 20px rgba(99, 102, 241, 0.6) !important;
+  }
+  100% {
+    box-shadow: none;
+  }
+}
+
+/* インライン編集用入力欄 */
+.inline-edit-input {
+  width: 100%;
+  height: 26px;
+  background: var(--bg-input, #ffffff);
+  border: 1px solid var(--primary, #4f46e5);
+  border-radius: 4px;
+  color: var(--text-primary, #000000);
+  font-family: var(--font-sans);
+  font-size: 0.72rem;
+  padding: 0 4px;
+  box-sizing: border-box;
+  outline: none;
+}
+
+.inline-edit-select {
+  width: 100%;
+  height: 26px;
+  background: var(--bg-input, #ffffff);
+  border: 1px solid var(--primary, #4f46e5);
+  border-radius: 4px;
+  color: var(--text-primary, #000000);
+  font-family: var(--font-sans);
+  font-size: 0.72rem;
+  padding: 0 4px;
+  box-sizing: border-box;
+  outline: none;
+}
+
+/* 選択された予定行の強調 */
+.parallel-calendar-row.selected-row {
+  outline: 2px solid var(--primary, #4f46e5) !important;
+  outline-offset: -1px;
+  background-color: rgba(99, 102, 241, 0.08) !important;
+  z-index: 10;
+  position: relative;
+}
+
+/* コピー中インジケーターバー（画面下部固定） */
+.copy-indicator-bar {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(30, 41, 59, 0.95); /* 深いグレー */
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: white;
+  padding: 0.5rem 1.25rem;
+  border-radius: 50px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 0.8rem;
+  backdrop-filter: blur(10px);
+  animation: slideUp 0.2s ease-out;
+}
+
+.copy-indicator-text strong {
+  color: #a5b4fc;
+}
+
+.btn-xs {
+  padding: 1px 6px;
+  font-size: 0.7rem;
+  height: 18px;
+  line-height: 1;
+}
+
+/* カスタムコンテキストメニュー */
+.custom-context-menu {
+  position: fixed;
+  background: var(--bg-secondary, #1e293b);
+  border: 1px solid var(--border-glass, rgba(255, 255, 255, 0.1));
+  border-radius: 8px;
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.4);
+  padding: 0.35rem;
+  z-index: 10000;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 150px;
+}
+
+.custom-context-menu button {
+  background: transparent;
+  border: none;
+  color: var(--text-primary, #ffffff);
+  text-align: left;
+  padding: 0.4rem 0.75rem;
+  font-size: 0.75rem;
+  border-radius: 4px;
+  cursor: pointer;
+  width: 100%;
+  transition: all 0.15s ease;
+}
+
+.custom-context-menu button:hover {
+  background: var(--primary, #4f46e5);
+  color: white !important;
+}
+
+.custom-context-menu button.delete-menu-item {
+  color: #f87171;
+}
+
+.custom-context-menu button.delete-menu-item:hover {
+  background: #ef4444;
+  color: white !important;
+}
+
+@keyframes slideUp {
+  from { transform: translate(-50%, 10px); opacity: 0; }
+  to { transform: translate(-50%, 0); opacity: 1; }
+}
+
+/* 選択されたセルの強調 */
+.selected-grid-cell {
+  background-color: rgba(37, 99, 235, 0.12) !important;
+  user-select: none;
+}
+
+/* box-shadow を使って選択矩形の外枠をきれいに描画する */
+.selected-border-top {
+  box-shadow: inset 0 2px 0 0 #2563eb !important;
+}
+.selected-border-bottom {
+  box-shadow: inset 0 -2px 0 0 #2563eb !important;
+}
+.selected-border-left {
+  box-shadow: inset 2px 0 0 0 #2563eb !important;
+}
+.selected-border-right {
+  box-shadow: inset -2px 0 0 0 #2563eb !important;
+}
+
+/* コーナーの重複に対応する組み合わせ */
+.selected-border-top.selected-border-left {
+  box-shadow: inset 2px 2px 0 0 #2563eb !important;
+}
+.selected-border-top.selected-border-right {
+  box-shadow: inset -2px 2px 0 0 #2563eb !important;
+}
+.selected-border-bottom.selected-border-left {
+  box-shadow: inset 2px -2px 0 0 #2563eb !important;
+}
+.selected-border-bottom.selected-border-right {
+  box-shadow: inset -2px -2px 0 0 #2563eb !important;
+}
+
+.selected-border-top.selected-border-left.selected-border-right {
+  box-shadow: inset 2px 2px 0 0 #2563eb, inset -2px 0 0 0 #2563eb !important;
+}
+.selected-border-bottom.selected-border-left.selected-border-right {
+  box-shadow: inset 2px -2px 0 0 #2563eb, inset -2px 0 0 0 #2563eb !important;
+}
+.selected-border-top.selected-border-bottom.selected-border-left {
+  box-shadow: inset 2px 2px 0 0 #2563eb, inset 0 -2px 0 0 #2563eb !important;
+}
+.selected-border-top.selected-border-bottom.selected-border-right {
+  box-shadow: inset -2px 2px 0 0 #2563eb, inset 0 -2px 0 0 #2563eb !important;
+}
+
+.selected-border-top.selected-border-bottom.selected-border-left.selected-border-right {
+  box-shadow: inset 0 0 0 2px #2563eb !important;
+}
+
+/* 物件名セル内の詳細編集モーダルボタン */
+.cell-edit-modal-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted, #94a3b8);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  padding: 0;
+  flex-shrink: 0;
+}
+
+.cell-edit-modal-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--primary, #4f46e5);
+}
+
+
+

@@ -1,0 +1,461 @@
+.grid-view-container {
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 180px);
+  min-height: 600px;
+  overflow: hidden;
+  padding: 1.5rem;
+}
+
+.grid-view-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.25rem;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.grid-date-selector {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.view-mode-toggles {
+  display: flex;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-glass);
+  padding: 2px;
+  border-radius: var(--radius-sm);
+}
+
+.date-nav-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.current-date-display {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  display: inline-flex;
+  align-items: center;
+  min-width: 200px;
+  justify-content: center;
+  transition: background-color var(--transition-fast);
+}
+
+.date-picker-wrapper {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.date-picker-input {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 0;
+  height: 0;
+  opacity: 0;
+  pointer-events: none;
+  z-index: -1;
+}
+
+.date-picker-wrapper:hover .current-date-display {
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-sm);
+}
+
+/* 残件数カウンターバッジ (プレミアムデザイン) */
+.remaining-counter-badge {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.15), rgba(217, 70, 239, 0.1));
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  padding: 0.4rem 1rem;
+  border-radius: var(--radius-md);
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.15);
+  animation: pulse 3s infinite alternate;
+}
+
+@keyframes pulse {
+  0% { box-shadow: 0 4px 12px rgba(239, 68, 68, 0.15); }
+  100% { box-shadow: 0 4px 20px rgba(239, 68, 68, 0.3); }
+}
+
+.counter-title {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.counter-number {
+  font-size: 1.4rem;
+  font-weight: 800;
+  color: var(--danger);
+  line-height: 1;
+}
+
+.counter-total {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.grid-filters {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.filter-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-glass);
+  border-radius: var(--radius-sm);
+  padding: 0 0.5rem;
+}
+
+.filter-select {
+  border: none !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  padding: 0.4rem 0.5rem !important;
+  font-size: 0.85rem;
+  width: auto;
+  color: var(--text-primary);
+}
+
+.filter-select option {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+}
+
+/* スプレッドシートテーブル */
+.grid-table-wrapper {
+  flex: 1;
+  overflow: auto;
+  border: 1px solid var(--border-glass);
+  border-radius: var(--radius-sm);
+  background: var(--bg-secondary);
+  box-shadow: var(--shadow-sm);
+}
+
+.spreadsheet-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.76rem; /* 横幅に収めるため、さらにフォントサイズを縮小 */
+  text-align: left;
+  table-layout: fixed;
+}
+
+.spreadsheet-table th {
+  position: sticky;
+  top: 0;
+  background: var(--bg-column-header);
+  color: var(--text-secondary);
+  font-weight: 600;
+  padding: 0.5rem 0.3rem; /* パディングを詰めてセル内の余白を最小限に */
+  border-right: 1px solid var(--border-cell);
+  border-bottom: 2px solid var(--border-cell);
+  z-index: 10;
+  font-size: 0.74rem;
+  user-select: none;
+}
+
+.spreadsheet-table td {
+  padding: 0.4rem 0.3rem; /* パディングを詰める */
+  border-right: 1px solid var(--border-cell);
+  border-bottom: 1px solid var(--border-cell);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: middle; /* 通常時は上下中央揃えで1行表示を綺麗に */
+  height: 36px;
+  box-sizing: border-box;
+}
+
+.spreadsheet-row {
+  transition: background-color var(--transition-fast), opacity var(--transition-fast);
+}
+
+.spreadsheet-row:hover {
+  background: var(--bg-card-hover) !important;
+}
+
+.spreadsheet-table tbody tr:nth-child(even) {
+  background: var(--bg-primary);
+}
+
+.no-data-cell {
+  text-align: center;
+  padding: 3rem !important;
+  color: var(--text-muted);
+  font-size: 0.95rem;
+}
+
+/* 完了行の消し込みスタイル */
+.row-completed {
+  opacity: 0.5;
+  background: rgba(16, 185, 129, 0.02) !important;
+}
+
+.row-completed td:not(:first-child) {
+  text-decoration: line-through;
+  color: var(--text-muted) !important;
+}
+
+.row-completed .bold-cell {
+  color: var(--text-muted) !important;
+}
+
+.row-completed .staff-indicator-tag {
+  opacity: 0.5;
+}
+
+.spreadsheet-table td.bold-cell {
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  overflow: hidden;
+}
+
+.spreadsheet-table td.description-cell {
+  color: var(--text-secondary);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  overflow: hidden;
+}
+
+.spreadsheet-table td.notes-cell {
+  color: var(--text-muted);
+  font-style: italic;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  overflow: hidden;
+}
+
+
+
+.grid-double-click-guide {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  font-weight: 500;
+  background: var(--bg-primary);
+  padding: 0.35rem 0.75rem;
+  border-radius: 6px;
+  border: 1px dashed var(--border-glass);
+}
+
+.staff-indicator-tag {
+  padding: 0.15rem 0.4rem;
+  border-radius: 4px;
+  background: var(--bg-tertiary);
+  font-weight: 500;
+  display: inline-block;
+}
+
+/* アクションボタン */
+.btn-edit-action {
+  background: transparent;
+  border: none;
+  color: var(--primary);
+  cursor: pointer;
+  padding: 0.25rem;
+  border-radius: 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color var(--transition-fast), color var(--transition-fast);
+}
+
+.btn-edit-action:hover {
+  background: rgba(99, 102, 241, 0.15);
+  color: var(--text-on-dark);
+}
+
+/* クイック結果トグルボタン */
+.btn-result-completed {
+  background: rgba(16, 185, 129, 0.15);
+  color: var(--success);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  justify-content: center;
+  width: 100%;
+  transition: var(--transition-fast);
+}
+
+.btn-result-completed:hover {
+  background: rgba(239, 68, 68, 0.15);
+  color: var(--danger);
+  border-color: rgba(239, 68, 68, 0.3);
+}
+
+.btn-result-incomplete {
+  background: var(--bg-primary);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-glass);
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  cursor: pointer;
+  width: 100%;
+  text-align: center;
+  transition: var(--transition-fast);
+}
+
+.btn-result-incomplete:hover {
+  background: rgba(16, 185, 129, 0.15);
+  color: var(--success);
+  border-color: rgba(16, 185, 129, 0.3);
+}
+
+/* ステータスセル */
+.status-badge-cell {
+  padding: 0.2rem 0.4rem;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  display: inline-block;
+  text-align: center;
+  width: 100%;
+}
+
+.status-confirmed {
+  background: rgba(16, 185, 129, 0.12);
+  color: var(--success);
+  border: 1px solid rgba(16, 185, 129, 0.2);
+}
+
+.status-draft {
+  background: rgba(245, 158, 11, 0.12);
+  color: var(--warning);
+  border: 1px solid rgba(245, 158, 11, 0.2);
+}
+
+.status-cancelled {
+  background: rgba(239, 68, 68, 0.12);
+  color: var(--danger);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+}
+
+.grid-view-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 1.25rem;
+}
+
+.grid-row-count {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+/* スマホ用コントロールのレスポンシブ対応 */
+@media (max-width: 768px) {
+  .grid-view-container {
+    height: auto;
+    min-height: auto;
+    padding: 1rem 0.5rem;
+  }
+
+  .grid-view-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.75rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .grid-date-selector {
+    width: 100%;
+  }
+
+  .date-nav-controls {
+    width: 100%;
+    justify-content: space-between;
+    gap: 0.25rem;
+  }
+
+  .date-nav-controls .btn {
+    padding: 0.5rem 0.75rem;
+  }
+
+  .current-date-display {
+    min-width: unset;
+    flex-grow: 1;
+    font-size: 0.9rem;
+    text-align: center;
+  }
+
+  .grid-double-click-guide {
+    display: none; /* スマホではダブルクリック編集は非推奨のため非表示 */
+  }
+
+  .remaining-counter-badge {
+    width: 100%;
+    justify-content: center;
+    padding: 0.5rem;
+  }
+
+  .grid-filters {
+    width: 100%;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .filter-item {
+    width: 100%;
+    background: var(--bg-primary);
+  }
+
+  .filter-select {
+    width: 100%;
+    text-align-last: center;
+  }
+
+  .grid-view-footer {
+    flex-direction: column;
+    gap: 0.75rem;
+    align-items: stretch;
+    margin-top: 0.75rem;
+  }
+
+  .grid-view-footer .btn {
+    width: 100%;
+    order: 2;
+  }
+
+  .grid-row-count {
+    text-align: center;
+    order: 1;
+  }
+}
+
+/* 全文表示モードのスタイル */
+.spreadsheet-table.show-full-text td {
+  height: auto !important;
+  white-space: normal !important;
+  vertical-align: top !important;
+}
+
+.spreadsheet-table.show-full-text td.bold-cell,
+.spreadsheet-table.show-full-text td.description-cell,
+.spreadsheet-table.show-full-text td.notes-cell {
+  white-space: pre-wrap !important;
+  word-break: break-all;
+}
+
+

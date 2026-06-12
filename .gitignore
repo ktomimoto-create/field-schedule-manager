@@ -1,0 +1,29 @@
+# Dependency directories
+node_modules/
+jspm_packages/
+
+# Build outputs
+dist/
+build/
+.tsbuildinfo
+
+# IDEs and editors
+.idea/
+.vscode/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Local env files
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env
+
+# Database
+*.db
+*.sqlite
+*.sqlite3

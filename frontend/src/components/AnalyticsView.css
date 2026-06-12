@@ -1,0 +1,297 @@
+.analytics-container {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  padding: 1.5rem 0;
+}
+
+.analytics-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+  padding: 0 1rem;
+}
+
+.analytics-title-area {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.analytics-title-area h2 {
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
+}
+
+.month-picker-container {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-glass);
+  padding: 0.4rem 0.8rem;
+  border-radius: 8px;
+  box-shadow: var(--shadow-sm);
+}
+
+.month-select {
+  border: none !important;
+  background: transparent !important;
+  color: var(--text-primary) !important;
+  padding: 0 !important;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  outline: none;
+  width: auto;
+}
+
+/* サマリーカード */
+.analytics-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1rem;
+  padding: 0 1rem;
+}
+
+.summary-stat-card {
+  background: var(--bg-panel, #ffffff);
+  border: 1px solid var(--border-glass);
+  border-radius: var(--radius-md);
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  box-shadow: var(--shadow-sm);
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.summary-stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.summary-card-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.summary-card-value {
+  font-size: 1.8rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  line-height: 1;
+}
+
+.summary-card-value .unit {
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  margin-left: 0.25rem;
+}
+
+/* 完了率進捗 */
+.completion-rate-area {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.mini-progress-track {
+  width: 100%;
+  height: 6px;
+  background: var(--bg-tertiary);
+  border-radius: 9999px;
+  overflow: hidden;
+}
+
+.mini-progress-bar {
+  height: 100%;
+  background: linear-gradient(90deg, var(--primary), var(--accent));
+  border-radius: 9999px;
+  transition: width 0.5s ease-out;
+}
+
+/* カラー調整カード */
+.success-card {
+  border-left: 4px solid var(--success);
+}
+.warning-card {
+  border-left: 4px solid var(--warning);
+}
+.completion-card {
+  border-left: 4px solid var(--primary);
+}
+
+/* グラフエリア */
+.charts-flex-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+  gap: 1.5rem;
+  padding: 0 1rem;
+}
+
+.chart-box {
+  background: var(--bg-panel, #ffffff);
+  border: 1px solid var(--border-glass);
+  border-radius: var(--radius-md);
+  padding: 1.5rem;
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  min-height: 300px;
+}
+
+.chart-box-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  border-bottom: 1px solid var(--border-glass);
+  padding-bottom: 0.75rem;
+}
+
+.chart-box-header h3 {
+  font-size: 1rem;
+  font-weight: 700;
+  margin: 0;
+  color: var(--text-primary);
+}
+
+.chart-content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  flex-grow: 1;
+  overflow-y: auto;
+  max-height: 380px;
+  padding-right: 0.25rem;
+}
+
+.empty-chart-msg {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-grow: 1;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  font-style: italic;
+}
+
+/* グラフの行 */
+.chart-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.chart-row-label {
+  width: 90px;
+  min-width: 90px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.chart-row-bar-wrapper {
+  flex-grow: 1;
+}
+
+.chart-row-bar-track {
+  width: 100%;
+  height: 10px;
+  background: var(--bg-primary);
+  border-radius: 9999px;
+  overflow: hidden;
+}
+
+.chart-row-bar {
+  height: 100%;
+  border-radius: 9999px;
+  transition: width 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+  animation: slideInBar 0.6s ease-out;
+}
+
+.fill-purple {
+  background: linear-gradient(90deg, #818cf8, #4f46e5);
+}
+
+.fill-green {
+  background: linear-gradient(90deg, #34d399, #059669);
+}
+
+.fill-pink {
+  background: linear-gradient(90deg, #f472b6, #db2777);
+}
+
+.chart-row-value {
+  width: 50px;
+  min-width: 50px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  text-align: right;
+}
+
+.chart-row-value .unit {
+  font-size: 0.7rem;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+
+@keyframes slideInBar {
+  from { width: 0%; }
+}
+
+/* スマホ用レスポンシブ */
+@media (max-width: 768px) {
+  .analytics-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.75rem;
+    padding: 0 0.5rem;
+  }
+
+  .month-picker-container {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .analytics-summary-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 0.75rem;
+    padding: 0 0.5rem;
+  }
+
+  .summary-stat-card {
+    padding: 1rem;
+  }
+
+  .summary-card-value {
+    font-size: 1.4rem;
+  }
+
+  .charts-flex-grid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+    padding: 0 0.5rem;
+  }
+
+  .chart-box {
+    padding: 1rem;
+    min-height: unset;
+  }
+
+  .chart-row-label {
+    width: 75px;
+    min-width: 75px;
+    font-size: 0.75rem;
+  }
+}
