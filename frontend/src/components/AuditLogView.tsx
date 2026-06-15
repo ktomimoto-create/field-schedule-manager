@@ -1,13 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import type { AuditLog } from '../types';
 import { Clock, PlusCircle, Edit, Trash2, ChevronDown, ShieldAlert, AlertCircle } from 'lucide-react';
+import { supabase } from '../supabaseClient';
 import './AuditLogView.css';
 
 interface AuditLogViewProps {
   currentUserRole: 'admin' | 'user';
 }
-
-const API_BASE = 'http://localhost:5000/api';
 
 export const AuditLogView: React.FC<AuditLogViewProps> = ({ currentUserRole }) => {
   const [logs, setLogs] = useState<AuditLog[]>([]);
@@ -28,22 +27,28 @@ export const AuditLogView: React.FC<AuditLogViewProps> = ({ currentUserRole }) =
     setError(null);
 
     try {
-      const response = await fetch(`${API_BASE}/audit_logs?limit=${LIMIT}&offset=${currentOffset}`);
-      if (!response.ok) {
-        throw new Error('変更履歴の取得に失敗しました。');
+      const { data, error: sbError } = await supabase
+        .from('audit_logs')
+        .select('*')
+        .order('timestamp', { ascending: false })
+        .range(currentOffset, currentOffset + LIMIT - 1);
+
+      if (sbError) {
+        throw new Error(sbError.message || '変更履歴の取得に失敗しました。');
       }
-      const data: AuditLog[] = await response.json();
+
+      const logsData = (data || []) as AuditLog[];
       
-      if (data.length < LIMIT) {
+      if (logsData.length < LIMIT) {
         setHasMore(false);
       } else {
         setHasMore(true);
       }
 
       if (append) {
-        setLogs(prev => [...prev, ...data]);
+        setLogs(prev => [...prev, ...logsData]);
       } else {
-        setLogs(data);
+        setLogs(logsData);
       }
     } catch (err: any) {
       setError(err.message || '通信エラーが発生しました。');

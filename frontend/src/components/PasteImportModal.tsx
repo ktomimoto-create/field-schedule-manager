@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, Check, AlertTriangle, FileText, Plus, Trash2 } from 'lucide-react';
+import { supabase } from '../supabaseClient';
 import './PasteImportModal.css';
 
 interface PasteImportModalProps {
@@ -133,11 +134,9 @@ export const PasteImportModal: React.FC<PasteImportModalProps> = ({
     } else {
       const fetchStaffs = async () => {
         try {
-          const res = await fetch('http://localhost:5000/api/staff');
-          if (res.ok) {
-            const data = await res.json();
-            setStaffList(data);
-          }
+          const { data, error } = await supabase.from('staff').select('*');
+          if (error) throw error;
+          setStaffList(data || []);
         } catch (err) {
           console.error('Failed to fetch staff list:', err);
         }
@@ -269,26 +268,82 @@ export const PasteImportModal: React.FC<PasteImportModalProps> = ({
 
     const validateData = async () => {
       try {
-        const res = await fetch('http://localhost:5000/api/schedules/validate-import', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({ schedules: itemsToValidate })
+        const unitNumbers = itemsToValidate.map(item => item.unit_number ? String(item.unit_number).trim() : '').filter(Boolean);
+        const propertyNames = itemsToValidate.map(item => item.property_name ? String(item.property_name).trim() : '').filter(Boolean);
+
+        let exactOrUnitMatches: any[] = [];
+        let nameMatches: any[] = [];
+
+        if (unitNumbers.length > 0) {
+          const { data } = await supabase
+            .from('properties')
+            .select('*')
+            .in('unit_number', unitNumbers);
+          exactOrUnitMatches = data || [];
+        }
+        if (propertyNames.length > 0) {
+          const { data } = await supabase
+            .from('properties')
+            .select('*')
+            .in('property_name', propertyNames);
+          nameMatches = data || [];
+        }
+
+        const results = itemsToValidate.map(item => {
+          const unitNumber = item.unit_number ? String(item.unit_number).trim() : '';
+          const propertyName = item.property_name ? String(item.property_name).trim() : '';
+
+          let status = 'not_found';
+          let masterData = null;
+
+          if (unitNumber !== '' && propertyName !== '') {
+            const exactMatch = exactOrUnitMatches.find(p => p.unit_number === unitNumber && p.property_name === propertyName);
+            if (exactMatch) {
+              status = 'match';
+              masterData = exactMatch;
+            } else {
+              const unitMatch = exactOrUnitMatches.find(p => p.unit_number === unitNumber);
+              if (unitMatch) {
+                status = 'name_mismatch';
+                masterData = unitMatch;
+              } else {
+                const nameMatch = nameMatches.find(p => p.property_name === propertyName);
+                if (nameMatch) {
+                  status = 'unit_number_mismatch';
+                  masterData = nameMatch;
+                }
+              }
+            }
+          } else if (unitNumber !== '') {
+            const unitMatch = exactOrUnitMatches.find(p => p.unit_number === unitNumber);
+            if (unitMatch) {
+              status = 'name_mismatch';
+              masterData = unitMatch;
+            }
+          } else if (propertyName !== '') {
+            const nameMatch = nameMatches.find(p => p.property_name === propertyName);
+            if (nameMatch) {
+              status = 'unit_number_mismatch';
+              masterData = nameMatch;
+            }
+          }
+
+          return {
+            original_data: item,
+            status,
+            master_data: masterData
+          };
         });
 
-        if (res.ok) {
-          const data = await res.json();
-          setValidationResults(data);
+        setValidationResults(results);
 
-          // デフォルトで自動補正をすべてONにする
-          const initialConfig: Record<number, boolean> = {};
-          data.forEach((_: any, idx: number) => {
-            const rowIdx = validRowIndices[idx];
-            initialConfig[rowIdx] = true;
-          });
-          setAutoCorrectConfig(prev => ({ ...initialConfig, ...prev }));
-        }
+        // デフォルトで自動補正をすべてONにする
+        const initialConfig: Record<number, boolean> = {};
+        results.forEach((_: any, idx: number) => {
+          const rowIdx = validRowIndices[idx];
+          initialConfig[rowIdx] = true;
+        });
+        setAutoCorrectConfig(prev => ({ ...initialConfig, ...prev }));
       } catch (err) {
         console.error('Failed to validate import data:', err);
       }
@@ -387,19 +442,201 @@ export const PasteImportModal: React.FC<PasteImportModalProps> = ({
 
     setIsSubmitting(true);
     try {
-      const response = await fetch('http://localhost:5000/api/schedules/bulk', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-User-Email': userEmail || 'system'
-        },
-        body: JSON.stringify({ schedules: previewItems }),
-      });
+      const results: { id: number; action: string }[] = [];
+      const nowTime = new Date().toLocaleTimeString('ja-JP', { timeZone: 'Asia/Tokyo', hour: '2-digit', minute: '2-digit', hour12: false });
 
-      if (!response.ok) {
-        const errData = await response.json();
-        throw new Error(errData.error || '一括登録に失敗しました。');
+      for (const item of previewItems) {
+        const {
+          id, status, division, type, box, unit_number, property_name, work_type, description, 
+          target_time, date, staff_id, staff_name, area, prefecture, transport, co_worker, 
+          request_number, time_limit, course, result, notes, disorder_type, level, level_3,
+          is_transferred
+        } = item;
+
+        if (!property_name || !date) {
+          continue;
+        }
+
+        // 1. 手動入力された対応者名からスタッフIDを解決・新規登録
+        let finalStaffId = staff_id ? Number(staff_id) : null;
+        let finalStaffName = staff_name ? staff_name.trim() : '';
+
+        if (!finalStaffId && finalStaffName !== '') {
+          const name = finalStaffName;
+          const cVal = course ? String(course).trim() : '';
+
+          let existingStaff = null;
+          if (cVal !== '') {
+            const { data: staffMatch } = await supabase
+              .from('staff')
+              .select('id')
+              .eq('name', name)
+              .eq('default_course', cVal)
+              .maybeSingle();
+            
+            existingStaff = staffMatch;
+
+            if (!existingStaff) {
+              const { data: staffNoCourse } = await supabase
+                .from('staff')
+                .select('id')
+                .eq('name', name)
+                .is('default_course', null)
+                .maybeSingle();
+
+              existingStaff = staffNoCourse;
+              if (existingStaff) {
+                await supabase.from('staff').update({ default_course: cVal }).eq('id', existingStaff.id);
+              }
+            }
+          } else {
+            const { data: staffListByName } = await supabase
+              .from('staff')
+              .select('id, default_course')
+              .eq('name', name)
+              .order('default_course', { ascending: true, nullsFirst: true })
+              .limit(1);
+
+            existingStaff = staffListByName && staffListByName.length > 0 ? staffListByName[0] : null;
+          }
+
+          if (existingStaff) {
+            finalStaffId = Number(existingStaff.id);
+          } else {
+            const { data: newStaff, error: insertError } = await supabase
+              .from('staff')
+              .insert([
+                { name, default_course: cVal !== '' ? cVal : null }
+              ])
+              .select('id')
+              .single();
+
+            if (insertError) {
+              throw new Error('スタッフの新規登録に失敗しました。');
+            }
+            finalStaffId = Number(newStaff.id);
+          }
+        }
+
+        // 2. 重複チェック
+        let existingSchedule = null;
+        if (id) {
+          const { data: sById } = await supabase.from('schedules').select('*').eq('id', Number(id)).maybeSingle();
+          existingSchedule = sById;
+        } else {
+          let query = supabase
+            .from('schedules')
+            .select('*')
+            .eq('date', date)
+            .eq('property_name', property_name);
+
+          if (finalStaffId) {
+            query = query.eq('staff_id', finalStaffId);
+          } else {
+            query = query.is('staff_id', null);
+          }
+          
+          const { data: sByMatch } = await query.maybeSingle();
+          existingSchedule = sByMatch;
+        }
+
+        // 3. Upsert
+        if (existingSchedule) {
+          let finalCompletedAt = existingSchedule.completed_at;
+          if (result !== undefined) {
+            if (result === '完了') {
+              if (existingSchedule.result !== '完了' || !existingSchedule.completed_at) {
+                finalCompletedAt = nowTime;
+              }
+            } else {
+              finalCompletedAt = null;
+            }
+          }
+
+          const updatePayload = {
+            status: status || 'confirmed',
+            division: division || null,
+            type: type || null,
+            box: box || null,
+            unit_number: unit_number || null,
+            work_type: work_type || null,
+            description: description || null,
+            target_time: target_time || null,
+            staff_id: finalStaffId,
+            staff_name: finalStaffName || null,
+            area: area || null,
+            prefecture: prefecture || null,
+            transport: transport || null,
+            co_worker: co_worker || null,
+            request_number: request_number || null,
+            time_limit: time_limit || null,
+            course: course || null,
+            result: result || null,
+            completed_at: finalCompletedAt,
+            notes: notes || null,
+            disorder_type: disorder_type || null,
+            level: level || null,
+            level_3: level_3 || null,
+            is_transferred: is_transferred !== undefined ? Number(is_transferred) : Number(existingSchedule.is_transferred),
+            updated_at: new Date().toISOString()
+          };
+
+          const { error: updateError } = await supabase.from('schedules').update(updatePayload).eq('id', Number(existingSchedule.id));
+          if (updateError) throw updateError;
+          results.push({ id: Number(existingSchedule.id), action: 'updated' });
+        } else {
+          let finalCompletedAt = null;
+          if (result === '完了') {
+            finalCompletedAt = nowTime;
+          }
+
+          const insertPayload = {
+            status: status || 'confirmed',
+            division: division || null,
+            type: type || null,
+            box: box || null,
+            unit_number: unit_number || null,
+            property_name: property_name,
+            work_type: work_type || null,
+            description: description || null,
+            target_time: target_time || null,
+            date: date,
+            staff_id: finalStaffId,
+            staff_name: finalStaffName || null,
+            area: area || null,
+            prefecture: prefecture || null,
+            transport: transport || null,
+            co_worker: co_worker || null,
+            request_number: request_number || null,
+            time_limit: time_limit || null,
+            course: course || null,
+            result: result || null,
+            completed_at: finalCompletedAt,
+            notes: notes || null,
+            disorder_type: disorder_type || null,
+            level: level || null,
+            level_3: level_3 || null,
+            is_transferred: is_transferred !== undefined ? Number(is_transferred) : 0
+          };
+
+          const { data: newSched, error: insertError } = await supabase.from('schedules').insert([insertPayload]).select('id').single();
+          if (insertError) throw insertError;
+          results.push({ id: Number(newSched.id), action: 'created' });
+        }
       }
+
+      // 監査ログの保存
+      const totalCount = results.length;
+      const createdCount = results.filter(r => r.action === 'created').length;
+      const updatedCount = results.filter(r => r.action === 'updated').length;
+
+      await supabase.from('audit_logs').insert([
+        {
+          action: 'INSERT',
+          changed_by: userEmail || 'system',
+          details: `スプレッドシートから予定を一括インポートしました。(合計: ${totalCount}件, 新規: ${createdCount}件, 更新: ${updatedCount}件)`
+        }
+      ]);
 
       onImportSuccess();
       onClose();

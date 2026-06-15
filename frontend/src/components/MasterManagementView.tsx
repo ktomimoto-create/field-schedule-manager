@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import type { Staff, WorkType } from '../types';
 import { AuditLogView } from './AuditLogView';
 import { Users, Sliders, History, Plus, Trash2, Edit2, Check, X, Shield, ChevronUp, ChevronDown } from 'lucide-react';
+import { supabase } from '../supabaseClient';
 import './MasterManagementView.css';
 
 interface MasterManagementViewProps {
@@ -9,17 +10,13 @@ interface MasterManagementViewProps {
   staff: Staff[];
   workTypes: WorkType[];
   onRefresh: () => void;
-  userEmail: string;
 }
-
-const API_BASE = 'http://localhost:5000/api';
 
 export const MasterManagementView: React.FC<MasterManagementViewProps> = ({
   currentUserRole,
   staff,
   workTypes,
   onRefresh,
-  userEmail,
 }) => {
   const [activeSubTab, setActiveSubTab] = useState<'staff' | 'work_types' | 'audit_logs'>('staff');
 
@@ -60,24 +57,18 @@ export const MasterManagementView: React.FC<MasterManagementViewProps> = ({
 
     setIsSubmitting(true);
     try {
-      const response = await fetch(`${API_BASE}/staff`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-User-Email': userEmail,
-        },
-        body: JSON.stringify({
+      const { error } = await supabase.from('staff').insert([
+        {
           name: newStaffName.trim(),
           email: newStaffEmail.trim() || null,
           default_course: newStaffCourse.trim() || null,
           is_active: 1,
           role: newStaffRole,
-        }),
-      });
+        }
+      ]);
 
-      if (!response.ok) {
-        const errData = await response.json();
-        throw new Error(errData.error || 'スタッフの追加に失敗しました。');
+      if (error) {
+        throw new Error(error.message || 'スタッフの追加に失敗しました。');
       }
 
       setNewStaffName('');
@@ -110,24 +101,16 @@ export const MasterManagementView: React.FC<MasterManagementViewProps> = ({
 
     setIsSubmitting(true);
     try {
-      const response = await fetch(`${API_BASE}/staff/${id}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-User-Email': userEmail,
-        },
-        body: JSON.stringify({
-          name: editStaffName.trim(),
-          email: editStaffEmail.trim() || null,
-          default_course: editStaffCourse.trim() || null,
-          is_active: editStaffActive,
-          role: editStaffRole,
-        }),
-      });
+      const { error } = await supabase.from('staff').update({
+        name: editStaffName.trim(),
+        email: editStaffEmail.trim() || null,
+        default_course: editStaffCourse.trim() || null,
+        is_active: editStaffActive,
+        role: editStaffRole,
+      }).eq('id', id);
 
-      if (!response.ok) {
-        const errData = await response.json();
-        throw new Error(errData.error || 'スタッフの更新に失敗しました。');
+      if (error) {
+        throw new Error(error.message || 'スタッフの更新に失敗しました。');
       }
 
       setEditingStaffId(null);
@@ -146,16 +129,10 @@ export const MasterManagementView: React.FC<MasterManagementViewProps> = ({
 
     setIsSubmitting(true);
     try {
-      const response = await fetch(`${API_BASE}/staff/${id}`, {
-        method: 'DELETE',
-        headers: {
-          'X-User-Email': userEmail,
-        },
-      });
+      const { error } = await supabase.from('staff').delete().eq('id', id);
 
-      if (!response.ok) {
-        const errData = await response.json();
-        throw new Error(errData.error || 'スタッフの削除に失敗しました。');
+      if (error) {
+        throw new Error(error.message || 'スタッフの削除に失敗しました。');
       }
 
       onRefresh();
@@ -173,21 +150,15 @@ export const MasterManagementView: React.FC<MasterManagementViewProps> = ({
 
     setIsSubmitting(true);
     try {
-      const response = await fetch(`${API_BASE}/work_types`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-User-Email': userEmail,
-        },
-        body: JSON.stringify({
+      const { error } = await supabase.from('work_types').insert([
+        {
           name: newTypeName.trim(),
           is_internal: isInternal ? 1 : 0,
-        }),
-      });
+        }
+      ]);
 
-      if (!response.ok) {
-        const errData = await response.json();
-        throw new Error(errData.error || '項目の追加に失敗しました。');
+      if (error) {
+        throw new Error(error.message || '項目の追加に失敗しました。');
       }
 
       setNewTypeName('');
@@ -206,15 +177,10 @@ export const MasterManagementView: React.FC<MasterManagementViewProps> = ({
 
     setIsSubmitting(true);
     try {
-      const response = await fetch(`${API_BASE}/work_types/${id}`, {
-        method: 'DELETE',
-        headers: {
-          'X-User-Email': userEmail,
-        },
-      });
+      const { error } = await supabase.from('work_types').delete().eq('id', id);
 
-      if (!response.ok) {
-        throw new Error('項目の削除に失敗しました。');
+      if (error) {
+        throw new Error(error.message || '項目の削除に失敗しました。');
       }
 
       onRefresh();
@@ -239,20 +205,12 @@ export const MasterManagementView: React.FC<MasterManagementViewProps> = ({
 
     setIsSubmitting(true);
     try {
-      const response = await fetch(`${API_BASE}/work_types/${id}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-User-Email': userEmail,
-        },
-        body: JSON.stringify({
-          name: editTypeName.trim()
-        }),
-      });
+      const { error } = await supabase.from('work_types').update({
+        name: editTypeName.trim()
+      }).eq('id', id);
 
-      if (!response.ok) {
-        const errData = await response.json();
-        throw new Error(errData.error || '項目の更新に失敗しました。');
+      if (error) {
+        throw new Error(error.message || '項目の更新に失敗しました。');
       }
 
       setEditingTypeId(null);
@@ -270,31 +228,19 @@ export const MasterManagementView: React.FC<MasterManagementViewProps> = ({
     if (index === -1) return;
 
     const neighborIndex = direction === 'up' ? index - 1 : index + 1;
-    if (neighborIndex < 0 || neighborIndex >= list.length) return; // 端なので移動不可
+    if (neighborIndex < 0 || neighborIndex >= list.length) return;
 
     const neighbor = list[neighborIndex];
 
-    // sort_order の入れ替え
     const currentOrder = t.sort_order ?? 0;
     const neighborOrder = neighbor.sort_order ?? 0;
 
     setIsSubmitting(true);
     try {
-      const response = await fetch(`${API_BASE}/work_types/reorder`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-User-Email': userEmail,
-        },
-        body: JSON.stringify({
-          orders: [
-            { id: t.id, sort_order: neighborOrder },
-            { id: neighbor.id, sort_order: currentOrder }
-          ]
-        }),
-      });
+      const { error: error1 } = await supabase.from('work_types').update({ sort_order: neighborOrder }).eq('id', t.id);
+      const { error: error2 } = await supabase.from('work_types').update({ sort_order: currentOrder }).eq('id', neighbor.id);
 
-      if (!response.ok) {
+      if (error1 || error2) {
         throw new Error('並び替えの保存に失敗しました。');
       }
 
@@ -305,6 +251,7 @@ export const MasterManagementView: React.FC<MasterManagementViewProps> = ({
       setIsSubmitting(false);
     }
   };
+
 
   const internalTypes = workTypes.filter(t => t.is_internal === 1);
   const fieldTypes = workTypes.filter(t => t.is_internal === 0);

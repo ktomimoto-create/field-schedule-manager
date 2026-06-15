@@ -11,7 +11,6 @@ import { Calendar, Layers, Plus, RefreshCw, AlertCircle, List, Sliders, Sun, Moo
 import { supabase } from './supabaseClient';
 
 
-const API_BASE = 'http://localhost:5000/api';
 
 function App() {
   const [activeTab, setActiveTab] = useState<'grid' | 'timeline' | 'calendar' | 'master_management' | 'analytics'>('grid');
@@ -151,6 +150,23 @@ function App() {
     }
   };
 
+  // 監査ログ保存ヘルパー
+  const saveAuditLog = async (scheduleId: number | null, action: string, propertyName: string, details: string) => {
+    try {
+      await supabase.from('audit_logs').insert([
+        {
+          schedule_id: scheduleId,
+          action,
+          property_name: propertyName,
+          details,
+          changed_by: user?.email || 'system'
+        }
+      ]);
+    } catch (err) {
+      console.error('Failed to save audit log:', err);
+    }
+  };
+
   const handleUpdateScheduleResult = async (
     scheduleId: number | string, 
     resultValue: string,
@@ -164,18 +180,21 @@ function App() {
       if (completedAt !== undefined) payload.completed_at = completedAt;
       if (reportNotes !== undefined) payload.report_notes = reportNotes;
 
-      const res = await fetch(`${API_BASE}/schedules/${scheduleId}/result`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-User-Email': user?.email || 'system'
-        },
-        body: JSON.stringify(payload),
-      });
+      const idVal = typeof scheduleId === 'string' ? Number(scheduleId) : scheduleId;
+      const { error: patchError } = await supabase.from('schedules').update(payload).eq('id', idVal);
 
-      if (!res.ok) {
+      if (patchError) {
         throw new Error('結果の更新に失敗しました。');
       }
+
+      // 履歴ログの保存
+      const targetSched = schedules.find(s => s.id === idVal);
+      await saveAuditLog(
+        idVal,
+        'update_result',
+        targetSched ? targetSched.property_name : '',
+        `予定の結果を更新しました: ${resultValue}`
+      );
 
       await fetchData(true); // サイレント更新
     } catch (err: any) {
@@ -186,16 +205,15 @@ function App() {
 
   const handleReorderSchedules = async (orders: { id: number | string; sort_order: number }[]) => {
     try {
-      const res = await fetch(`${API_BASE}/schedules/reorder`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-User-Email': user?.email || 'system'
-        },
-        body: JSON.stringify({ orders }),
+      const promises = orders.map(async (item) => {
+        const idVal = typeof item.id === 'string' ? Number(item.id) : item.id;
+        return supabase.from('schedules').update({ sort_order: item.sort_order }).eq('id', idVal);
       });
 
-      if (!res.ok) {
+      const results = await Promise.all(promises);
+      const hasError = results.some(r => r.error);
+
+      if (hasError) {
         throw new Error('並び順の更新に失敗しました。');
       }
 
@@ -207,18 +225,18 @@ function App() {
 
   const handleTransferSchedules = async (dateStr: string) => {
     try {
-      const res = await fetch(`${API_BASE}/schedules/transfer`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-User-Email': user?.email || 'system'
-        },
-        body: JSON.stringify({ date: dateStr })
-      });
+      const { error: transferError } = await supabase.from('schedules').update({ is_transferred: 1 }).eq('date', dateStr);
 
-      if (!res.ok) {
+      if (transferError) {
         throw new Error('予定の移行に失敗しました。');
       }
+
+      await saveAuditLog(
+        null,
+        'transfer',
+        `日付: ${dateStr}`,
+        `${dateStr} の予定を行動予定表へ移行しました。`
+      );
 
       await fetchData(true); // サイレント更新
     } catch (err: any) {
@@ -232,7 +250,6 @@ function App() {
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [selectedSchedule, setSelectedSchedule] = useState<Schedule | null>(null);
 
-
   const fetchData = async (silent = false) => {
     if (!silent) {
       setLoading(true);
@@ -240,18 +257,31 @@ function App() {
     setError(null);
     try {
       const [schedulesRes, staffRes, workTypesRes] = await Promise.all([
-        fetch(`${API_BASE}/schedules`),
-        fetch(`${API_BASE}/staff`),
-        fetch(`${API_BASE}/work_types`)
+        supabase.from('schedules').select('*'),
+        supabase.from('staff').select('*'),
+        supabase.from('work_types').select('*').order('sort_order', { ascending: true })
       ]);
 
-      if (!schedulesRes.ok || !staffRes.ok || !workTypesRes.ok) {
-        throw new Error('データの取得に失敗しました。サーバーが起動しているか確認してください。');
+      if (schedulesRes.error || staffRes.error || workTypesRes.error) {
+        throw new Error('データの取得に失敗しました。Supabaseの接続設定を確認してください。');
       }
 
-      const schedulesData = await schedulesRes.json();
-      const staffData = await staffRes.json();
-      const workTypesData = await workTypesRes.json();
+      // PostgreSQLの予定データを型変換して格納
+      const schedulesData: Schedule[] = (schedulesRes.data || []).map((s: any) => ({
+        ...s,
+        id: Number(s.id),
+        staff_id: s.staff_id ? Number(s.staff_id) : null
+      }));
+
+      const staffData: Staff[] = (staffRes.data || []).map((st: any) => ({
+        ...st,
+        id: Number(st.id)
+      }));
+
+      const workTypesData: WorkType[] = (workTypesRes.data || []).map((t: any) => ({
+        ...t,
+        id: Number(t.id)
+      }));
 
       setSchedules(schedulesData);
       setStaff(staffData);
@@ -284,22 +314,33 @@ function App() {
 
   const handleSaveSchedule = async (scheduleData: Partial<Schedule>) => {
     const isEdit = !!scheduleData.id;
-    const url = isEdit ? `${API_BASE}/schedules/${scheduleData.id}` : `${API_BASE}/schedules`;
-    const method = isEdit ? 'PUT' : 'POST';
 
     try {
-      const res = await fetch(url, {
-        method,
-        headers: {
-          'Content-Type': 'application/json',
-          'X-User-Email': user?.email || 'system'
-        },
-        body: JSON.stringify(scheduleData),
-      });
+      let res;
+      const payload = { ...scheduleData };
+      delete (payload as any).created_at;
+      delete (payload as any).updated_at;
 
-      if (!res.ok) {
+      if (isEdit) {
+        const idVal = Number(payload.id);
+        delete payload.id;
+        res = await supabase.from('schedules').update(payload).eq('id', idVal);
+      } else {
+        delete payload.id;
+        res = await supabase.from('schedules').insert([payload]);
+      }
+
+      if (res.error) {
         throw new Error('予定の保存に失敗しました。');
       }
+
+      // 履歴ログの保存
+      await saveAuditLog(
+        isEdit ? Number(scheduleData.id) : null,
+        isEdit ? 'update' : 'create',
+        scheduleData.property_name || '',
+        isEdit ? `予定を更新しました: ${JSON.stringify(payload)}` : `予定を新規作成しました: ${JSON.stringify(payload)}`
+      );
 
       await fetchData(true); // サイレント更新
     } catch (err: any) {
@@ -310,16 +351,20 @@ function App() {
 
   const handleDeleteSchedule = async (id: number) => {
     try {
-      const res = await fetch(`${API_BASE}/schedules/${id}`, {
-        method: 'DELETE',
-        headers: {
-          'X-User-Email': user?.email || 'system'
-        }
-      });
+      const targetSched = schedules.find(s => s.id === id);
+      const res = await supabase.from('schedules').delete().eq('id', id);
 
-      if (!res.ok) {
+      if (res.error) {
         throw new Error('予定の削除に失敗しました。');
       }
+
+      // 履歴ログの保存
+      await saveAuditLog(
+        id,
+        'delete',
+        targetSched ? targetSched.property_name : '',
+        '予定を削除しました。'
+      );
 
       await fetchData(true); // サイレント更新
     } catch (err: any) {
@@ -327,6 +372,7 @@ function App() {
       throw err;
     }
   };
+
 
   return (
     <div className="app-container">
@@ -534,7 +580,6 @@ function App() {
                     staff={staff}
                     workTypes={workTypes}
                     onRefresh={() => fetchData(false)}
-                    userEmail={user?.email || 'system'}
                   />
                 )}
                 {currentUserRole === 'admin' && activeTab === 'analytics' && (
