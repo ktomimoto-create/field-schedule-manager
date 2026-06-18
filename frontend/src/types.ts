@@ -6,6 +6,7 @@ export interface Staff {
   is_active?: number;
   role?: string;
   avatar_url?: string; // Microsoftアカウント等から流用するプロフィール画像URL
+  employee_code?: string; // 社員番号
 }
 
 export type ScheduleStatus = 'draft' | 'confirmed' | 'cancelled';

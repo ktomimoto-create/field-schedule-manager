@@ -27,6 +27,7 @@ export const MasterManagementView: React.FC<MasterManagementViewProps> = ({
   const [newStaffName, setNewStaffName] = useState('');
   const [newStaffEmail, setNewStaffEmail] = useState('');
   const [newStaffCourse, setNewStaffCourse] = useState('');
+  const [newStaffEmpCode, setNewStaffEmpCode] = useState('');
   const [newStaffRole, setNewStaffRole] = useState<'admin' | 'user'>('user');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -38,6 +39,7 @@ export const MasterManagementView: React.FC<MasterManagementViewProps> = ({
   const [editStaffName, setEditStaffName] = useState('');
   const [editStaffEmail, setEditStaffEmail] = useState('');
   const [editStaffCourse, setEditStaffCourse] = useState('');
+  const [editStaffEmpCode, setEditStaffEmpCode] = useState('');
   const [editStaffActive, setEditStaffActive] = useState<number>(1);
   const [editStaffRole, setEditStaffRole] = useState<'admin' | 'user'>('user');
 
@@ -82,7 +84,7 @@ export const MasterManagementView: React.FC<MasterManagementViewProps> = ({
       // 1. 外部 profiles の取得
       const { data: profiles, error: profError } = await talkScriptSupabase
         .from('profiles')
-        .select('display_name, email');
+        .select('display_name, email, employee_id');
 
       if (profError) {
         throw new Error(`外部プロフィールの取得に失敗しました: ${profError.message}`);
@@ -95,7 +97,7 @@ export const MasterManagementView: React.FC<MasterManagementViewProps> = ({
       // 2. 現在のスタッフリストを取得（最新の状態）
       const { data: currentStaff, error: staffError } = await supabase
         .from('staff')
-        .select('id, name, email');
+        .select('id, name, email, employee_code');
 
       if (staffError) {
         throw new Error(`スタッフリストの取得に失敗しました: ${staffError.message}`);
@@ -112,31 +114,49 @@ export const MasterManagementView: React.FC<MasterManagementViewProps> = ({
           continue;
         }
 
-        // prefix (FE, SF, FR) を取り除いたクリーンな苗字
-        const cleanName = st.name.replace(/^(FE|SF|FR)/i, '').trim();
-        if (!cleanName) {
-          skippedCount++;
-          continue;
+        // 社員番号が設定されている場合は、社員番号ベースで最優先マッチ
+        const stEmpCode = st.employee_code ? String(st.employee_code).trim() : '';
+        let matchedProfile = null;
+
+        if (stEmpCode) {
+          matchedProfile = profiles.find(p => p.employee_id && String(p.employee_id).trim() === stEmpCode);
         }
 
+        // 社員番号でマッチしない、または社員番号が未設定の場合は名前でマッチ
+        if (!matchedProfile) {
+          // prefix (FE, SF, FR) を取り除いたクリーンな苗字
+          const cleanName = st.name.replace(/^(FE|SF|FR)/i, '').trim();
+          if (!cleanName) {
+            skippedCount++;
+            continue;
+          }
 
-        const normCleanName = normalizeName(cleanName);
-
-        // profiles からマッチするものを探す
-        const matchedProfile = profiles.find(p => {
-          if (!p.display_name) return false;
-          const normDispName = normalizeName(p.display_name);
+          const normCleanName = normalizeName(cleanName);
 
           // フーギー / ナルマンダフ・フスレンバヤル 用の特別マッチング
           const isStHoogy = normCleanName.includes('フーギー') || normCleanName.includes('ナルマンダフ') || normCleanName.includes('フスレンバヤル');
-          const isProfHoogy = normDispName.includes('フーギー') || normDispName.includes('ナルマンダフ') || normDispName.includes('フスレンバヤル') || (p.email && p.email.toLowerCase().includes('n_khus'));
-          
-          if (isStHoogy && isProfHoogy) {
-            return true;
-          }
+          if (isStHoogy) {
+            matchedProfile = profiles.find(p => {
+              if (!p.display_name) return false;
+              const normDispName = normalizeName(p.display_name);
+              return normDispName.includes('フーギー') || normDispName.includes('ナルマンダフ') || normDispName.includes('フスレンバヤル') || (p.email && p.email.toLowerCase().includes('n_khus'));
+            });
+          } else {
+            // 完全一致するプロフィールをすべて抽出（被り検出のため）
+            const exactMatches = profiles.filter(p => {
+              if (!p.display_name) return false;
+              const normDispName = normalizeName(p.display_name);
+              return normDispName === normCleanName;
+            });
 
-          return normDispName.startsWith(normCleanName) || normDispName.includes(normCleanName);
-        });
+            // 完全一致が「唯一」存在する場合のみマッチとする（佐藤などの名前被りでの誤判定を防ぐ）
+            if (exactMatches.length === 1) {
+              matchedProfile = exactMatches[0];
+            } else if (exactMatches.length > 1) {
+              console.warn(`名前被りが発生したため同期をスキップしました: ${st.name}`, exactMatches);
+            }
+          }
+        }
 
         if (matchedProfile && matchedProfile.email) {
           // メールアドレスがすでに同じならスキップ
@@ -145,11 +165,18 @@ export const MasterManagementView: React.FC<MasterManagementViewProps> = ({
             continue;
           }
 
+          // 更新データを作成
+          const updateData: any = { email: matchedProfile.email.toLowerCase().trim() };
+          // 社員番号が staff 側に未設定で、profiles 側にある場合は、社員番号も同時に補完して更新する
+          if (!st.employee_code && matchedProfile.employee_id) {
+            updateData.employee_code = String(matchedProfile.employee_id).trim();
+          }
+
           // 更新クエリを準備
           updatePromises.push(
             supabase
               .from('staff')
-              .update({ email: matchedProfile.email.toLowerCase().trim() })
+              .update(updateData)
               .eq('id', st.id)
               .then(({ error }) => {
                 if (error) {
@@ -196,6 +223,7 @@ export const MasterManagementView: React.FC<MasterManagementViewProps> = ({
           name: newStaffName.trim(),
           email: newStaffEmail.trim() || null,
           default_course: newStaffCourse.trim() || null,
+          employee_code: newStaffEmpCode.trim() || null,
           is_active: 1,
           role: newStaffRole,
         }
@@ -208,6 +236,7 @@ export const MasterManagementView: React.FC<MasterManagementViewProps> = ({
       setNewStaffName('');
       setNewStaffEmail('');
       setNewStaffCourse('');
+      setNewStaffEmpCode('');
       setNewStaffRole('user');
       onRefresh();
     } catch (err: any) {
@@ -222,6 +251,7 @@ export const MasterManagementView: React.FC<MasterManagementViewProps> = ({
     setEditStaffName(st.name);
     setEditStaffEmail(st.email || '');
     setEditStaffCourse(st.default_course || '');
+    setEditStaffEmpCode(st.employee_code || '');
     setEditStaffActive(st.is_active !== undefined ? st.is_active : 1);
     setEditStaffRole((st.role || 'user') as 'admin' | 'user');
   };
@@ -239,6 +269,7 @@ export const MasterManagementView: React.FC<MasterManagementViewProps> = ({
         name: editStaffName.trim(),
         email: editStaffEmail.trim() || null,
         default_course: editStaffCourse.trim() || null,
+        employee_code: editStaffEmpCode.trim() || null,
         is_active: editStaffActive,
         role: editStaffRole,
       }).eq('id', id);
@@ -532,6 +563,17 @@ export const MasterManagementView: React.FC<MasterManagementViewProps> = ({
                   />
                 </div>
                 <div className="form-group">
+                  <label>社員番号</label>
+                  <input
+                    type="text"
+                    className="form-control"
+                    placeholder="例: 000869"
+                    value={newStaffEmpCode}
+                    onChange={(e) => setNewStaffEmpCode(e.target.value)}
+                    disabled={isSubmitting}
+                  />
+                </div>
+                <div className="form-group">
                   <label>アクセス権限</label>
                   <select
                     className="form-control"
@@ -558,6 +600,7 @@ export const MasterManagementView: React.FC<MasterManagementViewProps> = ({
                   <tr>
                     <th>氏名</th>
                     <th>メールアドレス</th>
+                    <th style={{ width: '110px' }}>社員番号</th>
                     <th style={{ width: '130px' }}>デフォルトコース</th>
                     <th style={{ width: '120px' }}>アクセス権限</th>
                     <th style={{ width: '100px' }}>状態</th>
@@ -594,6 +637,18 @@ export const MasterManagementView: React.FC<MasterManagementViewProps> = ({
                             />
                           ) : (
                             st.email || <span className="text-muted">なし</span>
+                          )}
+                        </td>
+                        <td>
+                          {isEditing ? (
+                            <input
+                              type="text"
+                              className="form-control form-control-sm"
+                              value={editStaffEmpCode}
+                              onChange={(e) => setEditStaffEmpCode(e.target.value)}
+                            />
+                          ) : (
+                            st.employee_code || <span className="text-muted">なし</span>
                           )}
                         </td>
                         <td>

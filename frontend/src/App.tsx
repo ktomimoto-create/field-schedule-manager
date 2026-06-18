@@ -264,7 +264,7 @@ function App() {
         supabase.from('schedules').select('*'),
         supabase.from('staff').select('*'),
         supabase.from('work_types').select('*').order('sort_order', { ascending: true }),
-        talkScriptSupabase.from('profiles').select('email, avatar_url')
+        talkScriptSupabase.from('profiles').select('email, avatar_url, employee_id')
       ]);
 
       if (schedulesRes.error || staffRes.error || workTypesRes.error) {
@@ -272,11 +272,17 @@ function App() {
       }
 
       // 外部プロフィール情報のマップ作成（エラー時は単にスキップ）
-      const profilesMap = new Map<string, string>();
+      const profilesMapByEmail = new Map<string, string>();
+      const profilesMapByEmpCode = new Map<string, string>();
       if (!profilesRes.error && profilesRes.data) {
         profilesRes.data.forEach((p: any) => {
-          if (p.email && p.avatar_url) {
-            profilesMap.set(p.email.toLowerCase().trim(), p.avatar_url);
+          if (p.avatar_url) {
+            if (p.email) {
+              profilesMapByEmail.set(p.email.toLowerCase().trim(), p.avatar_url);
+            }
+            if (p.employee_id) {
+              profilesMapByEmpCode.set(String(p.employee_id).trim(), p.avatar_url);
+            }
           }
         });
       }
@@ -290,7 +296,16 @@ function App() {
 
       const staffData: Staff[] = (staffRes.data || []).map((st: any) => {
         const staffEmail = st.email ? st.email.toLowerCase().trim() : '';
-        const matchedAvatar = staffEmail ? profilesMap.get(staffEmail) : undefined;
+        const empCode = st.employee_code ? String(st.employee_code).trim() : '';
+        
+        let matchedAvatar = undefined;
+        if (empCode) {
+          matchedAvatar = profilesMapByEmpCode.get(empCode);
+        }
+        if (!matchedAvatar && staffEmail) {
+          matchedAvatar = profilesMapByEmail.get(staffEmail);
+        }
+
         return {
           ...st,
           id: Number(st.id),

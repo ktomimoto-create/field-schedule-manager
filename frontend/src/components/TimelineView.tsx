@@ -68,16 +68,34 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
     .filter(member => holidayStaffIds.has(member.id))
     .map(member => getShortName(member.name));
 
-  // スタッフの絞り込み
-  const filteredStaff = staff.filter(member => {
-    if (holidayStaffIds.has(member.id)) {
-      return false;
-    }
-    if (showOnlyMySchedule && currentStaffId !== null) {
-      return member.id === currentStaffId;
-    }
-    return true;
-  });
+  // スタッフの絞り込みとコース順ソート
+  const filteredStaff = staff
+    .filter(member => {
+      if (holidayStaffIds.has(member.id)) {
+        return false;
+      }
+      if (showOnlyMySchedule && currentStaffId !== null) {
+        return member.id === currentStaffId;
+      }
+      return true;
+    })
+    .sort((a, b) => {
+      const aCourse = a.default_course ? parseInt(a.default_course, 10) : NaN;
+      const bCourse = b.default_course ? parseInt(b.default_course, 10) : NaN;
+      
+      const aIsNan = isNaN(aCourse);
+      const bIsNan = isNaN(bCourse);
+      
+      if (aIsNan && bIsNan) {
+        const aVal = a.default_course || '';
+        const bVal = b.default_course || '';
+        return aVal.localeCompare(bVal);
+      }
+      if (aIsNan) return 1;
+      if (bIsNan) return -1;
+      
+      return aCourse - bCourse;
+    });
 
   const formatJapaneseDate = (dateStr: string) => {
     const d = new Date(dateStr);
