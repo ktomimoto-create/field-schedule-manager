@@ -125,6 +125,62 @@ const JAPANESE_HOLIDAYS_MAP: Record<string, string> = {
   '2027-11-03': '文化の日', '2027-11-23': '勤労感謝の日'
 };
 
+const parseTSV = (text: string): string[][] => {
+  const result: string[][] = [];
+  let row: string[] = [];
+  let field = '';
+  let inQuotes = false;
+
+  for (let i = 0; i < text.length; i++) {
+    const char = text[i];
+    const nextChar = text[i + 1];
+
+    if (inQuotes) {
+      if (char === '"') {
+        if (nextChar === '"') {
+          field += '"';
+          i++;
+        } else {
+          inQuotes = false;
+        }
+      } else {
+        field += char;
+      }
+    } else {
+      if (char === '"') {
+        inQuotes = true;
+      } else if (char === '\t') {
+        row.push(field);
+        field = '';
+      } else if (char === '\r') {
+        if (nextChar === '\n') {
+          i++;
+        }
+        row.push(field);
+        result.push(row);
+        row = [];
+        field = '';
+      } else if (char === '\n') {
+        row.push(field);
+        result.push(row);
+        row = [];
+        field = '';
+      } else {
+        field += char;
+      }
+    }
+  }
+
+  if (field !== '' || row.length > 0) {
+    row.push(field);
+    result.push(row);
+  }
+
+  return result
+    .map(r => r.map(cell => cell.trim()))
+    .filter(r => r.some(cell => cell !== ''));
+};
+
 interface CalendarViewProps {
   schedules: Schedule[];
   staff: Staff[];
@@ -639,11 +695,24 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
         const startColAbs = getColAbsoluteIndex(startCoord.dateStr, startCoord.field);
         const startRowIndex = startCoord.rowIndex;
 
-        const lines = text.replace(/\r?\n$/, '').split(/\r?\n/);
+        const parsedRows = parseTSV(text);
+
+        const promises: Promise<void>[] = [];
+        const rowUpdates: Record<string, {
+          targetSched: Schedule;
+          targetDateStr: string;
+          targetRowIndex: number;
+          isTargetTemp: boolean;
+          updateFields: any;
+          nextStaffId: number | null;
+          nextStaffName: string;
+          nextCourse: string;
+          nextDivision: string;
+        }> = {};
 
         try {
-          for (let rOffset = 0; rOffset < lines.length; rOffset++) {
-            const cols = lines[rOffset].split('\t');
+          for (let rOffset = 0; rOffset < parsedRows.length; rOffset++) {
+            const cols = parsedRows[rOffset];
             const targetRowIndex = startRowIndex + rOffset;
 
             for (let cOffset = 0; cOffset < cols.length; cOffset++) {
@@ -657,101 +726,119 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
               const targetDateStr = calendarDates[dateIdx];
               const targetField = FIELD_ORDER[fieldIdx];
 
-              const blended = getSortedDaySchedules(targetDateStr);
-              let targetSched: Schedule | undefined = blended[targetRowIndex];
+              const key = `${targetDateStr}-${targetRowIndex}`;
 
-              if (!targetSched) {
-                targetSched = {
-                  id: `temp-unassigned-extra-${targetRowIndex}-${targetDateStr}`,
-                  status: 'draft',
-                  division: '未定',
-                  date: targetDateStr,
-                  staff_id: null,
-                  staff_name: '',
-                  course: '',
-                  work_type: 'フリー',
-                  property_name: ''
-                } as Schedule;
+              if (!rowUpdates[key]) {
+                const blended = getSortedDaySchedules(targetDateStr);
+                let targetSched: Schedule | undefined = blended[targetRowIndex];
+
+                if (!targetSched) {
+                  targetSched = {
+                    id: `temp-unassigned-extra-${targetRowIndex}-${targetDateStr}`,
+                    status: 'draft',
+                    division: '未定',
+                    date: targetDateStr,
+                    staff_id: null,
+                    staff_name: '',
+                    course: '',
+                    work_type: 'フリー',
+                    property_name: ''
+                  } as Schedule;
+                }
+
+                const isTargetTemp = typeof targetSched.id === 'string' && targetSched.id.startsWith('temp-');
+                rowUpdates[key] = {
+                  targetSched,
+                  targetDateStr,
+                  targetRowIndex,
+                  isTargetTemp,
+                  updateFields: {},
+                  nextStaffId: isTargetTemp ? targetSched.staff_id : (targetSched.staff_id || null),
+                  nextStaffName: isTargetTemp ? targetSched.staff_name : (targetSched.staff_name || ''),
+                  nextCourse: isTargetTemp ? targetSched.course : (targetSched.course || ''),
+                  nextDivision: isTargetTemp ? targetSched.division : (targetSched.division || '未定')
+                };
               }
 
-              const isTargetTemp = typeof targetSched.id === 'string' && targetSched.id.startsWith('temp-');
-              const updateFields: any = {
-                [targetField]: val
-              };
-
-              let nextStaffId = isTargetTemp ? targetSched.staff_id : (targetSched.staff_id || null);
-              let nextStaffName = isTargetTemp ? targetSched.staff_name : (targetSched.staff_name || '');
-              let nextCourse = isTargetTemp ? targetSched.course : (targetSched.course || '');
-              let nextDivision = isTargetTemp ? targetSched.division : (targetSched.division || '未定');
+              const rowData = rowUpdates[key];
+              rowData.updateFields[targetField] = val;
 
               if (targetField === 'staff_name') {
                 const trimmedName = val.trim();
                 if (trimmedName !== '') {
                   const matchedStaff = staff.find(st => st.name === trimmedName);
                   if (matchedStaff) {
-                    nextStaffId = matchedStaff.id;
-                    nextStaffName = matchedStaff.name;
-                    nextCourse = matchedStaff.default_course || '';
-                    const cNum = Number(nextCourse);
-                    if (nextCourse !== '' && !isNaN(cNum)) {
-                      nextDivision = (cNum >= 1 && cNum <= 26) ? 'FTS' : '委託';
+                    rowData.nextStaffId = matchedStaff.id;
+                    rowData.nextStaffName = matchedStaff.name;
+                    rowData.nextCourse = matchedStaff.default_course || '';
+                    const cNum = Number(rowData.nextCourse);
+                    if (rowData.nextCourse !== '' && !isNaN(cNum)) {
+                      rowData.nextDivision = (cNum >= 1 && cNum <= 26) ? 'FTS' : '委託';
                     }
                   } else {
-                    nextStaffId = null;
-                    nextStaffName = trimmedName;
-                    nextCourse = '';
-                    nextDivision = '未定';
+                    rowData.nextStaffId = null;
+                    rowData.nextStaffName = trimmedName;
+                    rowData.nextCourse = '';
+                    rowData.nextDivision = '未定';
                   }
                 } else {
-                  nextStaffId = null;
-                  nextStaffName = '';
-                  nextCourse = '';
-                  nextDivision = '未定';
+                  rowData.nextStaffId = null;
+                  rowData.nextStaffName = '';
+                  rowData.nextCourse = '';
+                  rowData.nextDivision = '未定';
                 }
-                updateFields.staff_id = nextStaffId;
-                updateFields.staff_name = nextStaffName;
-                updateFields.course = nextCourse;
-                updateFields.division = nextDivision;
+                rowData.updateFields.staff_id = rowData.nextStaffId;
+                rowData.updateFields.staff_name = rowData.nextStaffName;
+                rowData.updateFields.course = rowData.nextCourse;
+                rowData.updateFields.division = rowData.nextDivision;
               }
 
               if (targetField === 'course') {
-                nextCourse = val;
-                const cNum = Number(nextCourse);
-                if (nextCourse !== '' && !isNaN(cNum)) {
-                  nextDivision = (cNum >= 1 && cNum <= 26) ? 'FTS' : '委託';
+                rowData.nextCourse = val;
+                const cNum = Number(rowData.nextCourse);
+                if (rowData.nextCourse !== '' && !isNaN(cNum)) {
+                  rowData.nextDivision = (cNum >= 1 && cNum <= 26) ? 'FTS' : '委託';
                 } else {
-                  nextDivision = '未定';
+                  rowData.nextDivision = '未定';
                 }
-                updateFields.course = nextCourse;
-                updateFields.division = nextDivision;
-              }
-
-              if (isTargetTemp) {
-                const payload: Partial<Schedule> = {
-                  status: 'confirmed',
-                  date: targetDateStr,
-                  work_type: 'フリー',
-                  property_name: '（物件名未定）',
-                  is_transferred: 0,
-                  ...updateFields,
-                  staff_id: nextStaffId,
-                  staff_name: nextStaffName,
-                  course: nextCourse,
-                  division: nextDivision
-                };
-                await onSave(payload);
-              } else {
-                const payload: Partial<Schedule> = {
-                  id: Number(targetSched.id),
-                  ...updateFields,
-                  staff_id: nextStaffId,
-                  staff_name: nextStaffName,
-                  course: nextCourse,
-                  division: nextDivision
-                };
-                await onSave(payload);
+                rowData.updateFields.course = rowData.nextCourse;
+                rowData.updateFields.division = rowData.nextDivision;
               }
             }
+          }
+
+          // 二重ループ完了後に、行ごとに1回だけ onSave を呼び出す
+          for (const key of Object.keys(rowUpdates)) {
+            const rowData = rowUpdates[key];
+            if (rowData.isTargetTemp) {
+              const payload: Partial<Schedule> = {
+                status: 'confirmed',
+                date: rowData.targetDateStr,
+                work_type: 'フリー',
+                property_name: '（物件名未定）',
+                is_transferred: 0,
+                ...rowData.updateFields,
+                staff_id: rowData.nextStaffId,
+                staff_name: rowData.nextStaffName,
+                course: rowData.nextCourse,
+                division: rowData.nextDivision
+              };
+              promises.push(onSave(payload));
+            } else {
+              const payload: Partial<Schedule> = {
+                id: Number(rowData.targetSched.id),
+                ...rowData.updateFields,
+                staff_id: rowData.nextStaffId,
+                staff_name: rowData.nextStaffName,
+                course: rowData.nextCourse,
+                division: rowData.nextDivision
+              };
+              promises.push(onSave(payload));
+            }
+          }
+
+          if (promises.length > 0) {
+            await Promise.all(promises);
           }
         } catch (err) {
           console.error('Failed to paste cells:', err);
