@@ -9,11 +9,11 @@ export interface Staff {
   employee_code?: string; // 社員番号
 }
 
-export type ScheduleStatus = 'draft' | 'confirmed' | 'cancelled';
+export type ScheduleStatus = 'free' | 'draft' | 'confirmed' | 'cancelled';
 
 export interface Schedule {
   id: number | string;
-  status: ScheduleStatus; // 'draft' (仮予定) | 'confirmed' (確定予定) | 'cancelled' (キャンセル)
+  status: ScheduleStatus; // 'free' (通常) | 'draft' (仮予定) | 'confirmed' (確定予定) | 'cancelled' (キャンセル)
   division: string | null; // 区分 (FTSなど)
   type: string | null; // タイプ (WD-D, WD-O C, KU, PU等)
   box: string | null; // BOX

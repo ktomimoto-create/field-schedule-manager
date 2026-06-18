@@ -336,7 +336,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
         
         blended.push({
           id: `temp-${stItem.name}-${targetDate}`,
-          status: 'draft',
+          status: 'free',
           division: divisionVal,
           date: targetDate,
           staff_id: stItem.id,
@@ -369,7 +369,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
     for (let i = 0; i < 3; i++) {
       blended.push({
         id: `temp-unassigned-${i}-${targetDate}`,
-        status: 'draft',
+        status: 'free',
         division: '未定',
         date: targetDate,
         staff_id: null,
@@ -502,7 +502,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
     
     // コピペ元の予定データ（一部除外・調整）
     const payload: Partial<Schedule> = {
-      status: 'confirmed',
+      status: copiedSchedule.status || 'free',
       division: copiedSchedule.division,
       type: copiedSchedule.type,
       box: copiedSchedule.box,
@@ -554,7 +554,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
         : '（物件名未定）';
 
       const payload: Partial<Schedule> = {
-        status: 'confirmed',
+        status: 'free',
         date: tempDate,
         staff_id: matchedStaff ? matchedStaff.id : null,
         staff_name: matchedStaff ? matchedStaff.name : '',
@@ -737,7 +737,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                 if (!targetSched) {
                   targetSched = {
                     id: `temp-unassigned-extra-${targetRowIndex}-${targetDateStr}`,
-                    status: 'draft',
+                    status: 'free',
                     division: '未定',
                     date: targetDateStr,
                     staff_id: null,
@@ -1745,11 +1745,14 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                             const schedule = daySchedules[rowIndex];
                             if (schedule) {
                               const staffMember = staff.find(st => st.id === schedule.staff_id);
-                              const isCancelled = schedule.status === 'cancelled';
-                              
-                              let statusClass = 'row-cell-draft';
-                              if (isConfirmed(schedule.status)) statusClass = 'row-cell-confirmed';
-                              if (isCancelled) statusClass = 'row-cell-cancelled';
+                               const isCancelled = schedule.status === 'cancelled';
+                               const isDraft = schedule.status === 'draft';
+                               const isConfirmedVal = isConfirmed(schedule.status);
+                               
+                               let statusClass = 'row-cell-free';
+                               if (isConfirmedVal) statusClass = 'row-cell-confirmed';
+                               if (isDraft) statusClass = 'row-cell-draft';
+                               if (isCancelled) statusClass = 'row-cell-cancelled';
 
                               return (
                                 <tr 
@@ -1962,7 +1965,21 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
               >
                 詳細を編集 (モーダル)
               </button>
-              {contextMenu.schedule.status === 'draft' ? (
+              {contextMenu.schedule.status !== 'free' && (
+                <button 
+                  type="button" 
+                  onClick={async () => {
+                    setContextMenu(null);
+                    await onSave({
+                      id: contextMenu.schedule!.id,
+                      status: 'free'
+                    });
+                  }}
+                >
+                  予定を【フリー】に変更
+                </button>
+              )}
+              {contextMenu.schedule.status !== 'confirmed' && (
                 <button 
                   type="button" 
                   onClick={async () => {
@@ -1973,9 +1990,10 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                     });
                   }}
                 >
-                  予定を「確定」に変更
+                  予定を【確定】に変更
                 </button>
-              ) : (
+              )}
+              {contextMenu.schedule.status !== 'draft' && (
                 <button 
                   type="button" 
                   onClick={async () => {
@@ -1986,7 +2004,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                     });
                   }}
                 >
-                  予定を「仮」に変更
+                  予定を【仮】に変更
                 </button>
               )}
               <button 

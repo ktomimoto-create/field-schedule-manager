@@ -213,15 +213,26 @@
 }
 
 /* 予定セルのデザイン区分 */
+/* 通常（フリー）予定の基本行セル */
+.row-cell-free {
+  background: var(--bg-empty) !important;
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.row-cell-free:hover {
+  background: var(--bg-empty-hover) !important;
+}
+
 /* 確定予定の基本行セル */
 .row-cell-confirmed {
-  background: rgba(16, 185, 129, 0.05) !important; /* 非常に薄いグリーン背景 */
+  background: var(--bg-empty) !important;
   color: var(--text-primary);
   cursor: pointer;
 }
 
 .row-cell-confirmed:hover {
-  background: rgba(16, 185, 129, 0.1) !important;
+  background: var(--bg-empty-hover) !important;
 }
 
 .row-cell-confirmed.first-status-cell {
@@ -230,13 +241,13 @@
 
 /* 仮予定の基本行セル */
 .row-cell-draft {
-  background: rgba(245, 158, 11, 0.04) !important; /* 非常に薄いアンバー背景 */
+  background: var(--bg-empty) !important;
   color: var(--text-primary);
   cursor: pointer;
 }
 
 .row-cell-draft:hover {
-  background: rgba(245, 158, 11, 0.08) !important;
+  background: var(--bg-empty-hover) !important;
 }
 
 .row-cell-draft.first-status-cell {
