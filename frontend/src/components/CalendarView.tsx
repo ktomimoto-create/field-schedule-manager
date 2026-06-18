@@ -1768,7 +1768,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                                     });
                                   }}
                                 >
-                                  {renderEditableCell(schedule, rowIndex, 'type', `${statusClass} ${isToday ? 'today-td' : ''}`)}
+                                  {renderEditableCell(schedule, rowIndex, 'type', `${statusClass} first-status-cell ${isToday ? 'today-td' : ''}`)}
                                   {renderEditableCell(schedule, rowIndex, 'box', `${statusClass} ${isToday ? 'today-td' : ''}`)}
                                   {renderEditableCell(schedule, rowIndex, 'unit_number', `${statusClass} ${isToday ? 'today-td' : ''}`)}
                                   {renderEditableCell(schedule, rowIndex, 'property_name', `${statusClass} ${isToday ? 'today-td' : ''} font-bold-cell`, schedule.property_name)}
@@ -1962,6 +1962,33 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
               >
                 詳細を編集 (モーダル)
               </button>
+              {contextMenu.schedule.status === 'draft' ? (
+                <button 
+                  type="button" 
+                  onClick={async () => {
+                    setContextMenu(null);
+                    await onSave({
+                      id: contextMenu.schedule!.id,
+                      status: 'confirmed'
+                    });
+                  }}
+                >
+                  予定を「確定」に変更
+                </button>
+              ) : (
+                <button 
+                  type="button" 
+                  onClick={async () => {
+                    setContextMenu(null);
+                    await onSave({
+                      id: contextMenu.schedule!.id,
+                      status: 'draft'
+                    });
+                  }}
+                >
+                  予定を「仮」に変更
+                </button>
+              )}
               <button 
                 type="button" 
                 className="delete-menu-item"

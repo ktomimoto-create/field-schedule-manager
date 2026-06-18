@@ -41,3 +41,33 @@
    - `node dump_staff.js` を実行し、ID 28 および 29 の `email` と `employee_code` が正しくリセットされたことを確認しました。
 2. **ビルド検証**:
    - `frontend` ディレクトリにおいて、`npm.cmd run build` を実行し、TypeScriptの型エラーなく正常にビルド（`tsc -b && vite build`）が完了することを確認しました。
+
+---
+
+## [2026-06-18] 月間予定表ステータス（確定・仮予定）デザイン改善および簡易切り替え機能の追加
+
+### 変更の目的
+月間予定表（カレンダーグリッド）において、予定のステータス（「確定」と「仮予定」）が視覚的にすぐ判別できるようにデザインを差別化し、かつ右クリックから一発でステータスを変更できるようにすることで、予定管理の操作性と視認性を向上させます。
+
+### 変更内容
+
+#### 1. フロントエンドコードの修正
+
+##### [CalendarView.tsx](file:///C:/Users/000644/.gemini/antigravity/scratch/field-schedule-manager/frontend/src/components/CalendarView.tsx)
+* **右クリックコンテキストメニューの拡張**:
+  - 右クリックメニューにおいて、対象予定のステータスが `draft`（仮）の場合は「予定を確定に変更」、`confirmed`（確定）の場合は「予定を仮に変更」というトグルアクションを追加しました。
+  - アクション実行時には、詳細モーダルを開かずに直接 `onSave` を介して Supabase 上の `status` カラムが更新されます。
+* **左端セルの識別クラス追加**:
+  - 予定行の最初のセル（`type` 列のセル）の `className` に `first-status-cell` というクラスを動的に追加するようにしました。これにより、左端のセルにのみ後述のアクセント枠線が適用されます。
+
+##### [CalendarView.css](file:///C:/Users/000644/.gemini/antigravity/scratch/field-schedule-manager/frontend/src/components/CalendarView.css)
+* **ステータス別デザインの差別化**:
+  - **確定予定 (`.row-cell-confirmed`)**: セル全体の背景色を非常に薄いクリーンなグリーン（`rgba(16, 185, 129, 0.05)`）に設定し、左端のセル (`.first-status-cell`) に太さ 4px の **グリーンのアクセントバー (#10b981)** を表示します。
+  - **仮予定 (`.row-cell-draft`)**: セル全体の背景色を非常に薄いアンバー（`rgba(245, 158, 11, 0.04)`）に設定し、左端のセル (`.first-status-cell`) に太さ 4px の **オレンジのアクセントバー (#f59e0b)** を表示します。
+
+---
+
+### 検証結果
+
+1. **ビルド検証**:
+   - `npm.cmd run build` を `frontend` ディレクトリで実行し、エラーなく正常にビルドが完了することを確認しました。

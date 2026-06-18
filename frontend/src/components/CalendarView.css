@@ -215,24 +215,32 @@
 /* 予定セルのデザイン区分 */
 /* 確定予定の基本行セル */
 .row-cell-confirmed {
-  background: var(--bg-empty);
+  background: rgba(16, 185, 129, 0.05) !important; /* 非常に薄いグリーン背景 */
   color: var(--text-primary);
   cursor: pointer;
 }
 
 .row-cell-confirmed:hover {
-  background: var(--bg-empty-hover);
+  background: rgba(16, 185, 129, 0.1) !important;
+}
+
+.row-cell-confirmed.first-status-cell {
+  border-left: 4px solid #10b981 !important; /* 左側に緑色のアクセントバー */
 }
 
 /* 仮予定の基本行セル */
 .row-cell-draft {
-  background: var(--bg-empty);
+  background: rgba(245, 158, 11, 0.04) !important; /* 非常に薄いアンバー背景 */
   color: var(--text-primary);
   cursor: pointer;
 }
 
 .row-cell-draft:hover {
-  background: var(--bg-empty-hover);
+  background: rgba(245, 158, 11, 0.08) !important;
+}
+
+.row-cell-draft.first-status-cell {
+  border-left: 4px solid #f59e0b !important; /* 左側にオレンジ色のアクセントバー */
 }
 
 /* キャンセル（中止）された予定 */
