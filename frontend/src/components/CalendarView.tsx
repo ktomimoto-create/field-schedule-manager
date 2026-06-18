@@ -706,8 +706,8 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
           updateFields: any;
           nextStaffId: number | null;
           nextStaffName: string;
-          nextCourse: string;
-          nextDivision: string;
+          nextCourse: string | null;
+          nextDivision: string | null;
         }> = {};
 
         try {
@@ -754,8 +754,8 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                   isTargetTemp,
                   updateFields: {},
                   nextStaffId: isTargetTemp ? targetSched.staff_id : (targetSched.staff_id || null),
-                  nextStaffName: isTargetTemp ? targetSched.staff_name : (targetSched.staff_name || ''),
-                  nextCourse: isTargetTemp ? targetSched.course : (targetSched.course || ''),
+                  nextStaffName: isTargetTemp ? (targetSched.staff_name || '') : (targetSched.staff_name || ''),
+                  nextCourse: isTargetTemp ? targetSched.course : (targetSched.course || null),
                   nextDivision: isTargetTemp ? targetSched.division : (targetSched.division || '未定')
                 };
               }
