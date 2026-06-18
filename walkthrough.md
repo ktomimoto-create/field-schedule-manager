@@ -16,6 +16,14 @@
     * `email`: `k_okazaki@fts.co.jp` ➔ `okazaki@example.com` (ダミー)
     * `employee_code`: `000863` ➔ `null`
 
+* マスタ上のメールアドレスが同名の別社員のもの（アバター画像なし）になっていたため、アバターが表示されていなかった以下の社員データを正しいメールアドレスおよび社員番号へ修正しました。
+  * **ID 8 (佐藤)**:
+    * `email`: `y_sato@fts.co.jp` (佐藤裕一氏) ➔ `t_sato@fts.co.jp` (佐藤健文氏: 000861、アバター画像あり)
+    * `employee_code`: `null` ➔ `000861`
+  * **ID 10 (小山)**:
+    * `email`: `t_koyama0901@fts.co.jp` (小山達陽氏) ➔ `n_koyama@fts.co.jp` (小山信行氏: 000711、アバター画像あり)
+    * `employee_code`: `null` ➔ `000711`
+
 #### 2. フロントエンドコードの修正
 
 ##### [MasterManagementView.tsx](file:///C:/Users/000644/.gemini/antigravity/scratch/field-schedule-manager/frontend/src/components/MasterManagementView.tsx)
