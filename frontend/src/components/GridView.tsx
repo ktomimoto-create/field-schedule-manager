@@ -1,6 +1,8 @@
 import React, { useState, useRef } from 'react';
 import XLSX from 'xlsx-js-style';
 import type { Schedule, Staff } from '../types';
+import { getShortName } from '../types';
+
 import { Plus, ChevronLeft, ChevronRight, Calendar as CalendarIcon, Filter, CheckCircle2, Download, Eye, EyeOff } from 'lucide-react';
 import './GridView.css';
 
@@ -446,9 +448,10 @@ export const GridView: React.FC<GridViewProps> = ({
                     <td>
                       {staffMember && (
                         <span className="staff-indicator-tag" style={{ borderLeft: '3px solid var(--primary)' }}>
-                          {staffMember.name}
+                          {getShortName(staffMember.name)}
                         </span>
                       )}
+
                     </td>
                     <td>{schedule.area}</td>
                     <td>{schedule.transport}</td>

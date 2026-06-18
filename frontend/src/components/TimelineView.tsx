@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import type { Schedule, Staff } from '../types';
+import { getShortName } from '../types';
+
 import { Calendar, Clock, MapPin, ChevronLeft, ChevronRight, GripVertical, ChevronUp, ChevronDown, Check } from 'lucide-react';
 import { ReportModal } from './ReportModal';
 import './TimelineView.css';
@@ -220,10 +222,10 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
                   />
                 ) : (
                   <div className="staff-avatar" style={{ backgroundColor: 'var(--primary)', width: '32px', height: '32px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '0.85rem', fontWeight: 'bold' }}>
-                    {member.name.charAt(0)}
+                    {getShortName(member.name).charAt(0)}
                   </div>
                 )}
-                <span className="board-staff-name">{member.name}</span>
+                <span className="board-staff-name">{getShortName(member.name)}</span>
                 <span className="board-schedule-count">{memberSchedules.length}件の対応</span>
               </div>
 

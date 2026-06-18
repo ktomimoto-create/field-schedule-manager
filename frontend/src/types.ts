@@ -67,3 +67,19 @@ export interface WorkType {
 
 declare module 'xlsx-js-style';
 
+export const getShortName = (name: string | null | undefined): string => {
+  if (!name) return '';
+  const trimmed = name.trim();
+  if (
+    trimmed.includes('ナルマンダフ') ||
+    trimmed.includes('フスレンバヤル') ||
+    trimmed.includes('フーギー')
+  ) {
+    return 'フーギー';
+  }
+  // 全角スペースまたは半角スペースでスプリット
+  const parts = trimmed.split(/[\s　]+/);
+  return parts[0] || trimmed;
+};
+
+

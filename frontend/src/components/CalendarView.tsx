@@ -1,5 +1,7 @@
 import React, { useState, useRef } from 'react';
 import type { Schedule, Staff, WorkType } from '../types';
+import { getShortName } from '../types';
+
 import { ChevronLeft, ChevronRight, Info, Calendar as CalendarIcon, Edit2 } from 'lucide-react';
 import './CalendarView.css';
 
@@ -1017,14 +1019,15 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                 fontWeight: 'bold',
                 flexShrink: 0
               }}>
-                {String(value).substring(0, 1)}
+                {getShortName(String(value)).substring(0, 1)}
               </div>
             ) : null}
             <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {String(value || '')}
+              {getShortName(String(value || ''))}
             </span>
           </div>
         </td>
+
       );
     }
     
