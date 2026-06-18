@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import type { Schedule, Staff, WorkType } from './types';
 import { GridView } from './components/GridView';
 import { CalendarView } from './components/CalendarView';
@@ -22,6 +22,10 @@ function App() {
   const [workTypes, setWorkTypes] = useState<WorkType[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // 同期保存（コピペ等）時の採番競合防止用の一時プール (キー: "YYYY-MM-DD", 値: 使用済みコースのSet)
+  const tempUsedCoursesRef = useRef<Record<string, Set<number>>>({});
+
 
   useEffect(() => {
     if (theme === 'dark') {
@@ -302,6 +306,9 @@ function App() {
       setSchedules(schedulesData);
       setStaff(staffData);
       setWorkTypes(workTypesData);
+      // データ更新完了に伴い、一時プールをクリア
+      tempUsedCoursesRef.current = {};
+
     } catch (err: any) {
       console.error(err);
       setError(err.message || '通信エラーが発生しました。');
@@ -336,6 +343,62 @@ function App() {
       const payload = { ...scheduleData };
       delete (payload as any).created_at;
       delete (payload as any).updated_at;
+
+      // FTSのスタッフで、かつコース番号が未設定の場合、27以降の空き番号を自動採番
+      const matchedStaff = payload.staff_id 
+        ? staff.find(st => st.id === Number(payload.staff_id)) 
+        : null;
+
+      const isFtsOrOfficeWorker = matchedStaff && (
+        !matchedStaff.default_course || 
+        matchedStaff.default_course.trim() === '' ||
+        (Number(matchedStaff.default_course) >= 1 && Number(matchedStaff.default_course) <= 26) ||
+        (Number(matchedStaff.default_course) >= 27 && Number(matchedStaff.default_course) <= 89)
+      );
+
+      if (isFtsOrOfficeWorker && (!payload.course || String(payload.course).trim() === '')) {
+        payload.division = 'FTS';
+        const targetDate = payload.date;
+        if (targetDate) {
+          // その日の一時的な使用済みプールを初期化
+          if (!tempUsedCoursesRef.current[targetDate]) {
+            tempUsedCoursesRef.current[targetDate] = new Set<number>();
+          }
+          const tempUsed = tempUsedCoursesRef.current[targetDate];
+
+          // 状態(schedules)から既存のFTS予定で使用されているコース番号をスキャン
+          const daySchedules = schedules.filter(s => s.date === targetDate && s.division === 'FTS');
+          const usedCourses = new Set<number>();
+          daySchedules.forEach(s => {
+            if (s.course) {
+              const cNum = parseInt(s.course, 10);
+              if (!isNaN(cNum)) usedCourses.add(cNum);
+            }
+          });
+
+          // スタッフのデフォルトコース（1〜26）もスキャン
+          staff.forEach(st => {
+            if (st.default_course) {
+              const cNum = parseInt(st.default_course, 10);
+              if (!isNaN(cNum) && cNum >= 1 && cNum <= 26) {
+                usedCourses.add(cNum);
+              }
+            }
+          });
+
+          // 27から順に空き番号を探す（状態の使用済み + 一時プールの使用済み）
+          let autoCourse = 27;
+          while (usedCourses.has(autoCourse) || tempUsed.has(autoCourse)) {
+            autoCourse++;
+          }
+
+          // 一時プールにマーク
+          tempUsed.add(autoCourse);
+
+          payload.course = String(autoCourse);
+        }
+      }
+
 
       if (isEdit) {
         const idVal = Number(payload.id);
