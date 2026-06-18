@@ -83,7 +83,7 @@
   flex: 0 0 1500px; /* 各曜日の幅を1500pxに固定 */
   width: 1500px;
   background: var(--bg-secondary);
-  border: 1px solid var(--border-glass);
+  border: 2px solid var(--border-column-block, #cbd5e1); /* 枠線を太くし、はっきりとした境界にしてチープさを解消 */
   border-radius: 12px; /* 日付ヘッダーとテーブル全体を角丸にする */
   overflow: hidden; /* 角丸部分からテーブルがはみ出すのを防ぐ */
   box-shadow: var(--shadow-md);
@@ -171,6 +171,9 @@
   user-select: none;
   height: 32px; /* ヘッダーの窮屈さを緩和 */
   box-sizing: border-box;
+  white-space: nowrap; /* テキストの折り返しを防止 */
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 
@@ -442,6 +445,8 @@
   display: inline-flex;
   align-items: center;
   box-shadow: 0 1px 2px rgba(99, 102, 241, 0.1);
+  white-space: nowrap; /* テキストの折り返しを防止 */
+  flex-shrink: 0;
 }
 
 .btn-quick-add-trigger:hover {
