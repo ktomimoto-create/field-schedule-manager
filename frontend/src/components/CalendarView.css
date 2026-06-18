@@ -102,7 +102,7 @@
 .day-calendar-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 0.76rem; /* スプレッドシートに近い高い情報密度 */
+  font-size: 0.8rem; /* Noto Sans JP の日本語漢字がはっきり読める適度なサイズ */
   table-layout: fixed; /* 各セルの横幅をヘッダー/colgroup の指定で固定 */
 }
 
@@ -116,7 +116,7 @@
   z-index: 20;
   border-bottom: 1px solid var(--border-glass);
   border-top: 4px solid #475569; /* デフォルトの平日用カラーバー */
-  height: 38px;
+  height: 42px; /* 窮屈さを抑えるための高さ調整 */
   box-sizing: border-box;
 }
 
@@ -141,12 +141,12 @@
 }
 
 .day-name-super {
-  font-size: 0.9rem;
+  font-size: 0.95rem; /* 曜日名を強調 */
   font-weight: 700;
 }
 
 .day-date-super {
-  font-size: 0.8rem;
+  font-size: 0.82rem;
   color: var(--text-secondary);
 }
 
@@ -159,17 +159,17 @@
 /* 2段目ヘッダー: 各項目ヘッダーのsticky固定 (大ヘッダーの高さ分ずらす) */
 .day-calendar-table th:not(.matrix-day-header-super) {
   position: sticky;
-  top: 38px; /* 大ヘッダーの高さ(38px)分下げる */
+  top: 42px; /* 大ヘッダーの高さ(42px)分下げる */
   background: var(--bg-secondary);
   color: var(--text-secondary);
   font-weight: 600;
-  padding: 0.5rem 0.3rem;
+  padding: 0.4rem 0.5rem; /* 左右余白を広げて視認性向上 */
   border-right: 1px solid var(--border-cell);
   border-bottom: 2px solid var(--border-glass);
   z-index: 15;
   text-align: left;
   user-select: none;
-  height: 28px;
+  height: 32px; /* ヘッダーの窮屈さを緩和 */
   box-sizing: border-box;
 }
 
@@ -185,13 +185,13 @@
 
 /* テーブルセル基本設計 */
 .day-calendar-table td {
-  padding: 0.4rem 0.3rem;
+  padding: 0.35rem 0.5rem; /* 上下余白を少し締め、左右余白を増やすことで見やすさを最適化 */
   border-right: 1px solid var(--border-cell);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   vertical-align: middle;
-  height: 32px;
+  height: 36px; /* セルの高さを36pxにして窮屈感を解消 */
 }
 
 
@@ -916,53 +916,53 @@
 
 /* 選択されたセルの強調 */
 .selected-grid-cell {
-  background-color: rgba(37, 99, 235, 0.12) !important;
+  background-color: rgba(99, 102, 241, 0.15) !important; /* テーマカラーであるインディゴの半透明でプレミアム感を向上 */
   user-select: none;
 }
 
-/* box-shadow を使って選択矩形の外枠をきれいに描画する */
+/* box-shadow を使って選択矩形の外枠をきれいに描画する（2.5pxの太さで境界線をシャープに強調） */
 .selected-border-top {
-  box-shadow: inset 0 2px 0 0 #2563eb !important;
+  box-shadow: inset 0 2.5px 0 0 #4f46e5 !important;
 }
 .selected-border-bottom {
-  box-shadow: inset 0 -2px 0 0 #2563eb !important;
+  box-shadow: inset 0 -2.5px 0 0 #4f46e5 !important;
 }
 .selected-border-left {
-  box-shadow: inset 2px 0 0 0 #2563eb !important;
+  box-shadow: inset 2.5px 0 0 0 #4f46e5 !important;
 }
 .selected-border-right {
-  box-shadow: inset -2px 0 0 0 #2563eb !important;
+  box-shadow: inset -2.5px 0 0 0 #4f46e5 !important;
 }
 
 /* コーナーの重複に対応する組み合わせ */
 .selected-border-top.selected-border-left {
-  box-shadow: inset 2px 2px 0 0 #2563eb !important;
+  box-shadow: inset 2.5px 2.5px 0 0 #4f46e5 !important;
 }
 .selected-border-top.selected-border-right {
-  box-shadow: inset -2px 2px 0 0 #2563eb !important;
+  box-shadow: inset -2.5px 2.5px 0 0 #4f46e5 !important;
 }
 .selected-border-bottom.selected-border-left {
-  box-shadow: inset 2px -2px 0 0 #2563eb !important;
+  box-shadow: inset 2.5px -2.5px 0 0 #4f46e5 !important;
 }
 .selected-border-bottom.selected-border-right {
-  box-shadow: inset -2px -2px 0 0 #2563eb !important;
+  box-shadow: inset -2.5px -2.5px 0 0 #4f46e5 !important;
 }
 
 .selected-border-top.selected-border-left.selected-border-right {
-  box-shadow: inset 2px 2px 0 0 #2563eb, inset -2px 0 0 0 #2563eb !important;
+  box-shadow: inset 2.5px 2.5px 0 0 #4f46e5, inset -2.5px 0 0 0 #4f46e5 !important;
 }
 .selected-border-bottom.selected-border-left.selected-border-right {
-  box-shadow: inset 2px -2px 0 0 #2563eb, inset -2px 0 0 0 #2563eb !important;
+  box-shadow: inset 2.5px -2.5px 0 0 #4f46e5, inset -2.5px 0 0 0 #4f46e5 !important;
 }
 .selected-border-top.selected-border-bottom.selected-border-left {
-  box-shadow: inset 2px 2px 0 0 #2563eb, inset 0 -2px 0 0 #2563eb !important;
+  box-shadow: inset 2.5px 2.5px 0 0 #4f46e5, inset 0 -2.5px 0 0 #4f46e5 !important;
 }
 .selected-border-top.selected-border-bottom.selected-border-right {
-  box-shadow: inset -2px 2px 0 0 #2563eb, inset 0 -2px 0 0 #2563eb !important;
+  box-shadow: inset -2.5px 2.5px 0 0 #4f46e5, inset 0 -2.5px 0 0 #4f46e5 !important;
 }
 
 .selected-border-top.selected-border-bottom.selected-border-left.selected-border-right {
-  box-shadow: inset 0 0 0 2px #2563eb !important;
+  box-shadow: inset 0 0 0 2.5px #4f46e5 !important;
 }
 
 /* 物件名セル内の詳細編集モーダルボタン */
