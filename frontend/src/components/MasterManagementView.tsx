@@ -106,12 +106,19 @@ export const MasterManagementView: React.FC<MasterManagementViewProps> = ({
       const updatePromises = [];
 
       for (const st of currentStaff || []) {
+        // すでにダミーアドレス以外（example.com以外の本物のメールアドレス）が設定されている場合は上書きしない
+        if (st.email && !st.email.toLowerCase().endsWith('@example.com')) {
+          skippedCount++;
+          continue;
+        }
+
         // prefix (FE, SF, FR) を取り除いたクリーンな苗字
         const cleanName = st.name.replace(/^(FE|SF|FR)/i, '').trim();
         if (!cleanName) {
           skippedCount++;
           continue;
         }
+
 
         const normCleanName = normalizeName(cleanName);
 
