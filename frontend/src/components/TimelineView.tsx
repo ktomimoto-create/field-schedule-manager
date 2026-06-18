@@ -211,9 +211,18 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
           return (
             <div key={member.id} className="staff-board-column">
               <div className="board-column-header">
-                <div className="staff-avatar" style={{ backgroundColor: 'var(--primary)' }}>
-                  {member.name.charAt(0)}
-                </div>
+                {member.avatar_url ? (
+                  <img 
+                    src={member.avatar_url} 
+                    alt={member.name} 
+                    className="staff-avatar" 
+                    style={{ width: '32px', height: '32px', borderRadius: '50%', objectFit: 'cover' }} 
+                  />
+                ) : (
+                  <div className="staff-avatar" style={{ backgroundColor: 'var(--primary)', width: '32px', height: '32px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '0.85rem', fontWeight: 'bold' }}>
+                    {member.name.charAt(0)}
+                  </div>
+                )}
                 <span className="board-staff-name">{member.name}</span>
                 <span className="board-schedule-count">{memberSchedules.length}件の対応</span>
               </div>

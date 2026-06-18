@@ -5,6 +5,7 @@ export interface Staff {
   default_course?: string;
   is_active?: number;
   role?: string;
+  avatar_url?: string; // Microsoftアカウント等から流用するプロフィール画像URL
 }
 
 export type ScheduleStatus = 'draft' | 'confirmed' | 'cancelled';

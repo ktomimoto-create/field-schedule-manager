@@ -979,6 +979,55 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
     const selectionClass = getSelectionClassName(schedule.date, rowIndex, field);
     const cellClass = `${className} ${selectionClass}`;
     
+    if (field === 'staff_name') {
+      const matchedStaff = staff.find(st => st.id === schedule.staff_id || st.name === value);
+      const avatarUrl = matchedStaff?.avatar_url;
+      const isUnassigned = !value;
+
+      return (
+        <td 
+          className={cellClass} 
+          style={style}
+          title={title || undefined}
+          onMouseDown={(e) => handleCellMouseDown(e, schedule.date, rowIndex, field, schedId)}
+          onMouseEnter={() => handleCellMouseEnter(schedule.date, rowIndex, field)}
+          onDoubleClick={() => {
+            setEditingCell({ id: schedId, field });
+            setEditingValue(String(value || ''));
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', width: '100%' }}>
+            {avatarUrl ? (
+              <img 
+                src={avatarUrl} 
+                alt={String(value)} 
+                style={{ width: '22px', height: '22px', borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} 
+              />
+            ) : !isUnassigned ? (
+              <div style={{ 
+                width: '22px', 
+                height: '22px', 
+                borderRadius: '50%', 
+                backgroundColor: 'var(--primary, #4f46e5)', 
+                color: 'white', 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'center', 
+                fontSize: '0.65rem', 
+                fontWeight: 'bold',
+                flexShrink: 0
+              }}>
+                {String(value).substring(0, 1)}
+              </div>
+            ) : null}
+            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {String(value || '')}
+            </span>
+          </div>
+        </td>
+      );
+    }
+    
     if (field === 'property_name') {
       const isTemp = typeof schedId === 'string' && (schedId.startsWith('temp-') || schedId.startsWith('dummy-'));
       return (

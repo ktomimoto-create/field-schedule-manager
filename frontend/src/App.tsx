@@ -8,7 +8,7 @@ import { AnalyticsView } from './components/AnalyticsView';
 import { ScheduleModal } from './components/ScheduleModal';
 import { PasteImportModal } from './components/PasteImportModal';
 import { Calendar, Layers, Plus, RefreshCw, AlertCircle, List, Sliders, Sun, Moon, BarChart3 } from 'lucide-react';
-import { supabase } from './supabaseClient';
+import { supabase, talkScriptSupabase } from './supabaseClient';
 
 
 
@@ -256,14 +256,25 @@ function App() {
     }
     setError(null);
     try {
-      const [schedulesRes, staffRes, workTypesRes] = await Promise.all([
+      const [schedulesRes, staffRes, workTypesRes, profilesRes] = await Promise.all([
         supabase.from('schedules').select('*'),
         supabase.from('staff').select('*'),
-        supabase.from('work_types').select('*').order('sort_order', { ascending: true })
+        supabase.from('work_types').select('*').order('sort_order', { ascending: true }),
+        talkScriptSupabase.from('profiles').select('email, avatar_url')
       ]);
 
       if (schedulesRes.error || staffRes.error || workTypesRes.error) {
         throw new Error('データの取得に失敗しました。Supabaseの接続設定を確認してください。');
+      }
+
+      // 外部プロフィール情報のマップ作成（エラー時は単にスキップ）
+      const profilesMap = new Map<string, string>();
+      if (!profilesRes.error && profilesRes.data) {
+        profilesRes.data.forEach((p: any) => {
+          if (p.email && p.avatar_url) {
+            profilesMap.set(p.email.toLowerCase().trim(), p.avatar_url);
+          }
+        });
       }
 
       // PostgreSQLの予定データを型変換して格納
@@ -273,10 +284,15 @@ function App() {
         staff_id: s.staff_id ? Number(s.staff_id) : null
       }));
 
-      const staffData: Staff[] = (staffRes.data || []).map((st: any) => ({
-        ...st,
-        id: Number(st.id)
-      }));
+      const staffData: Staff[] = (staffRes.data || []).map((st: any) => {
+        const staffEmail = st.email ? st.email.toLowerCase().trim() : '';
+        const matchedAvatar = staffEmail ? profilesMap.get(staffEmail) : undefined;
+        return {
+          ...st,
+          id: Number(st.id),
+          avatar_url: matchedAvatar || undefined
+        };
+      });
 
       const workTypesData: WorkType[] = (workTypesRes.data || []).map((t: any) => ({
         ...t,
