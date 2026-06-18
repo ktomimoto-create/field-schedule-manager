@@ -2,7 +2,7 @@ import React, { useState, useRef } from 'react';
 import type { Schedule, Staff, WorkType } from '../types';
 import { getShortName } from '../types';
 
-import { ChevronLeft, ChevronRight, Info, Calendar as CalendarIcon, Edit2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Edit2, Plus } from 'lucide-react';
 import './CalendarView.css';
 
 // ローカルタイムゾーン基準で YYYY-MM-DD 形式の日付文字列を生成する
@@ -192,17 +192,19 @@ interface CalendarViewProps {
   onDelete: (id: number) => Promise<void>;
   workTypes: WorkType[];
   onTransferSchedules?: (date: string) => Promise<void>;
+  onOpenPasteImportModal: () => void;
 }
 
 export const CalendarView: React.FC<CalendarViewProps> = ({
   schedules,
   staff,
-  onOpenAddModal: _onOpenAddModal,
+  onOpenAddModal,
   onOpenEditModal,
   onSave,
   onDelete,
   workTypes,
   onTransferSchedules,
+  onOpenPasteImportModal,
 }) => {
   const [currentDate, setCurrentDate] = useState(new Date());
   const dateInputRef = useRef<HTMLInputElement>(null);
@@ -312,7 +314,18 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
       return true;
     });
 
-    const blended = [...displaySchedules];
+    const blended = [...displaySchedules].map(s => {
+      if (s.status === 'cancelled') {
+        return {
+          ...s,
+          division: '未定',
+          staff_id: null,
+          staff_name: '',
+          course: ''
+        };
+      }
+      return s;
+    });
 
     const activeStaffs = staff.filter(st => st.default_course && st.is_active !== 0);
     activeStaffs.forEach(stItem => {
@@ -321,8 +334,10 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
       }
 
       const hasScheduleForThisCourse = displaySchedules.some(s => 
-        (s.course && String(s.course).trim() === String(stItem.default_course).trim()) ||
-        (s.staff_id === stItem.id || (s.staff_name && s.staff_name.trim() === stItem.name.trim()))
+        s.status !== 'cancelled' && (
+          (s.course && String(s.course).trim() === String(stItem.default_course).trim()) ||
+          (s.staff_id === stItem.id || (s.staff_name && s.staff_name.trim() === stItem.name.trim()))
+        )
       );
 
       if (!hasScheduleForThisCourse) {
@@ -399,6 +414,13 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
     }
 
     blended.sort((a, b) => {
+      // キャンセルされた予定は常に最下部に配置
+      const aCancelled = a.status === 'cancelled';
+      const bCancelled = b.status === 'cancelled';
+      if (aCancelled !== bCancelled) {
+        return aCancelled ? 1 : -1;
+      }
+
       const getDivPriority = (div: string | null) => {
         if (div === 'FTS') return 1;
         if (div === '委託') return 2;
@@ -1248,6 +1270,16 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
     return `${currentDate.getFullYear()}年 ${currentDate.getMonth() + 1}月`;
   };
 
+  const getPrevMonthName = () => {
+    const d = new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1);
+    return `${d.getMonth() + 1}月`;
+  };
+
+  const getNextMonthName = () => {
+    const d = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1);
+    return `${d.getMonth() + 1}月`;
+  };
+
   return (
     <div className="matrix-board-container card">
       <div className="matrix-header">
@@ -1255,8 +1287,11 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
           <h2>日付並列カレンダーグリッド</h2>
           <span className="matrix-date-range">{formatJapaneseMonth()}</span>
           <div className="matrix-nav-buttons" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <button className="btn btn-secondary btn-sm-nav" onClick={handlePrevMonth}>
-              <ChevronLeft size={16} /> 前の月
+            <button className="btn btn-secondary btn-sm-nav" onClick={handlePrevMonth} title={`${getPrevMonthName()}へ移動`}>
+              <ChevronLeft size={16} /> {getPrevMonthName()}
+            </button>
+            <button className="btn btn-secondary btn-sm-nav" onClick={handleNextMonth} title={`${getNextMonthName()}へ移動`}>
+              {getNextMonthName()} <ChevronRight size={16} />
             </button>
             <div className="date-picker-wrapper" onClick={triggerDatePicker} title="クリックして日付を選択" style={{ cursor: 'pointer' }}>
               <input
@@ -1272,24 +1307,29 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
               />
               <span className="current-date-display" style={{ display: 'inline-flex', alignItems: 'center', padding: '0 12px', height: '32px', borderRadius: '6px', border: '1px solid var(--border-color, #e2e8f0)', background: 'var(--card-bg, #ffffff)', fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-main, #1e293b)' }}>
                 <CalendarIcon size={14} style={{ marginRight: '6px' }} />
-                日付指定ジャンプ
+                日付指定
               </span>
             </div>
             <button className="btn btn-secondary btn-sm-nav" onClick={handleToday}>
-              今日
+              本日
             </button>
-            <button className="btn btn-secondary btn-sm-nav" onClick={handleNextMonth}>
-              次の月 <ChevronRight size={16} />
+            <button 
+              className="btn btn-secondary btn-sm-nav" 
+              onClick={onOpenPasteImportModal} 
+              title="Excelやスプレッドシートからコピーしたデータを貼り付け"
+              style={{ marginLeft: '0.25rem' }}
+            >
+              スプレッドシートから貼り付け
             </button>
-          </div>
-        </div>
-
-        <div className="matrix-legend">
-          <span className="legend-item"><span className="dot dot-draft"></span>仮予定</span>
-          <span className="legend-item"><span className="dot dot-confirmed"></span>確定予定</span>
-          <div className="info-badge">
-            <Info size={12} style={{ marginRight: '4px' }} />
-            <span>空枠ダブルクリックで新規、セルダブルクリックで編集</span>
+            <button 
+              className="btn btn-primary btn-sm-nav" 
+              onClick={() => onOpenAddModal(getLocalDateString(currentDate))} 
+              title="新規予定を追加"
+              style={{ marginLeft: '0.25rem' }}
+            >
+              <Plus size={14} style={{ marginRight: '4px' }} />
+              予定を追加
+            </button>
           </div>
         </div>
       </div>
@@ -2005,6 +2045,26 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                   }}
                 >
                   予定を【仮】に変更
+                </button>
+              )}
+              {contextMenu.schedule.status !== 'cancelled' && (
+                <button 
+                  type="button" 
+                  onClick={async () => {
+                    setContextMenu(null);
+                    await onSave({
+                      id: contextMenu.schedule!.id,
+                      status: 'cancelled',
+                      division: '未定',
+                      staff_id: null,
+                      staff_name: '',
+                      course: ''
+                    });
+                  }}
+                  className="delete-menu-item"
+                  style={{ color: '#f87171' }}
+                >
+                  予定を【キャンセル】に変更
                 </button>
               )}
               <button 

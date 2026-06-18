@@ -106,7 +106,7 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
   defaultTransferred,
 }) => {
   // 状態管理
-  const [status, setStatus] = useState<ScheduleStatus>('draft');
+  const [status, setStatus] = useState<ScheduleStatus>('free');
   const [division, setDivision] = useState('');
   const [type, setType] = useState('');
   const [box, setBox] = useState('');
@@ -187,7 +187,7 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
 
   useEffect(() => {
     if (selectedSchedule) {
-      setStatus(selectedSchedule.status || 'draft');
+      setStatus(selectedSchedule.status || 'free');
       setDivision(selectedSchedule.division || '');
       setType(selectedSchedule.type || '');
       setBox(selectedSchedule.box || '');
@@ -219,7 +219,7 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
       setLevel(selectedSchedule.level || '');
       setLevel3(selectedSchedule.level_3 || '');
     } else {
-      setStatus('draft');
+      setStatus('free');
       setDivision('委託'); // 新規追加時の初期値は「委託」
       setType('');
       setBox('');
@@ -321,9 +321,10 @@ ${notes || 'なし'}
       // 入力された staffName に合致する既存スタッフを特定
       const matchedStaff = staff.find(st => st.name.trim() === staffName.trim());
 
+      const isCancelled = status === 'cancelled';
       const payload: Partial<Schedule> = {
         status,
-        division: division.trim() || null,
+        division: isCancelled ? '未定' : (division.trim() || null),
         type: type.trim() || null,
         box: box.trim() || null,
         unit_number: unitNumber.trim() || null,
@@ -332,14 +333,15 @@ ${notes || 'なし'}
         description: description.trim() || null,
         target_time: targetTime.trim() || null,
         date,
-        staff_name: matchedStaff ? matchedStaff.name : (staffName.trim() || undefined),
+        staff_id: isCancelled ? null : (matchedStaff ? matchedStaff.id : null),
+        staff_name: isCancelled ? '' : (matchedStaff ? matchedStaff.name : (staffName.trim() || undefined)),
         area: area.trim() || null,
         prefecture: prefecture.trim() || null,
         transport: transport.trim() || null,
         co_worker: coWorker.trim() || null,
         request_number: requestNumber.trim() || null,
         time_limit: timeLimit.trim() || null,
-        course: course.trim() || null,
+        course: isCancelled ? '' : (course.trim() || null),
         result: result.trim() || null,
         notes: notes.trim() || null,
         disorder_type: disorderType.trim() || null,
@@ -379,8 +381,8 @@ ${notes || 'なし'}
   const isEditMode = !!(selectedSchedule && selectedSchedule.id && !String(selectedSchedule.id).startsWith('temp-'));
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content" style={{ maxWidth: '780px', width: '90%' }} onClick={(e) => e.stopPropagation()}>
+    <div className="schedule-sidebar-overlay" onClick={onClose}>
+      <div className="schedule-sidebar-content" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <h3 className="modal-title">
             {isEditMode ? '予定の編集' : '新規予定の追加'}
@@ -390,27 +392,32 @@ ${notes || 'なし'}
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} style={{ maxHeight: 'calc(100vh - 200px)', overflowY: 'auto', paddingRight: '5px' }}>
+        <form onSubmit={handleSubmit} style={{ flex: 1, display: 'flex', flexDirection: 'column', height: 'calc(100vh - 110px)', overflow: 'hidden' }}>
+          <div style={{ flex: 1, overflowY: 'auto', paddingRight: '8px', marginBottom: '1rem' }}>
           {/* ステータストグル */}
           <div className="status-toggle" style={{ marginBottom: '1.5rem' }}>
             <div 
+              className={`status-toggle-btn free ${status === 'free' ? 'active' : ''}`}
+              onClick={() => setStatus('free')}
+            >
+              通常 (フリー)
+            </div>
+            <div 
               className={`status-toggle-btn draft ${status === 'draft' ? 'active' : ''}`}
               onClick={() => setStatus('draft')}
-              style={{ flex: 1 }}
             >
-              仮予定 (調整中)
+              仮予定
             </div>
             <div 
               className={`status-toggle-btn confirmed ${status === 'confirmed' ? 'active' : ''}`}
               onClick={() => setStatus('confirmed')}
-              style={{ flex: 1 }}
             >
               確定予定
             </div>
             <div 
-              className={`status-toggle-btn confirmed ${status === 'cancelled' ? 'active' : ''}`}
+              className={`status-toggle-btn cancelled ${status === 'cancelled' ? 'active' : ''}`}
               onClick={() => setStatus('cancelled')}
-              style={{ flex: 1, color: status === 'cancelled' ? 'var(--danger)' : 'var(--text-secondary)', backgroundColor: status === 'cancelled' ? 'rgba(239, 68, 68, 0.15)' : 'transparent', border: status === 'cancelled' ? '1px solid rgba(239, 68, 68, 0.3)' : 'none' }}
+              style={{ color: status === 'cancelled' ? 'var(--danger)' : 'var(--text-secondary)', backgroundColor: status === 'cancelled' ? 'rgba(239, 68, 68, 0.15)' : 'transparent', border: status === 'cancelled' ? '1px solid rgba(239, 68, 68, 0.3)' : 'none' }}
             >
               キャンセル
             </div>
@@ -780,7 +787,8 @@ ${notes || 'なし'}
               </div>
             </div>
           </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '2rem', borderTop: '1px solid var(--border-glass)', paddingTop: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid var(--border-glass)', paddingTop: '1.25rem', flexWrap: 'wrap', gap: '1rem' }}>
             <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
               {isEditMode ? (
                 <button

@@ -7,8 +7,9 @@ import { MasterManagementView } from './components/MasterManagementView';
 import { AnalyticsView } from './components/AnalyticsView';
 import { ScheduleModal } from './components/ScheduleModal';
 import { PasteImportModal } from './components/PasteImportModal';
-import { Calendar, Layers, Plus, RefreshCw, AlertCircle, List, Sliders, Sun, Moon, BarChart3 } from 'lucide-react';
+import { Calendar, Layers, RefreshCw, AlertCircle, List, Sliders, Sun, Moon, BarChart3 } from 'lucide-react';
 import { supabase, talkScriptSupabase } from './supabaseClient';
+import './App.css';
 
 
 
@@ -122,7 +123,7 @@ function App() {
       email: 'sato@example.com',
       user_metadata: {
         full_name: '佐藤（管理者デモ）',
-        avatar_url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=100&h=100&q=80'
+        avatar_url: 'https://bvhfmwrjrrqrpqvlzkyd.supabase.co/storage/v1/object/public/avatars/000644_1771487704318.png'
       }
     });
   };
@@ -570,7 +571,7 @@ function App() {
               )}
             </div>
 
-            <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+            <div className="header-actions">
               <button 
                 className="btn btn-secondary" 
                 onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')} 
@@ -581,25 +582,7 @@ function App() {
               <button className="btn btn-secondary" onClick={() => fetchData(false)} title="データを更新">
                 <RefreshCw size={16} />
               </button>
-              {currentUserRole === 'admin' && (
-                <>
-                  <button 
-                    className="btn btn-secondary"
-                    onClick={() => setIsImportOpen(true)}
-                    title="Excelやスプレッドシートからコピーしたデータを貼り付け"
-                  >
-                    スプレッドシートから貼り付け
-                  </button>
 
-                  <button 
-                    className="btn btn-primary"
-                    onClick={() => handleOpenAddModal(new Date().toISOString().split('T')[0])}
-                  >
-                    <Plus size={16} />
-                    予定を追加
-                  </button>
-                </>
-              )}
 
               {/* アカウント表示エリア */}
               <div className="user-profile-section">
@@ -689,6 +672,7 @@ function App() {
                     onDelete={handleDeleteSchedule}
                     workTypes={workTypes}
                     onTransferSchedules={handleTransferSchedules}
+                    onOpenPasteImportModal={() => setIsImportOpen(true)}
                   />
                 )}
                 {currentUserRole === 'admin' && activeTab === 'master_management' && (

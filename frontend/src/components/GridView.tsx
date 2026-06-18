@@ -211,7 +211,27 @@ export const GridView: React.FC<GridViewProps> = ({
     return true;
   });
 
-  const sortedSchedules = [...filteredSchedules].sort((a, b) => {
+  const cleansedSchedules = filteredSchedules.map(s => {
+    if (s.status === 'cancelled') {
+      return {
+        ...s,
+        division: '未定',
+        staff_id: null,
+        staff_name: '',
+        course: ''
+      };
+    }
+    return s;
+  });
+
+  const sortedSchedules = [...cleansedSchedules].sort((a, b) => {
+    // キャンセルされた予定は常に最下部に配置
+    const aCancelled = a.status === 'cancelled';
+    const bCancelled = b.status === 'cancelled';
+    if (aCancelled !== bCancelled) {
+      return aCancelled ? 1 : -1;
+    }
+
     // 1. コース番号（course）の昇順
     const aCourse = Number(a.course) || 999;
     const bCourse = Number(b.course) || 999;
@@ -292,6 +312,17 @@ export const GridView: React.FC<GridViewProps> = ({
             <button className="btn btn-secondary btn-sm-nav" onClick={() => changeDate(1)}>
               <ChevronRight size={16} />
             </button>
+            {isAdmin && (
+              <button 
+                className="btn btn-primary btn-sm-nav" 
+                onClick={() => onOpenAddModal(selectedDate)}
+                title="新規予定を追加"
+                style={{ marginLeft: '0.25rem' }}
+              >
+                <Plus size={14} style={{ marginRight: '4px' }} />
+                予定を追加
+              </button>
+            )}
           </div>
         </div>
 

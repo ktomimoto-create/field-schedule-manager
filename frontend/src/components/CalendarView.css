@@ -1,10 +1,11 @@
 .matrix-board-container {
   display: flex;
   flex-direction: column;
-  height: calc(100vh - 180px);
-  min-height: 650px;
+  flex: 1;
+  min-height: 0;
   overflow: hidden;
   padding: 1.5rem;
+  margin-bottom: 0;
 }
 
 .matrix-header {
@@ -215,7 +216,7 @@
 /* 予定セルのデザイン区分 */
 /* 通常（フリー）予定の基本行セル */
 .row-cell-free {
-  background: var(--bg-empty) !important;
+  background: var(--bg-secondary) !important;
   color: var(--text-primary);
   cursor: pointer;
 }
@@ -226,7 +227,7 @@
 
 /* 確定予定の基本行セル */
 .row-cell-confirmed {
-  background: var(--bg-empty) !important;
+  background: var(--bg-secondary) !important;
   color: var(--text-primary);
   cursor: pointer;
 }
@@ -241,7 +242,7 @@
 
 /* 仮予定の基本行セル */
 .row-cell-draft {
-  background: var(--bg-empty) !important;
+  background: var(--bg-secondary) !important;
   color: var(--text-primary);
   cursor: pointer;
 }

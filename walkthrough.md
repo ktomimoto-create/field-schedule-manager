@@ -78,3 +78,240 @@
 
 1. **ビルド検証**:
    - `npm.cmd run build` を `frontend` ディレクトリで実行し、エラーなく正常にビルドが完了することを確認しました。
+
+---
+
+## [2026-06-18] 予定追加・編集ドロワーの高級ガラスモルフィズムデザイン適用およびカレンダーの白背景化
+
+### 変更の目的
+予定の追加・編集を行う画面を右端からスライドインするサイドバー（ドロワー）方式に変更したことに加え、ライト・ダークの両テーマに対応した美しく高級感のあるガラスモルフィズム（背景ぼかし）デザインを採用します。また、カレンダー予定セルの背景を純白に統一し、ステータス（確定・仮）の視認性を高めます。
+
+### 変更内容
+
+#### 1. フロントエンドCSSの修正
+* **[index.css](file:///C:/Users/000644/.gemini/antigravity/scratch/field-schedule-manager/frontend/src/index.css)**:
+  - `.schedule-sidebar-content` の背景を不透明から半透明の `var(--bg-glass)` に変更し、ぼかし強度を `backdrop-filter: blur(20px)` に強化しました。
+  - サイドバーの左端影（`box-shadow`）をより広範囲で滑らかな影にチューニングし、立体感と高級感を向上しました。
+  - 最上部にグラデーション（`linear-gradient`）を用いた 4px のアクセントバーを設置し、プレミアムな外観にブラッシュアップしました。
+* **[CalendarView.css](file:///C:/Users/000644/.gemini/antigravity/scratch/field-schedule-manager/frontend/src/components/CalendarView.css)**:
+  - 予定セル（`.row-cell-free`, `.row-cell-confirmed`, `.row-cell-draft`）の背景色を、薄いグレー（`var(--bg-empty)`）から、テーマに応じた `var(--bg-secondary)`（ライトテーマでは純白 `#ffffff`、ダークテーマでは `#161e31`）に変更しました。これにより「背景は白がいい」というユーザー要望を満たしつつ、確定（緑）・仮（オレンジ）のアクセントバーが明瞭に引き立つようになりました。
+
+#### 2. フロントエンドUI構造 of 修正
+* **[ScheduleModal.tsx](file:///C:/Users/000644/.gemini/antigravity/scratch/field-schedule-manager/frontend/src/components/ScheduleModal.tsx)**:
+  - ドロワー内での操作性を最適化するため、ヘッダーと最下部のアクションボタン群（保存、キャンセル、削除、メール通知）の位置を固定し、入力フォーム項目部分のみが独立してスクロールするレイアウト（flexbox構成）へ変更しました。
+
+---
+
+### 検証結果
+
+1. **ビルド検証**:
+   - `frontend` ディレクトリにおいて、`npm.cmd run build` を実行し、TypeScriptコンパイルおよびViteビルドが警告なしで正常終了することを確認しました。
+
+---
+
+## [2026-06-18] 小画面（レスポンシブ）でのヘッダーレイアウト崩れ対策
+
+### 変更の目的
+ノートPCや狭いブラウザウィンドウなど、画面横幅が不足した際にヘッダーの各要素（ロゴ、タブ、ボタン群、ユーザープロファイル）が押しつぶされて縦書き化したり、表示が大きく崩れて重なってしまう問題を解決し、小さい画面でも美しく整然としたレスポンシブUIを提供します。
+
+### 変更内容
+
+#### 1. フロントエンドUI構造の修正
+* **[App.tsx](file:///C:/Users/000644/.gemini/antigravity/scratch/field-schedule-manager/frontend/src/App.tsx)**:
+  - 右側のアクションボタン群のラッパー `div` からインラインスタイルを排除し、新規の共通CSSクラス `className="header-actions"` に置き換えました。
+
+#### 2. レスポンシブCSSの導入・崩れ防止
+* **[index.css](file:///C:/Users/000644/.gemini/antigravity/scratch/field-schedule-manager/frontend/src/index.css)**:
+  - `header` 自体に `flex-wrap: wrap` と `gap: 1rem` を持たせ、画面幅が制限された際の自然な折り返しを可能にしました。
+  - ロゴセクション、ナビタブ、アクションボタン群の主要3要素に `flex-shrink: 0` を付与し、かつロゴテキストに `white-space: nowrap` を適用することで、要素が不自然に極小へ潰されて縦書きテキスト化する崩れを完全に防ぎました。
+  - `@media (max-width: 1200px)` メディアクエリを定義し、画面幅が 1200px 未満の場合はヘッダーレイアウトを縦積み（ロゴ・環境バッジ ➔ ナビゲーションタブ ➔ アクションボタン・ユーザープロフィール）に最適化しました。
+  - タブの数が多い場合でも、`.nav-tabs` を `overflow-x: auto` に設定してスクロールバー自体は非表示（`scrollbar-width: none`, `-webkit-scrollbar: { display: none }`）にすることで、画面幅が狭い場合でも左右フリック/スクロールで快適にタブ切り替えが行えるようにしました。
+
+---
+
+### 検証結果
+
+1. **ビルド検証**:
+   - `frontend` ディレクトリにおいて、`npm.cmd run build` を実行し、TypeScriptコンパイルおよびViteビルドが正常に完了することを確認しました。
+
+---
+
+## [2026-06-18] キャンセルされた予定の対応者・コース番号自動クリアおよび最下部移動対応
+
+### 変更の目的
+予定のステータスが「キャンセル」に変更された際、以前割り当てられていた対応者（`staff_id`, `staff_name`）やコース番号（`course`）を自動的に空白にクリアし、二重手配を防ぎます。また、カレンダー（月間予定表）や予定表（グリッド）などの表示リストにおいて、キャンセルされた予定が自動的に最下部に移動して表示されるようにソート処理を改善します。
+
+### 変更内容
+
+#### 1. フロントエンドUIおよびデータ保存処理の修正
+* **[ScheduleModal.tsx](file:///C:/Users/000644/.gemini/antigravity/scratch/field-schedule-manager/frontend/src/components/ScheduleModal.tsx)**:
+  - 予定保存の `handleSubmit` 内で、ステータスが `cancelled`（キャンセル）の場合に、`staff_id: null`、`staff_name: ''`、`course: ''`（空白）にクリアし、かつ区分（`division`）を `'未定'` に設定して Supabase へ保存するロジックを追加しました。
+* **[CalendarView.tsx](file:///C:/Users/000644/.gemini/antigravity/scratch/field-schedule-manager/frontend/src/components/CalendarView.tsx)**:
+  - 右クリックカスタムコンテキストメニューに「予定を【キャンセル】に変更」を追加しました。
+  - 右クリックからキャンセルへ変更した際も、モーダル保存時と同様に `staff_id: null`、`staff_name: ''`、`course: ''`、`division: '未定'` を Supabase へ直接上書き保存する処理を追加しました。
+
+#### 2. カレンダー・グリッド等でのソートロジック調整
+* **[CalendarView.tsx](file:///C:/Users/000644/.gemini/antigravity/scratch/field-schedule-manager/frontend/src/components/CalendarView.tsx)**:
+  - `getSortedDaySchedules` 内のソートロジックにおいて、`a.status === 'cancelled'` の予定を最優先で最下部にソートする（他の未定予定よりもさらに下にする）判定を追加しました。
+* **[GridView.tsx](file:///C:/Users/000644/.gemini/antigravity/scratch/field-schedule-manager/frontend/src/components/GridView.tsx)**:
+  - 予定表（グリッド）の `sortedSchedules` ソートロジックにおいても同様に、キャンセルされた予定を最下部に配置する判定を追加しました。
+
+---
+
+### 検証結果
+
+1. **ビルド検証**:
+   - `frontend` ディレクトリにおいて、`npm.cmd run build` を実行し、TypeScriptの型エラーおよびビルドエラーなくビルドが成功することを確認しました。
+
+---
+
+## [2026-06-18] キャンセルされた予定の強制表示クリアおよび仮想フリー行の復活対応
+
+### 変更の目的
+すでにステータスが「キャンセル」としてデータベースに保存されている古いデータにおいて、対応者やコース番号が残ってしまっている場合に、画面上のカレンダーやグリッド表示で強制的に空白として描画し二重手配の表示を防ぎます。また、実予定がキャンセルされた結果、元の対応者スタッフにはその日の割り当て予定がなくなるため、本来のコース順（上部）に仮想フリー行（空き予定枠）が正しく復活して表示されるようにロジックを改善します。
+
+### 変更内容
+
+#### 1. カレンダーの仮想フリー行生成ロジックの改善
+* **[CalendarView.tsx](file:///C:/Users/000644/.gemini/antigravity/scratch/field-schedule-manager/frontend/src/components/CalendarView.tsx)**:
+  - `getSortedDaySchedules` 内の `hasScheduleForThisCourse` の判定において、`s.status !== 'cancelled'` を追加しました。これにより、ステータスがキャンセルされた予定は実予定なしとみなされるようになり、元の対応者スタッフに対する仮想フリー行が正しく上部（本来のコース順）に自動生成される（フリー枠として戻る）ようになりました。
+
+#### 2. 表示レンダリング時の強制データクレンジング
+* **[CalendarView.tsx](file:///C:/Users/000644/.gemini/antigravity/scratch/field-schedule-manager/frontend/src/components/CalendarView.tsx)**:
+  - `blended` 配列を生成する段階で、ステータスが `cancelled`（キャンセル）の実予定については、`staff_id: null`、`staff_name: ''`、`course: ''`、`division: '未定'` を強制マッピング（クローンによる書き換え）して表示するようにしました。これにより、データベース上の古い予定レコードに古い割り当て情報が残っていても、画面上では確実に空白化して表示され、かつ最下部にソートされます。
+* **[GridView.tsx](file:///C:/Users/000644/.gemini/antigravity/scratch/field-schedule-manager/frontend/src/components/GridView.tsx)**:
+  - グリッドの `sortedSchedules` を生成する前に、`filteredSchedules` にマップを適用し、カレンダーと同様に `status === 'cancelled'` の予定は対応者、コース、区分を強制クリアしたオブジェクトとして処理するようにしました。
+
+---
+
+### 検証結果
+
+1. **ビルド検証**:
+   - `frontend` ディレクトリにおいて、`npm.cmd run build` を実行し、TypeScriptの型エラーやビルドエラーが一切発生せず、本番ビルドが正常終了することを確認しました。
+
+---
+
+## [2026-06-18] 小画面ヘッダー縦積み時のカレンダー高さ自動調整（日付ジャンプ隠れ対策）
+
+### 変更の目的
+画面幅が 1200px 未満になり、グローバルヘッダーが縦積み（高さが通常より増加）になった際、カレンダーおよびグリッド全体の高さ制限が大きすぎることで画面全体にスクロールが発生し、カレンダー上部の日付切り替えコントロール（`matrix-header`、日付ジャンプや前の月・次の月ボタン）がグローバルヘッダーの裏側に潜り込んで見えなくなってしまう不具合を解消します。
+
+### 変更内容
+
+#### 1. レスポンシブCSSの調整
+* **[index.css](file:///C:/Users/000644/.gemini/antigravity/scratch/field-schedule-manager/frontend/src/index.css)**:
+  - 1200px 以下のメディアクエリ（`@media (max-width: 1200px)`）の末尾に、カレンダーグリッドのコンテナ（`.matrix-board-container`）および予定表グリッドのコンテナ（`.grid-view-container`）の `height` を `calc(100vh - 320px) !important` に、`min-height` を `450px !important` に自動調整する設定を追加しました。
+  - これにより、グローバルヘッダーが縦に長くなった分、メインコンテンツ領域の高さが適切に縮小され、画面全体のスクロール発生を防ぎ、日付指定ジャンプやタイトル表示が常にヘッダーのすぐ下に固定表示された状態を維持できるようになりました。
+
+---
+
+### 検証結果
+
+1. **ビルド検証**:
+   - `frontend` ディレクトリにおいて、`npm.cmd run build` を実行し、ビルドがエラーなく正常終了することを確認しました。
+
+---
+
+## [2026-06-18] 100vh固定のFlexbox全体フィットレイアウトの導入による日付指定ジャンプ隠れ・横スクロールバー隠れの根本解消
+
+### 変更の目的
+画面幅が縮小されたりヘッダーが縦積み（複数行）になった際、画面全体の縦スクロールが発生し、カレンダー上部の日付指定ジャンプ（`.matrix-header`）や、月曜〜日曜日のカレンダー全体を横スクロールするためのバーが画面外（ヘッダーの裏側や画面最下部）に隠れてアクセスできなくなる不具合を、CSS Flexbox を用いた画面全体フィットレイアウトを導入することで根本的に解消します。
+
+### 変更内容
+
+#### 1. フロントエンドCSSの修正
+* **[index.css](file:///C:/Users/000644/.gemini/antigravity/scratch/field-schedule-manager/frontend/src/index.css)**:
+  - アプリの最上位コンテナである `.app-container` の高さを `height: 100vh` に設定し、`overflow: hidden` でブラウザ全体の縦スクロールを完全に禁止しました。
+  - `header` 要素に `flex-shrink: 0` を付与し、高さが複数行になっても潰れないようにしました。
+  - `main` 要素を Flexbox 化（`display: flex; flex-direction: column; overflow: hidden;`）し、ヘッダーを除いた残りの縦幅を自動的に100%占有（`flex: 1; min-height: 0`）させ、余計なパディングも調整しました。
+  - 1200px以下のメディアクエリ内のカレンダー・グリッドコンテナの `height: calc(100vh - 320px) !important` などの強硬な高さを削除し、Flexboxに高さを委ねる設定へ移行しました。
+* **[CalendarView.css](file:///C:/Users/000644/.gemini/antigravity/scratch/field-schedule-manager/frontend/src/components/CalendarView.css)**:
+  - `.matrix-board-container` の固定高さ（`height: calc(100vh - 230px); min-height: 350px;`）を廃止し、`flex: 1; min-height: 0; display: flex; flex-direction: column;` に変更することで親要素 (`main`) にピッタリ収まるようにしました。
+  - カレンダーのテーブルラッパーである `.matrix-table-wrapper` が、カレンダーコンテナの残りの高さをすべて占有し、自立スクロール（`overflow: auto`）することを徹底しました。
+* **[GridView.css](file:///C:/Users/000644/.gemini/antigravity/scratch/field-schedule-manager/frontend/src/components/GridView.css)**:
+  - カレンダーと同様に、`.grid-view-container` の固定高さを廃止し、`flex: 1; min-height: 0; display: flex; flex-direction: column;` に変更しました。
+  - グリッドのテーブルラッパー `.grid-table-wrapper` の自立スクロールを適用しました。
+
+これにより、ヘッダーの高さが変動しても、日付指定ジャンプを含むカレンダーヘッダー（`matrix-header`）は常に画面内に吸着・固定表示された状態になり、スクロールした際にも隠れなくなりました。また、横スクロールバーも画面最下部に見える状態で固定され、カレンダーの操作性が劇的に向上しました。
+
+---
+
+## [2026-06-18] ヘッダーUIのコンパクト化（1行集約）および管理者デモログインへの富本アバターの適用
+
+### 変更の目的
+アバター画像が巨大（100px）に表示され、ヘッダーのパディングや要素間のギャップが大きいために折り返しが発生してヘッダーが3段になっていた問題を修正し、デスクトップ解像度で完全に1行にすっきり収まる極薄のヘッダーUIに変更します。また、管理者デモログイン時のアバター画像として、ユーザー様本人（富本夏瑞さん）の実際の登録アバター画像を適用します。
+
+### 変更内容
+
+#### 1. アバター画像不具合の解消とデモ設定の変更
+* **[App.tsx](file:///C:/Users/000644/.gemini/antigravity/scratch/field-schedule-manager/frontend/src/App.tsx)**:
+  - 呼び出し元である `App.tsx` の冒頭に `import './App.css';` を追加。アバター関連のスタイル（丸形化、パディングなど）が正しく適用されるように修正しました。
+  - `handleDemoAdminLogin` 内の `avatar_url` を、富本夏瑞さんのアバターURLに変更しました。
+    - アバターURL: `https://bvhfmwrjrrqrpqvlzkyd.supabase.co/storage/v1/object/public/avatars/000644_1771487704318.png`
+
+#### 2. ヘッダー全体のコンパクト化（CSSの最適化）
+* **[index.css](file:///C:/Users/000644/.gemini/antigravity/scratch/field-schedule-manager/frontend/src/index.css)**:
+  - `header` のパディングを `1rem 2rem` ➔ `0.4rem 1.5rem` に変更し、縦余白を大幅に削減しました。
+  - `gap` を `1rem` ➔ `0.75rem` に縮小しました。
+  - ロゴセクションの `gap` を `0.5rem` に、ロゴテキスト `h1` のフォントサイズを `1.4rem` ➔ `1.15rem` に縮小しました。
+  - ナビゲーションタブボタン `.tab-btn` のパディングを `0.5rem 1.25rem` ➔ `0.35rem 0.75rem` に、フォントサイズを `0.9rem` ➔ `0.82rem` にそれぞれ縮小し、隙間を詰めました。
+  - アクションエリアのボタン群のフォントサイズを `0.8rem`、パディングを `0.35rem 0.75rem`、高さを `32px` に統一しました。
+  - テーマ切り替えおよびデータ更新用の正方形ボタン（アイコンのみ）のサイズを `32px * 32px` 固定に制限しました。
+* **[App.css](file:///C:/Users/000644/.gemini/antigravity/scratch/field-schedule-manager/frontend/src/App.css)**:
+  - アカウント表示部分 `.user-profile-trigger` のパディングを `0.25rem 0.6rem` に、アバター画像 `.user-avatar` およびフォールバック要素のサイズを `28px` ➔ `24px` に縮小しました。
+  - 表示されるユーザー名 `.user-name` のフォントサイズを `0.875rem` ➔ `0.8rem` に小さくしました。
+
+これにより、ヘッダーに要素が多数並んだ状態でも折り返されず、綺麗な1行でスマートに収まるスッキリしたUIになりました。
+
+---
+
+## [2026-06-18] 予定追加・貼り付けボタンの各ビューヘッダーへの移動および新規予定の移行ステータス制御
+
+### 変更の目的
+「スプレッドシートから貼り付け」および「予定を追加」ボタンをグローバルヘッダーから削除し、それぞれの目的が異なるビュー（月間予定表・予定表グリッド）のヘッダー領域内に移動・分離して配置します。また、それぞれの画面で作成されたデータの移行ステータス（`is_transferred`：0:月間のみ、1:グリッドのみ）が、ユーザー様の要望通りに正しく振る舞うように制御します。
+
+### 変更内容
+
+#### 1. グローバルヘッダーの変更
+* **[App.tsx](file:///C:/Users/000644/.gemini/antigravity/scratch/field-schedule-manager/frontend/src/App.tsx)**:
+  - ヘッダー内の「スプレッドシートから貼り付け」および「予定を追加」のボタン記述を削除し、ヘッダーの横幅とUIを極限までシンプルにしました。
+  - 使用されなくなった `Plus` アイコンのインポート文（lucide-react）を削除し、TypeScriptコンパイルエラーを防止しました。
+  - `CalendarView` コンポーネントへ、インポートモーダルを開くためのプロップ `onOpenPasteImportModal={() => setIsImportOpen(true)}` を追加しました。
+
+#### 2. 月間予定表（カレンダービュー）の変更
+* **[CalendarView.tsx](file:///C:/Users/000644/.gemini/antigravity/scratch/field-schedule-manager/frontend/src/components/CalendarView.tsx)**:
+  - `CalendarViewProps` インターフェースに `onOpenPasteImportModal` を追加しました。
+  - カレンダーの見出し部分（`matrix-header`）の「日付ナビゲーションボタン群」の末尾に、移動した「スプレッドシートから貼り付け」と「予定を追加」ボタンを挿入しました。
+  - 月間予定表内の「予定を追加」をクリックした際は、カレンダー上で現在表示中の基準日付（`currentDate`）が初期選択された状態で新規追加モーダル（`onOpenAddModal`）が開くように設計しました。
+  - このボタンから追加、またはスプレッドシートからインポートされた予定は、デフォルトで **`is_transferred: 0` (月間予定表にのみ適用)** として保存されます。
+
+#### 3. 予定表グリッドビューの変更
+* **[GridView.tsx](file:///C:/Users/000644/.gemini/antigravity/scratch/field-schedule-manager/frontend/src/components/GridView.tsx)**:
+  - 予定表グリッドのヘッダー（`grid-view-header`）の「日付ナビゲーションコントロール群」の右隣に、管理者ログイン時限定で新しく「予定を追加」ボタンを追加しました。
+  - グリッドビュー内の「予定を追加」をクリックした際は、現在表示中の日付（`selectedDate`）が初期選択された状態で新規追加モーダルが開くようにしました。
+  - このボタンから追加された予定は、デフォルトで **`is_transferred: 1` (予定表グリッドにのみ追加/即時反映)** として保存されます。
+
+---
+
+## [2026-06-18] カレンダーヘッダーの凡例ガイド削除・月移動ボタンの動的月名表示・並び順調整
+
+### 変更の目的
+日付並列カレンダーグリッドのヘッダー部（`matrix-header`）をさらにすっきりさせるため、不要な凡例文言やガイド（「仮予定 確定予定 ...」）を削除します。また、月移動ボタンの「前の月」「次の月」という表示を「5月」「7月」のような実際の月名（動的算出）に変更し、ボタンの並び順を「[前の月の月名] [次の月の月名] [日付指定] [本日]」に変更して操作性を最適化します。
+
+### 変更内容
+
+#### 1. カレンダービューの変更
+* **[CalendarView.tsx](file:///C:/Users/000644/.gemini/antigravity/scratch/field-schedule-manager/frontend/src/components/CalendarView.tsx)**:
+  - カレンダーに表示中の現在日付（`currentDate`）を基準に、前後の月名を算出するヘルパー関数 `getPrevMonthName` と `getNextMonthName` を追加しました。
+  - 月移動ボタンの表示テキストを動的な月名（例: `<ChevronLeft /> 5月`, `7月 <ChevronRight />`）に変更しました。
+  - 各ボタンコントロールの並び順を、「**[前の月名] [次の月名] [日付指定] [本日] [貼り付け] [予定を追加]**」の順に並び替えました。
+  - 「日付指定ジャンプ」ボタンの表記を「日付指定」に簡略化し、「今日」ボタンの表記を「本日」に変更しました。
+  - タイトル右側に表示されていた凡例ガイド要素（`matrix-legend`）を丸ごと削除し、画面を非常にすっきりさせました。
+  - 不要となった `Info` アイコンのインポート文（lucide-react）を削除し、TypeScriptコンパイルエラーを防止しました。
+
+
+
+
+
+
+
