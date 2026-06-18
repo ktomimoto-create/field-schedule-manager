@@ -373,6 +373,29 @@ function App() {
     }
   };
 
+  const handleClearAllSchedules = async () => {
+    try {
+      const res = await supabase.from('schedules').delete().neq('id', -1);
+
+      if (res.error) {
+        throw new Error(res.error.message || '予定の全削除に失敗しました。');
+      }
+
+      // 履歴ログの保存
+      await saveAuditLog(
+        null,
+        'clear_all',
+        '全スケジュール',
+        'すべてのスケジュールデータを一括削除しました。'
+      );
+
+      await fetchData(false);
+    } catch (err: any) {
+      alert(err.message || 'エラーが発生しました。');
+      throw err;
+    }
+  };
+
 
   return (
     <div className="app-container">
@@ -580,6 +603,7 @@ function App() {
                     staff={staff}
                     workTypes={workTypes}
                     onRefresh={() => fetchData(false)}
+                    onClearSchedules={handleClearAllSchedules}
                   />
                 )}
                 {currentUserRole === 'admin' && activeTab === 'analytics' && (

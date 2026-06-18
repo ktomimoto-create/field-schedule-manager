@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import type { Staff, WorkType } from '../types';
 import { AuditLogView } from './AuditLogView';
-import { Users, Sliders, History, Plus, Trash2, Edit2, Check, X, Shield, ChevronUp, ChevronDown } from 'lucide-react';
+import { Users, Sliders, History, Plus, Trash2, Edit2, Check, X, Shield, ChevronUp, ChevronDown, Database } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import './MasterManagementView.css';
 
@@ -10,6 +10,7 @@ interface MasterManagementViewProps {
   staff: Staff[];
   workTypes: WorkType[];
   onRefresh: () => void;
+  onClearSchedules: () => Promise<void>;
 }
 
 export const MasterManagementView: React.FC<MasterManagementViewProps> = ({
@@ -17,8 +18,9 @@ export const MasterManagementView: React.FC<MasterManagementViewProps> = ({
   staff,
   workTypes,
   onRefresh,
+  onClearSchedules,
 }) => {
-  const [activeSubTab, setActiveSubTab] = useState<'staff' | 'work_types' | 'audit_logs'>('staff');
+  const [activeSubTab, setActiveSubTab] = useState<'staff' | 'work_types' | 'audit_logs' | 'data_maintenance'>('staff');
 
   // スタッフ管理用のローカル状態
   const [newStaffName, setNewStaffName] = useState('');
@@ -26,6 +28,9 @@ export const MasterManagementView: React.FC<MasterManagementViewProps> = ({
   const [newStaffCourse, setNewStaffCourse] = useState('');
   const [newStaffRole, setNewStaffRole] = useState<'admin' | 'user'>('user');
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // データメンテナンス用の状態
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
 
   // インライン編集用状態
   const [editingStaffId, setEditingStaffId] = useState<number | null>(null);
@@ -252,6 +257,28 @@ export const MasterManagementView: React.FC<MasterManagementViewProps> = ({
     }
   };
 
+  const handleClearSchedulesConfirm = async () => {
+    if (deleteConfirmText !== '削除') {
+      alert('確認用のテキストが正しくありません。');
+      return;
+    }
+
+    if (!window.confirm('【最終確認】本当にすべてのスケジュールデータを完全に削除してよろしいですか？\nこの操作は元に戻せません。')) {
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      await onClearSchedules();
+      setDeleteConfirmText('');
+      alert('スケジュールデータをすべて削除しました。');
+    } catch (err: any) {
+      alert(err.message || '削除中にエラーが発生しました。');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
 
   const internalTypes = workTypes.filter(t => t.is_internal === 1);
   const fieldTypes = workTypes.filter(t => t.is_internal === 0);
@@ -280,6 +307,13 @@ export const MasterManagementView: React.FC<MasterManagementViewProps> = ({
         >
           <History size={16} />
           変更履歴（監査ログ）
+        </button>
+        <button
+          className={`master-tab-btn ${activeSubTab === 'data_maintenance' ? 'active' : ''}`}
+          onClick={() => setActiveSubTab('data_maintenance')}
+        >
+          <Database size={16} />
+          データ管理
         </button>
       </div>
 
@@ -744,6 +778,57 @@ export const MasterManagementView: React.FC<MasterManagementViewProps> = ({
         {activeSubTab === 'audit_logs' && (
           <div className="master-section">
             <AuditLogView currentUserRole={currentUserRole} />
+          </div>
+        )}
+
+        {/* --- 4. データ管理 --- */}
+        {activeSubTab === 'data_maintenance' && (
+          <div className="master-section">
+            <div className="master-section-header">
+              <h3>データメンテナンス</h3>
+              <p className="helper-text">
+                システム全体のデータクリーンアップや初期化を行います。
+              </p>
+            </div>
+
+            <div className="card data-maintenance-card" style={{ padding: '2rem', border: '1px solid var(--danger-light, #fee2e2)' }}>
+              <h4 style={{ color: 'var(--danger, #dc2626)', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <Trash2 size={20} />
+                スケジュールデータの一括削除
+              </h4>
+              <p style={{ fontSize: '0.9rem', lineHeight: '1.6', marginBottom: '1.5rem' }}>
+                データベース内のすべての予定データ（`schedules`）を完全に消去します。<br />
+                ※物件マスタ, スタッフマスタ, 予定項目マスタ, および変更履歴（監査ログ）は<strong>削除されません</strong>。<br />
+                <strong>この操作は取り消せません。本番環境で実行する際は十分に注意してください。</strong>
+              </p>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', maxWidth: '450px' }}>
+                <div className="form-group">
+                  <label style={{ fontWeight: 600, marginBottom: '0.5rem', display: 'block' }}>
+                    確認のため、下の入力欄に「<span style={{ color: 'var(--danger, #dc2626)' }}>削除</span>」と入力してください。
+                  </label>
+                  <input
+                    type="text"
+                    className="form-control"
+                    placeholder="削除と入力してください"
+                    value={deleteConfirmText}
+                    onChange={(e) => setDeleteConfirmText(e.target.value)}
+                    disabled={isSubmitting}
+                  />
+                </div>
+                
+                <button
+                  type="button"
+                  className="btn btn-danger"
+                  onClick={handleClearSchedulesConfirm}
+                  disabled={isSubmitting || deleteConfirmText !== '削除'}
+                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', alignSelf: 'flex-start' }}
+                >
+                  <Trash2 size={16} />
+                  すべてのスケジュールデータを削除する
+                </button>
+              </div>
+            </div>
           </div>
         )}
       </div>
