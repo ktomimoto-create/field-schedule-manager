@@ -156,14 +156,14 @@
   color: white !important;
 }
 
-/* 2段目ヘッダー: 各項目ヘッダーのsticky固定 (大ヘッダーの高さ分ずらす) */
+/* 2段目ヘッダー: 各項目ヘッダーのsticky固定 (大ヘッダー of 高さ分ずらす) */
 .day-calendar-table th:not(.matrix-day-header-super) {
   position: sticky;
   top: 42px; /* 大ヘッダーの高さ(42px)分下げる */
   background: var(--bg-secondary);
   color: var(--text-secondary);
   font-weight: 600;
-  padding: 0.4rem 0.5rem; /* 左右余白を広げて視認性向上 */
+  padding: 0.4rem 0.35rem; /* 左右余白をわずかに調整して見切れをさらに防ぐ */
   border-right: 1px solid var(--border-cell);
   border-bottom: 2px solid var(--border-glass);
   z-index: 15;
@@ -172,8 +172,6 @@
   height: 32px; /* ヘッダーの窮屈さを緩和 */
   box-sizing: border-box;
   white-space: nowrap; /* テキストの折り返しを防止 */
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 
@@ -301,6 +299,8 @@
   border-right: 1px solid var(--border-cell) !important;
   padding: 0.4rem 0.6rem !important;
   box-sizing: border-box;
+  overflow: visible !important; /* 絶対配置のドロップダウンがはみ出して見えるようにする */
+  z-index: 30 !important; /* 決定的なz-indexを設定してデータセル（tbody）より前面に出す */
 }
 
 .freespace-content-wrapper {
@@ -558,6 +558,7 @@
 .quick-staff-select-container {
   position: relative;
   display: inline-block;
+  z-index: 50; /* 積み重ね文脈を有効にして最前面へ出す準備 */
 }
 
 .quick-select-staff-trigger {
@@ -578,7 +579,7 @@
   border-radius: 6px;
   box-shadow: var(--shadow-md);
   padding: 0.5rem;
-  z-index: 100;
+  z-index: 9999 !important; /* どのようなテーブル要素よりも最前面に表示されるようにする */
   width: 160px;
   display: flex;
   flex-direction: column;
