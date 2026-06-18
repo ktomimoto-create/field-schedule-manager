@@ -396,7 +396,31 @@ export const MasterManagementView: React.FC<MasterManagementViewProps> = ({
   const internalTypes = workTypes.filter(t => t.is_internal === 1);
   const fieldTypes = workTypes.filter(t => t.is_internal === 0);
 
+  // スタッフをコース番号の数値昇順でソート
+  const sortedStaff = React.useMemo(() => {
+    return [...staff].sort((a, b) => {
+      const aCourse = a.default_course ? parseInt(a.default_course, 10) : NaN;
+      const bCourse = b.default_course ? parseInt(b.default_course, 10) : NaN;
+      
+      const aIsNan = isNaN(aCourse);
+      const bIsNan = isNaN(bCourse);
+      
+      // 両方とも数値でない（または設定なし）場合は、文字列順で比較
+      if (aIsNan && bIsNan) {
+        const aVal = a.default_course || '';
+        const bVal = b.default_course || '';
+        return aVal.localeCompare(bVal);
+      }
+      // 片方だけ数値でない場合は、数値でない方を後ろに並べる
+      if (aIsNan) return 1;
+      if (bIsNan) return -1;
+      
+      return aCourse - bCourse;
+    });
+  }, [staff]);
+
   return (
+
     <div className="master-mgmt-container">
       {/* マスタ管理専用サブヘッダー（タブ切り替え） */}
       <div className="master-mgmt-tabs">
@@ -525,8 +549,9 @@ export const MasterManagementView: React.FC<MasterManagementViewProps> = ({
                   </tr>
                 </thead>
                 <tbody>
-                  {staff.map((st) => {
+                  {sortedStaff.map((st) => {
                     const isEditing = editingStaffId === st.id;
+
                     const isActive = st.is_active !== 0;
 
                     return (
