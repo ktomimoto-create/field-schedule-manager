@@ -186,7 +186,7 @@ export const GridView: React.FC<GridViewProps> = ({
     .filter(s => s.date === selectedDate && s.work_type === '休暇')
     .map(s => {
       const st = staff.find(st => st.id === s.staff_id);
-      return st ? st.name : s.staff_name || '不明';
+      return st ? getShortName(st.name) : getShortName(s.staff_name || '不明');
     })
     .filter(Boolean);
 
@@ -320,7 +320,7 @@ export const GridView: React.FC<GridViewProps> = ({
             >
               <option value="all">すべての担当者</option>
               {staff.map(st => (
-                <option key={st.id} value={st.id}>{st.name}</option>
+                <option key={st.id} value={st.id}>{getShortName(st.name)}</option>
               ))}
             </select>
           </div>

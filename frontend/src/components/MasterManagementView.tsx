@@ -126,6 +126,15 @@ export const MasterManagementView: React.FC<MasterManagementViewProps> = ({
         const matchedProfile = profiles.find(p => {
           if (!p.display_name) return false;
           const normDispName = normalizeName(p.display_name);
+
+          // フーギー / ナルマンダフ・フスレンバヤル 用の特別マッチング
+          const isStHoogy = normCleanName.includes('フーギー') || normCleanName.includes('ナルマンダフ') || normCleanName.includes('フスレンバヤル');
+          const isProfHoogy = normDispName.includes('フーギー') || normDispName.includes('ナルマンダフ') || normDispName.includes('フスレンバヤル') || (p.email && p.email.toLowerCase().includes('n_khus'));
+          
+          if (isStHoogy && isProfHoogy) {
+            return true;
+          }
+
           return normDispName.startsWith(normCleanName) || normDispName.includes(normCleanName);
         });
 

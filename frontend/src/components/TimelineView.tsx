@@ -66,7 +66,7 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
   // 休みメンバーの名前一覧
   const holidayStaffNames = staff
     .filter(member => holidayStaffIds.has(member.id))
-    .map(member => member.name);
+    .map(member => getShortName(member.name));
 
   // スタッフの絞り込み
   const filteredStaff = staff.filter(member => {

@@ -1548,7 +1548,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                                                       }}
                                                       disabled={isPopupSubmitting}
                                                     />
-                                                    <span>{st.name}</span>
+                                                    <span>{getShortName(st.name)}</span>
                                                   </label>
                                                 );
                                               })}
@@ -1661,7 +1661,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                                                       }
                                                     }}
                                                   />
-                                                  <span>{st.name}</span>
+                                                  <span>{getShortName(st.name)}</span>
                                                 </label>
                                               );
                                             })}
@@ -1836,7 +1836,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                                       >
                                         <option value="">- 未設定 -</option>
                                         {staff.filter(st => st.is_active !== 0).map(st => (
-                                          <option key={st.id} value={st.id}>{st.name}</option>
+                                          <option key={st.id} value={st.id}>{getShortName(st.name)}</option>
                                         ))}
                                       </select>
                                     </td>
@@ -1850,13 +1850,38 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                                       }}
                                     >
                                       {staffMember ? (
-                                        <span className="staff-tag-cell" style={{ borderLeft: '3px solid var(--primary)' }}>
-                                          {staffMember.name}
-                                        </span>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', width: '100%' }}>
+                                          {staffMember.avatar_url ? (
+                                            <img 
+                                              src={staffMember.avatar_url} 
+                                              alt={staffMember.name} 
+                                              style={{ width: '22px', height: '22px', borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} 
+                                            />
+                                          ) : (
+                                            <div style={{ 
+                                              width: '22px', 
+                                              height: '22px', 
+                                              borderRadius: '50%', 
+                                              backgroundColor: 'var(--primary, #4f46e5)', 
+                                              color: 'white', 
+                                              display: 'flex', 
+                                              alignItems: 'center', 
+                                              justifyContent: 'center', 
+                                              fontSize: '0.65rem', 
+                                              fontWeight: 'bold',
+                                              flexShrink: 0
+                                            }}>
+                                              {getShortName(staffMember.name).substring(0, 1)}
+                                            </div>
+                                          )}
+                                          <span className="staff-tag-cell" style={{ borderLeft: '3px solid var(--primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                            {getShortName(staffMember.name)}
+                                          </span>
+                                        </div>
                                       ) : (
                                         schedule.staff_name ? (
                                           <span className="staff-tag-cell" style={{ borderLeft: '3px solid #6b7280' }}>
-                                            {schedule.staff_name}
+                                            {getShortName(schedule.staff_name)}
                                           </span>
                                         ) : (
                                           <span style={{ color: '#94a3b8', fontStyle: 'italic', fontSize: '0.85rem' }}>未設定</span>
