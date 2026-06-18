@@ -97,7 +97,7 @@ export const MasterManagementView: React.FC<MasterManagementViewProps> = ({
       // 2. 現在のスタッフリストを取得（最新の状態）
       const { data: currentStaff, error: staffError } = await supabase
         .from('staff')
-        .select('id, name, email, employee_code');
+        .select('id, name, email, employee_code, default_course');
 
       if (staffError) {
         throw new Error(`スタッフリストの取得に失敗しました: ${staffError.message}`);
@@ -108,6 +108,14 @@ export const MasterManagementView: React.FC<MasterManagementViewProps> = ({
       const updatePromises = [];
 
       for (const st of currentStaff || []) {
+        // 外注メンバー（FE, SF, FR で始まる、またはコース番号が90以降）は同期対象外としてスキップ
+        const isOutsourceName = /^(FE|SF|FR)/i.test(st.name);
+        const isOutsourceCourse = st.default_course ? parseInt(st.default_course, 10) >= 90 : false;
+        if (isOutsourceName || isOutsourceCourse) {
+          skippedCount++;
+          continue;
+        }
+
         // すでにダミーアドレス以外（example.com以外の本物のメールアドレス）が設定されている場合は上書きしない
         if (st.email && !st.email.toLowerCase().endsWith('@example.com')) {
           skippedCount++;
@@ -616,16 +624,42 @@ export const MasterManagementView: React.FC<MasterManagementViewProps> = ({
                     return (
                       <tr key={st.id} className={`master-table-row ${!isActive ? 'row-disabled' : ''}`}>
                         <td>
-                          {isEditing ? (
-                            <input
-                              type="text"
-                              className="form-control form-control-sm"
-                              value={editStaffName}
-                              onChange={(e) => setEditStaffName(e.target.value)}
-                            />
-                          ) : (
-                            <span className="staff-name-text">{st.name}</span>
-                          )}
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                            {st.avatar_url ? (
+                              <img 
+                                src={st.avatar_url} 
+                                alt={st.name} 
+                                className="master-staff-avatar" 
+                                style={{ width: '28px', height: '28px', borderRadius: '50%', objectFit: 'cover' }}
+                              />
+                            ) : (
+                              <div className="master-staff-avatar-placeholder" style={{ 
+                                backgroundColor: 'var(--primary)', 
+                                width: '28px', 
+                                height: '28px', 
+                                borderRadius: '50%', 
+                                display: 'flex', 
+                                alignItems: 'center', 
+                                justifyContent: 'center', 
+                                color: 'white', 
+                                fontSize: '0.8rem', 
+                                fontWeight: 'bold' 
+                              }}>
+                                {st.name.replace(/^(FE|SF|FR)/i, '').trim().charAt(0) || st.name.charAt(0)}
+                              </div>
+                            )}
+                            {isEditing ? (
+                              <input
+                                type="text"
+                                className="form-control form-control-sm"
+                                value={editStaffName}
+                                onChange={(e) => setEditStaffName(e.target.value)}
+                                style={{ flex: 1 }}
+                              />
+                            ) : (
+                              <span className="staff-name-text">{st.name}</span>
+                            )}
+                          </div>
                         </td>
                         <td>
                           {isEditing ? (
