@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import type { Staff, WorkType } from '../types';
 import { AuditLogView } from './AuditLogView';
-import { Users, Sliders, History, Plus, Trash2, Edit2, Check, X, Shield, ChevronUp, ChevronDown, Database } from 'lucide-react';
-import { supabase } from '../supabaseClient';
+import { Users, Sliders, History, Plus, Trash2, Edit2, Check, X, Shield, ChevronUp, ChevronDown, Database, RefreshCw } from 'lucide-react';
+import { supabase, talkScriptSupabase } from '../supabaseClient';
+
 import './MasterManagementView.css';
 
 interface MasterManagementViewProps {
@@ -46,6 +47,8 @@ export const MasterManagementView: React.FC<MasterManagementViewProps> = ({
   const [editingTypeId, setEditingTypeId] = useState<number | null>(null);
   const [editTypeName, setEditTypeName] = useState('');
 
+  const [isSyncing, setIsSyncing] = useState(false);
+
   if (currentUserRole !== 'admin') {
     return (
       <div className="card text-center" style={{ padding: '3rem' }}>
@@ -55,7 +58,117 @@ export const MasterManagementView: React.FC<MasterManagementViewProps> = ({
     );
   }
 
+  const normalizeName = (str: string) => {
+    return str
+      .replace(/﨑/g, '崎')
+      .replace(/髙/g, '高')
+      .replace(/邊/g, '辺')
+      .replace(/邉/g, '辺')
+      .replace(/\s+/g, '') // 空白除去
+      .toLowerCase()
+      .trim();
+  };
+
+  const handleSyncMicrosoftAccounts = async () => {
+    const proceed = window.confirm(
+      "外部プロジェクトのMicrosoftプロフィールと同期します。\n" +
+      "スタッフの名前（苗字）とプロフィールの氏名が一致する人のメールアドレスを一括更新します。\n\n" +
+      "※同期処理を開始してもよろしいですか？"
+    );
+    if (!proceed) return;
+
+    setIsSyncing(true);
+    try {
+      // 1. 外部 profiles の取得
+      const { data: profiles, error: profError } = await talkScriptSupabase
+        .from('profiles')
+        .select('display_name, email');
+
+      if (profError) {
+        throw new Error(`外部プロフィールの取得に失敗しました: ${profError.message}`);
+      }
+
+      if (!profiles || profiles.length === 0) {
+        throw new Error('外部プロフィールデータが見つかりませんでした。');
+      }
+
+      // 2. 現在のスタッフリストを取得（最新の状態）
+      const { data: currentStaff, error: staffError } = await supabase
+        .from('staff')
+        .select('id, name, email');
+
+      if (staffError) {
+        throw new Error(`スタッフリストの取得に失敗しました: ${staffError.message}`);
+      }
+
+      let matchedCount = 0;
+      let skippedCount = 0;
+      const updatePromises = [];
+
+      for (const st of currentStaff || []) {
+        // prefix (FE, SF, FR) を取り除いたクリーンな苗字
+        const cleanName = st.name.replace(/^(FE|SF|FR)/i, '').trim();
+        if (!cleanName) {
+          skippedCount++;
+          continue;
+        }
+
+        const normCleanName = normalizeName(cleanName);
+
+        // profiles からマッチするものを探す
+        const matchedProfile = profiles.find(p => {
+          if (!p.display_name) return false;
+          const normDispName = normalizeName(p.display_name);
+          return normDispName.startsWith(normCleanName) || normDispName.includes(normCleanName);
+        });
+
+        if (matchedProfile && matchedProfile.email) {
+          // メールアドレスがすでに同じならスキップ
+          if (st.email && st.email.toLowerCase().trim() === matchedProfile.email.toLowerCase().trim()) {
+            skippedCount++;
+            continue;
+          }
+
+          // 更新クエリを準備
+          updatePromises.push(
+            supabase
+              .from('staff')
+              .update({ email: matchedProfile.email.toLowerCase().trim() })
+              .eq('id', st.id)
+              .then(({ error }) => {
+                if (error) {
+                  console.error(`Failed to update ${st.name}:`, error.message);
+                  return false;
+                }
+                matchedCount++;
+                return true;
+              })
+          );
+        } else {
+          skippedCount++;
+        }
+      }
+
+      if (updatePromises.length > 0) {
+        await Promise.all(updatePromises);
+      }
+
+      alert(
+        `同期処理が完了しました！\n\n` +
+        `・新規同期（メール更新）: ${matchedCount} 名\n` +
+        `・スキップ（未マッチまたは既に同期済）: ${skippedCount} 名`
+      );
+
+      onRefresh();
+    } catch (err: any) {
+      alert(err.message || '同期中にエラーが発生しました。');
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
   // --- スタッフ管理操作 ---
+
   const handleAddStaff = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newStaffName.trim()) return;
@@ -321,12 +434,24 @@ export const MasterManagementView: React.FC<MasterManagementViewProps> = ({
         {/* --- 1. スタッフ設定 --- */}
         {activeSubTab === 'staff' && (
           <div className="master-section">
-            <div className="master-section-header">
-              <h3>スタッフ（対応者）マスタ管理</h3>
-              <p className="helper-text">
-                予定表や担当者選択ドロップダウンに表示されるスタッフ情報を管理します。
-              </p>
+            <div className="master-section-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
+              <div>
+                <h3>スタッフ（対応者）マスタ管理</h3>
+                <p className="helper-text">
+                  予定表や担当者選択ドロップダウンに表示されるスタッフ情報を管理します。
+                </p>
+              </div>
+              <button 
+                className="btn btn-secondary"
+                onClick={handleSyncMicrosoftAccounts}
+                disabled={isSyncing}
+                style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', whiteSpace: 'nowrap' }}
+              >
+                <RefreshCw size={16} className={isSyncing ? 'spin-animation' : ''} />
+                {isSyncing ? 'Microsoftアカウント同期中...' : 'Microsoftアカウント同期 (アバター連携)'}
+              </button>
             </div>
+
 
             {/* 新規追加フォーム */}
             <form onSubmit={handleAddStaff} className="master-add-form card">
