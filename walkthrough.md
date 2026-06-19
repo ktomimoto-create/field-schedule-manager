@@ -456,3 +456,23 @@
 
 #### 3. ビルド確認
 - フロントエンドプロジェクトで `npm run build` を再度実行し、正常にビルドが成功することを確認しました。
+
+## [2026-06-19] カレンダーヘッダー（matrix-header）のレスポンシブ崩れ・ボタン縦潰れ防止の対応
+
+### 変更の目的
+画面幅が縮小された際に、カレンダーヘッダーの操作ボタン群（「スプレッドシートから貼り付け」「予定を追加」など）の幅が極端に狭まってテキストが縦1文字並びに潰れてしまう不具合を解決し、狭い画面でもスマートに自動折り返しされるレイアウトを実現します。
+
+### 変更内容
+
+#### 1. レイアウト構造の最適化
+* **[CalendarView.tsx](file:///C:/Users/000644/.gemini/antigravity/scratch/field-schedule-manager/frontend/src/components/CalendarView.tsx)**:
+  - カレンダーヘッダー（`matrix-header`）の直下を「タイトル・期間」と「操作コントロール群（`matrix-controls`）」の2つに構造分離し、不要な余白や配置のインラインスタイル定義を排除しました。
+  - これにより、画面サイズに応じてコントロール群全体が綺麗に下段へと自動折り返しされるようになり、要素が横に詰まって潰れる現象を防ぎます。
+
+#### 2. ボタンの縦潰れ防止・改行抑止ルールの適用
+* **[CalendarView.css](file:///C:/Users/000644/.gemini/antigravity/scratch/field-schedule-manager/frontend/src/components/CalendarView.css)**:
+  - コントロール群のコンテナ `.matrix-controls` を定義し、`flex-wrap: wrap` を有効化して要素の改行落ちを制御しました。
+  - ヘッダー内の全ボタン要素に対して `white-space: nowrap` と `flex-shrink: 0` を `!important` で強制適用し、親要素の縮小に伴うボタン自身の変形やテキストの折り返し（縦潰れ）を完全に防止しました。
+
+#### 3. ビルド確認
+- フロントエンドプロジェクトで `npm run build` を実行し、ビルドがエラーなく正常に完了することを確認しました。

@@ -23,6 +23,29 @@
   gap: 1.5rem;
 }
 
+.matrix-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.matrix-nav-buttons {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.matrix-nav-buttons button,
+.matrix-controls button {
+  white-space: nowrap !important;
+  flex-shrink: 0 !important;
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  height: 32px;
+}
+
 .matrix-title-nav h2 {
   font-size: 1.4rem;
   font-weight: 700;
