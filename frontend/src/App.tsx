@@ -416,6 +416,66 @@ function App() {
       }
 
 
+      // 号機 (unit_number) が指定されている場合、物件マスタから自動補完
+      if (payload.unit_number && payload.unit_number.trim() !== '') {
+        let currentPropertyName = payload.property_name;
+        let currentArea = payload.area;
+        let currentPrefecture = payload.prefecture;
+
+        if (isEdit) {
+          const existing = schedules.find(s => s.id === Number(scheduleData.id));
+          if (existing) {
+            if (currentPropertyName === undefined) currentPropertyName = existing.property_name;
+            if (currentArea === undefined) currentArea = existing.area;
+            if (currentPrefecture === undefined) currentPrefecture = existing.prefecture;
+          }
+        }
+
+        const needsNameAutoFill = !currentPropertyName || currentPropertyName.trim() === '' || currentPropertyName === '（物件名未定）';
+        const needsAreaAutoFill = !currentArea || currentArea.trim() === '';
+        const needsPrefAutoFill = !currentPrefecture || currentPrefecture.trim() === '';
+
+        if (needsNameAutoFill || needsAreaAutoFill || needsPrefAutoFill) {
+          const { data: propData, error: propError } = await supabase
+            .from('properties')
+            .select('*')
+            .eq('unit_number', payload.unit_number.trim())
+            .limit(1);
+
+          if (!propError && propData && propData.length > 0) {
+            const prop = propData[0];
+            
+            if (needsNameAutoFill) {
+              payload.property_name = prop.property_name;
+            }
+            
+            if (prop.address) {
+              const prefs = ['東京', '神奈川', '埼玉', '千葉', '長野'];
+              let matchedPref = '';
+              let restAddress = prop.address;
+              
+              for (const p of prefs) {
+                if (prop.address.startsWith(p)) {
+                  matchedPref = p;
+                  restAddress = prop.address.substring(p.length);
+                  break;
+                }
+              }
+              
+              if (needsPrefAutoFill && matchedPref) {
+                payload.prefecture = matchedPref;
+              }
+              
+              if (needsAreaAutoFill) {
+                const spaceIdx = restAddress.indexOf(' ');
+                const cleanAddress = spaceIdx !== -1 ? restAddress.substring(0, spaceIdx) : restAddress;
+                payload.area = cleanAddress;
+              }
+            }
+          }
+        }
+      }
+
       if (isEdit) {
         const idVal = Number(payload.id);
         delete payload.id;
