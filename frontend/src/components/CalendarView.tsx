@@ -636,6 +636,9 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
     const isTemp = typeof scheduleId === 'string' && scheduleId.startsWith('temp-');
     
     if (isTemp) {
+      if (!value || value.trim() === '') {
+        return;
+      }
       const parts = String(scheduleId).split('-');
       const isUnassigned = String(scheduleId).startsWith('temp-unassigned-');
       const tempStaffName = isUnassigned ? '' : parts[1];
