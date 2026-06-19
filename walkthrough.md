@@ -539,8 +539,13 @@
 #### 2. フォーカスアウト（onBlur）時のリアルタイム自動補完処理の追加
 * **[MODIFY] [ScheduleModal.tsx](file:///C:/Users/000644/.gemini/antigravity/scratch/field-schedule-manager/frontend/src/components/ScheduleModal.tsx)**:
   - 号機入力フィールドからフォーカスアウトした際に呼び出される `handleUnitNumberBlur` 関数を実装しました。
-  - 入力された号機番号をキーに物件検索APIを叩き、完全一致する物件マスタが存在し、かつ物件名等の項目が空欄（またはデフォルト値）の場合に、物件名、ボックス数、型式、エリア、県別を自動で画面上のステートへ代入補完します。
+  - 入力された号機番号をキーに物件マスタを検索し、完全一致する物件マスタが存在し、かつ物件名等の項目が空欄（またはデフォルト値）の場合に、物件名、ボックス数、型式、エリア、県別を自動で画面上のステートへ代入補完します。
   - JSX内の号機 `input` タグの `onBlur` イベントハンドラをこの `handleUnitNumberBlur` に変更しました。
 
-#### 3. ビルド確認
+#### 3. 検索および自動補完のSupabase直接接続への切り替え
+* **[MODIFY] [ScheduleModal.tsx](file:///C:/Users/000644/.gemini/antigravity/scratch/field-schedule-manager/frontend/src/components/ScheduleModal.tsx)**:
+  - サジェスト（あいまい検索：`handleUnitNumberChange`）およびフォーカスアウト時の自動補完（完全一致検索：`handleUnitNumberBlur`）のデータ取得方法について、従来のローカルAPI（`localhost:5000`）経由の fetch 処理から、`supabase` クライアントを用いたデータベース（`properties` テーブル）の直接クエリへ移行しました。
+  - これにより、バックエンドAPIサーバーが起動していない環境でも、確実に自動補完およびサジェスト表示が動作する強固な構成になりました。
+
+#### 4. ビルド確認
 - フロントエンドプロジェクトで `npm run build` を実行し、ビルドがエラーなく正常に完了することを確認しました。

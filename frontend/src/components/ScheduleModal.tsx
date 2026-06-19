@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import type { Schedule, Staff, ScheduleStatus, WorkType } from '../types';
 import { X, Mail } from 'lucide-react';
 import { resolveAddress } from '../utils/addressResolver';
+import { supabase } from '../supabaseClient';
 
 interface ScheduleModalProps {
   isOpen: boolean;
@@ -78,9 +79,12 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
 
     const timeout = setTimeout(async () => {
       try {
-        const res = await fetch(`http://localhost:5000/api/properties/search?q=${encodeURIComponent(val)}`);
-        if (res.ok) {
-          const data = await res.json();
+        const { data, error } = await supabase
+          .from('properties')
+          .select('*')
+          .ilike('unit_number', `%${val}%`)
+          .limit(10);
+        if (!error && data) {
           setPropertySuggestions(data);
           setShowSuggestions(data.length > 0);
         }
@@ -93,7 +97,7 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
   };
 
   const handleUnitNumberBlur = async () => {
-    // サジェストを非表示（200ms of 遅延を設けることでリスト項目のクリックを可能にする）
+    // サジェストを非表示（200msの遅延を設けることでリスト項目のクリックを可能にする）
     setTimeout(() => setShowSuggestions(false), 200);
 
     const val = unitNumber.trim();
@@ -106,27 +110,28 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
       const needsPrefAutoFill = !prefecture || prefecture.trim() === '';
 
       if (needsNameAutoFill || needsAreaAutoFill || needsPrefAutoFill) {
-        // バックエンドAPIを叩いて、入力値で検索
-        const res = await fetch(`http://localhost:5000/api/properties/search?q=${encodeURIComponent(val)}`);
-        if (res.ok) {
-          const data = await res.json();
-          // 号機が完全一致する物件を検索
-          const matched = data.find((p: any) => p.unit_number && String(p.unit_number).trim() === val);
-          if (matched) {
-            if (needsNameAutoFill) {
-              setPropertyName(matched.property_name || '');
+        // Supabaseから完全一致で検索
+        const { data, error } = await supabase
+          .from('properties')
+          .select('*')
+          .eq('unit_number', val)
+          .limit(1);
+
+        if (!error && data && data.length > 0) {
+          const matched = data[0];
+          if (needsNameAutoFill) {
+            setPropertyName(matched.property_name || '');
+          }
+          setBox(matched.box_count ? String(matched.box_count) : '');
+          setType(matched.model_type || '');
+          
+          if (matched.address) {
+            const { area: determinedArea, prefecture: determinedPref } = resolveAddress(matched.address);
+            if (needsAreaAutoFill && determinedArea) {
+              setArea(determinedArea);
             }
-            setBox(matched.box_count ? String(matched.box_count) : '');
-            setType(matched.model_type || '');
-            
-            if (matched.address) {
-              const { area: determinedArea, prefecture: determinedPref } = resolveAddress(matched.address);
-              if (needsAreaAutoFill && determinedArea) {
-                setArea(determinedArea);
-              }
-              if (needsPrefAutoFill && determinedPref) {
-                setPrefecture(determinedPref);
-              }
+            if (needsPrefAutoFill && determinedPref) {
+              setPrefecture(determinedPref);
             }
           }
         }
