@@ -2,7 +2,7 @@ import React, { useState, useRef } from 'react';
 import type { Schedule, Staff, WorkType } from '../types';
 import { getShortName } from '../types';
 
-import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Edit2, Plus } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Edit2, Plus, Search } from 'lucide-react';
 import './CalendarView.css';
 
 // ローカルタイムゾーン基準で YYYY-MM-DD 形式の日付文字列を生成する
@@ -242,6 +242,10 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
   const [selectedScheduleId, setSelectedScheduleId] = useState<number | string | null>(null);
   const [selectedEmptyCell, setSelectedEmptyCell] = useState<{ date: string; staffId: number } | null>(null);
   const [copiedSchedule, setCopiedSchedule] = useState<Schedule | null>(null);
+
+  // === 検索用のステートとRef ===
+  const [searchQuery, setSearchQuery] = useState<string>('');
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
   // 複数セル矩形ドラッグ選択用のステート
   const [selectionStart, setSelectionStart] = useState<CellCoordinate | null>(null);
@@ -638,7 +642,126 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
   // キーボードショートカットおよびクリップボード貼り付けの監視
   React.useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // 検索窓フォーカス中は、Enter/Esc/矢印移動のショートカットを通常通り動作させるか、それとも無視するか
+      // 検索窓での入力中は矢印移動しないようにする
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLSelectElement || e.target instanceof HTMLTextAreaElement) {
+        // もし検索窓から Escape が押されたらフォーカスを外し、入力をそのまま残す/消す
+        if (e.key === 'Escape' && e.target === searchInputRef.current) {
+          searchInputRef.current.blur();
+        }
+        return;
+      }
+
+      if (editingCell) {
+        return;
+      }
+
+      // Ctrl + F
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'f') {
+        e.preventDefault();
+        if (searchInputRef.current) {
+          searchInputRef.current.focus();
+          searchInputRef.current.select();
+        }
+        return;
+      }
+
+      // 矢印キー移動
+      if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+        if (!selectionStart) {
+          // 選択セルがない場合、最初のセルを選択
+          const firstDate = calendarDates[0];
+          if (firstDate) {
+            const daySchedules = getSortedDaySchedules(firstDate);
+            const sched = daySchedules[0];
+            if (sched) {
+              const firstField = FIELD_ORDER[0];
+              setSelectedCell({ id: sched.id, field: firstField });
+              setSelectedScheduleId(sched.id);
+              setSelectedEmptyCell(null);
+              setSelectionStart({ dateStr: firstDate, rowIndex: 0, field: firstField });
+              setSelectionEnd({ dateStr: firstDate, rowIndex: 0, field: firstField });
+            }
+          }
+          e.preventDefault();
+          return;
+        }
+
+        e.preventDefault();
+
+        const currentFieldIdx = FIELD_ORDER.indexOf(selectionStart.field);
+        let nextFieldIdx = currentFieldIdx;
+        let nextDateStr = selectionStart.dateStr;
+        let nextRowIndex = selectionStart.rowIndex;
+
+        if (e.key === 'ArrowLeft') {
+          nextFieldIdx = currentFieldIdx - 1;
+          if (nextFieldIdx < 0) {
+            const currentDateIdx = calendarDates.indexOf(selectionStart.dateStr);
+            if (currentDateIdx > 0) {
+              nextDateStr = calendarDates[currentDateIdx - 1];
+              nextFieldIdx = FIELD_ORDER.length - 1;
+            } else {
+              return;
+            }
+          }
+        } else if (e.key === 'ArrowRight') {
+          nextFieldIdx = currentFieldIdx + 1;
+          if (nextFieldIdx >= FIELD_ORDER.length) {
+            const currentDateIdx = calendarDates.indexOf(selectionStart.dateStr);
+            if (currentDateIdx < calendarDates.length - 1) {
+              nextDateStr = calendarDates[currentDateIdx + 1];
+              nextFieldIdx = 0;
+            } else {
+              return;
+            }
+          }
+        } else if (e.key === 'ArrowUp') {
+          nextRowIndex = selectionStart.rowIndex - 1;
+          if (nextRowIndex < 0) return;
+        } else if (e.key === 'ArrowDown') {
+          nextRowIndex = selectionStart.rowIndex + 1;
+          const daySchedules = getSortedDaySchedules(selectionStart.dateStr);
+          if (nextRowIndex >= daySchedules.length) return;
+        }
+
+        const nextField = FIELD_ORDER[nextFieldIdx];
+        const daySchedules = getSortedDaySchedules(nextDateStr);
+        const sched = daySchedules[nextRowIndex];
+        if (sched) {
+          setSelectedCell({ id: sched.id, field: nextField });
+          setSelectedScheduleId(sched.id);
+          setSelectedEmptyCell(null);
+          setSelectionStart({ dateStr: nextDateStr, rowIndex: nextRowIndex, field: nextField });
+          setSelectionEnd({ dateStr: nextDateStr, rowIndex: nextRowIndex, field: nextField });
+
+          // 自動スクロール処理
+          setTimeout(() => {
+            const cellId = `cell-${nextDateStr}-${nextRowIndex}-${nextField}`;
+            const cellElem = document.getElementById(cellId);
+            if (cellElem) {
+              cellElem.scrollIntoView({
+                behavior: 'smooth',
+                block: 'nearest',
+                inline: 'nearest'
+              });
+            }
+          }, 10);
+        }
+        return;
+      }
+
+      // Enterキーでの編集開始
+      if (e.key === 'Enter') {
+        if (selectedCell && selectionStart) {
+          const daySchedules = getSortedDaySchedules(selectionStart.dateStr);
+          const sched = daySchedules[selectionStart.rowIndex];
+          if (sched && !isTempSchedule(sched)) {
+            e.preventDefault();
+            setEditingCell({ id: selectedCell.id, field: selectedCell.field });
+            setEditingValue(String(sched[selectedCell.field] || ''));
+          }
+        }
         return;
       }
 
@@ -917,7 +1040,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('paste', handlePasteEvent);
     };
-  }, [selectionStart, selectionEnd, isSelecting, selectedScheduleId, copiedSchedule, selectedEmptyCell, selectedCell, schedules, staff, workTypes]);
+  }, [selectionStart, selectionEnd, isSelecting, selectedScheduleId, copiedSchedule, selectedEmptyCell, selectedCell, schedules, staff, workTypes, editingCell]);
 
   // コンテキストメニュー非表示用
   React.useEffect(() => {
@@ -974,10 +1097,17 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
     const isEditing = editingCell?.id === schedule.id && editingCell?.field === field;
     const schedId = schedule.id;
 
+    // 検索一致判定
+    const cellValueStr = schedule[field] ? String(schedule[field]).toLowerCase() : '';
+    const isCellSearchMatch = searchQuery && cellValueStr.includes(searchQuery.toLowerCase());
+    const searchMatchClass = isCellSearchMatch ? 'cell-search-match' : '';
+
+    const cellId = `cell-${schedule.date}-${rowIndex}-${field}`;
+
     if (isEditing) {
       if (field === 'work_type') {
         return (
-          <td className={className} style={style}>
+          <td id={cellId} className={className} style={style}>
             <select
               className="inline-edit-select"
               value={editingValue}
@@ -994,7 +1124,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
       }
       
       return (
-        <td className={className} style={style}>
+        <td id={cellId} className={className} style={style}>
           <input
             type="text"
             className="inline-edit-input"
@@ -1016,7 +1146,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
 
     const value = schedule[field];
     const selectionClass = getSelectionClassName(schedule.date, rowIndex, field);
-    const cellClass = `${className} ${selectionClass}`;
+    const cellClass = `${className} ${selectionClass} ${searchMatchClass}`;
     
     if (field === 'staff_name') {
       const matchedStaff = staff.find(st => st.id === schedule.staff_id || st.name === value);
@@ -1025,6 +1155,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
 
       return (
         <td 
+          id={cellId}
           className={cellClass} 
           style={style}
           title={title || undefined}
@@ -1072,6 +1203,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
       const isTemp = typeof schedId === 'string' && (schedId.startsWith('temp-') || schedId.startsWith('dummy-'));
       return (
         <td 
+          id={cellId}
           className={cellClass} 
           style={style}
           title={title || undefined}
@@ -1106,6 +1238,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
 
     return (
       <td 
+        id={cellId}
         className={cellClass} 
         style={style}
         title={title || undefined}
@@ -1345,6 +1478,27 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
               <Plus size={14} style={{ marginRight: '4px' }} />
               予定を追加
             </button>
+            <div className="calendar-search-wrapper">
+              <Search size={14} className="calendar-search-icon" />
+              <input
+                ref={searchInputRef}
+                type="text"
+                className="calendar-search-input"
+                placeholder="物件名・対応者名で検索 (Ctrl+F)"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  className="calendar-search-clear-btn"
+                  onClick={() => setSearchQuery('')}
+                  title="検索をクリア"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -1809,10 +1963,21 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                                if (isDraft) statusClass = 'row-cell-draft';
                                if (isCancelled) statusClass = 'row-cell-cancelled';
 
+                               // 検索一致判定
+                               const isSearchMatch = searchQuery ? (
+                                 (schedule.property_name && schedule.property_name.toLowerCase().includes(searchQuery.toLowerCase())) ||
+                                 (schedule.staff_name && schedule.staff_name.toLowerCase().includes(searchQuery.toLowerCase()))
+                               ) : false;
+
+                               let searchClass = '';
+                               if (searchQuery) {
+                                 searchClass = isSearchMatch ? 'row-search-match' : 'row-search-no-match';
+                               }
+
                               return (
                                 <tr 
                                   key={rowIndex} 
-                                  className={`parallel-calendar-row ${selectedScheduleId === schedule.id ? 'selected-row' : ''}`}
+                                  className={`parallel-calendar-row ${selectedScheduleId === schedule.id ? 'selected-row' : ''} ${searchClass}`}
                                   onClick={() => {
                                     setSelectedScheduleId(schedule.id);
                                     setSelectedEmptyCell(null);
@@ -1837,7 +2002,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                                     fontWeight: schedule.target_time === '必ず' ? 'bold' : 'normal'
                                   })}
                                   {editingCell?.id === schedule.id && editingCell?.field === 'staff_name' ? (
-                                    <td className={`${statusClass} ${isToday ? 'today-td' : ''}`}>
+                                    <td id={`cell-${day.dateStr}-${rowIndex}-staff_name`} className={`${statusClass} ${isToday ? 'today-td' : ''}`}>
                                       <select
                                         className="inline-edit-select"
                                         value={String(schedule.staff_id || '')}
@@ -1899,53 +2064,60 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                                       </select>
                                     </td>
                                   ) : (
-                                    <td 
-                                      className={`${statusClass} ${isToday ? 'today-td' : ''} ${getSelectionClassName(day.dateStr, rowIndex, 'staff_name')}`}
-                                      onMouseDown={(e) => handleCellMouseDown(e, day.dateStr, rowIndex, 'staff_name', schedule.id)}
-                                      onMouseEnter={() => handleCellMouseEnter(day.dateStr, rowIndex, 'staff_name')}
-                                      onDoubleClick={() => {
-                                        setEditingCell({ id: schedule.id, field: 'staff_name' });
-                                      }}
-                                    >
-                                      {staffMember ? (
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', width: '100%' }}>
-                                          {staffMember.avatar_url ? (
-                                            <img 
-                                              src={staffMember.avatar_url} 
-                                              alt={staffMember.name} 
-                                              style={{ width: '22px', height: '22px', borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} 
-                                            />
-                                          ) : (
-                                            <div style={{ 
-                                              width: '22px', 
-                                              height: '22px', 
-                                              borderRadius: '50%', 
-                                              backgroundColor: 'var(--primary, #4f46e5)', 
-                                              color: 'white', 
-                                              display: 'flex', 
-                                              alignItems: 'center', 
-                                              justifyContent: 'center', 
-                                              fontSize: '0.65rem', 
-                                              fontWeight: 'bold',
-                                              flexShrink: 0
-                                            }}>
-                                              {getShortName(staffMember.name).substring(0, 1)}
+                                    (() => {
+                                      const isStaffNameMatch = searchQuery && schedule.staff_name && schedule.staff_name.toLowerCase().includes(searchQuery.toLowerCase());
+                                      const staffSearchClass = isStaffNameMatch ? 'cell-search-match' : '';
+                                      return (
+                                        <td 
+                                          id={`cell-${day.dateStr}-${rowIndex}-staff_name`}
+                                          className={`${statusClass} ${isToday ? 'today-td' : ''} ${getSelectionClassName(day.dateStr, rowIndex, 'staff_name')} ${staffSearchClass}`}
+                                          onMouseDown={(e) => handleCellMouseDown(e, day.dateStr, rowIndex, 'staff_name', schedule.id)}
+                                          onMouseEnter={() => handleCellMouseEnter(day.dateStr, rowIndex, 'staff_name')}
+                                          onDoubleClick={() => {
+                                            setEditingCell({ id: schedule.id, field: 'staff_name' });
+                                          }}
+                                        >
+                                          {staffMember ? (
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', width: '100%' }}>
+                                              {staffMember.avatar_url ? (
+                                                <img 
+                                                  src={staffMember.avatar_url} 
+                                                  alt={staffMember.name} 
+                                                  style={{ width: '22px', height: '22px', borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} 
+                                                />
+                                              ) : (
+                                                <div style={{ 
+                                                  width: '22px', 
+                                                  height: '22px', 
+                                                  borderRadius: '50%', 
+                                                  backgroundColor: 'var(--primary, #4f46e5)', 
+                                                  color: 'white', 
+                                                  display: 'flex', 
+                                                  alignItems: 'center', 
+                                                  justifyContent: 'center', 
+                                                  fontSize: '0.65rem', 
+                                                  fontWeight: 'bold',
+                                                  flexShrink: 0
+                                                }}>
+                                                  {getShortName(staffMember.name).substring(0, 1)}
+                                                </div>
+                                              )}
+                                              <span className="staff-tag-cell" style={{ borderLeft: '3px solid var(--primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                {getShortName(staffMember.name)}
+                                              </span>
                                             </div>
+                                          ) : (
+                                            schedule.staff_name ? (
+                                              <span className="staff-tag-cell" style={{ borderLeft: '3px solid #6b7280' }}>
+                                                {getShortName(schedule.staff_name)}
+                                              </span>
+                                            ) : (
+                                              <span style={{ color: '#94a3b8', fontStyle: 'italic', fontSize: '0.85rem' }}>未設定</span>
+                                            )
                                           )}
-                                          <span className="staff-tag-cell" style={{ borderLeft: '3px solid var(--primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                            {getShortName(staffMember.name)}
-                                          </span>
-                                        </div>
-                                      ) : (
-                                        schedule.staff_name ? (
-                                          <span className="staff-tag-cell" style={{ borderLeft: '3px solid #6b7280' }}>
-                                            {getShortName(schedule.staff_name)}
-                                          </span>
-                                        ) : (
-                                          <span style={{ color: '#94a3b8', fontStyle: 'italic', fontSize: '0.85rem' }}>未設定</span>
-                                        )
-                                      )}
-                                    </td>
+                                        </td>
+                                      );
+                                    })()
                                   )}
                                   {renderEditableCell(schedule, rowIndex, 'area', `${statusClass} ${isToday ? 'today-td' : ''}`)}
                                   {renderEditableCell(schedule, rowIndex, 'prefecture', `${statusClass} ${isToday ? 'today-td' : ''}`)}

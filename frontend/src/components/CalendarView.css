@@ -244,32 +244,34 @@
 
 /* 確定予定の基本行セル */
 .row-cell-confirmed {
-  background: var(--bg-secondary) !important;
+  background: rgba(16, 185, 129, 0.06) !important;
   color: var(--text-primary);
   cursor: pointer;
 }
 
 .row-cell-confirmed:hover {
-  background: var(--bg-empty-hover) !important;
+  background: rgba(16, 185, 129, 0.12) !important;
 }
 
 .row-cell-confirmed.first-status-cell {
-  border-left: 4px solid #10b981 !important; /* 左側に緑色のアクセントバー */
+  border-left: 5px solid #10b981 !important; /* 左側に緑色のアクセントバー */
+  position: relative;
 }
 
 /* 仮予定の基本行セル */
 .row-cell-draft {
-  background: var(--bg-secondary) !important;
+  background: rgba(245, 158, 11, 0.04) repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(245, 158, 11, 0.02) 10px, rgba(245, 158, 11, 0.02) 20px) !important;
   color: var(--text-primary);
   cursor: pointer;
 }
 
 .row-cell-draft:hover {
-  background: var(--bg-empty-hover) !important;
+  background: rgba(245, 158, 11, 0.1) repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(245, 158, 11, 0.03) 10px, rgba(245, 158, 11, 0.03) 20px) !important;
 }
 
 .row-cell-draft.first-status-cell {
-  border-left: 4px solid #f59e0b !important; /* 左側にオレンジ色のアクセントバー */
+  border-left: 5px solid #f59e0b !important; /* 左側にオレンジ色のアクセントバー */
+  position: relative;
 }
 
 /* キャンセル（中止）された予定 */
@@ -1030,6 +1032,85 @@
 .cell-edit-modal-btn:hover {
   background: rgba(255, 255, 255, 0.1);
   color: var(--primary, #4f46e5);
+}
+
+/* 検索入力窓のプレミアムデザイン */
+.calendar-search-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  margin-left: 0.5rem;
+}
+
+.calendar-search-icon {
+  position: absolute;
+  left: 10px;
+  color: var(--text-muted, #94a3b8);
+  pointer-events: none;
+}
+
+.calendar-search-input {
+  width: 200px;
+  height: 32px;
+  padding: 0 28px 0 30px;
+  border-radius: 6px;
+  border: 1px solid var(--border-color, #e2e8f0);
+  background: var(--card-bg, #ffffff);
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text-main, #1e293b);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  outline: none;
+}
+
+.calendar-search-input:focus {
+  border-color: var(--primary, #4f46e5);
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15);
+  width: 250px; /* フォーカス時に少し幅広にするアニメーション */
+}
+
+.calendar-search-clear-btn {
+  position: absolute;
+  right: 8px;
+  background: none;
+  border: none;
+  color: var(--text-muted, #94a3b8);
+  cursor: pointer;
+  font-size: 11px;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: background-color 0.15s ease;
+}
+
+.calendar-search-clear-btn:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+  color: var(--text-main, #1e293b);
+}
+
+/* 検索マッチ・非マッチのスタイル */
+.row-search-match {
+  background-color: rgba(253, 224, 71, 0.05) !important;
+}
+
+.row-search-no-match {
+  opacity: 0.35;
+  filter: grayscale(30%);
+  transition: opacity 0.15s ease, filter 0.15s ease;
+}
+
+.cell-search-match {
+  background-color: #fef08a !important; /* スプシ風の明るい黄色ハイライト */
+  color: #000000 !important;
+  font-weight: 700;
+  border: 1px solid #eab308 !important;
+}
+
+/* 今日の日付かつ検索非ヒット時の不透明度低下をやわらげるための考慮 */
+.row-search-no-match .today-td {
+  opacity: 0.8;
 }
 
 
