@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import type { Schedule, Staff, ScheduleStatus, WorkType } from '../types';
 import { X, Mail } from 'lucide-react';
+import { resolveAddress } from '../utils/addressResolver';
 
 interface ScheduleModalProps {
   isOpen: boolean;
@@ -15,83 +16,7 @@ interface ScheduleModalProps {
   defaultTransferred?: number;
 }
 
-// 住所から「県別」と「エリア」を自動判定するヘルパー関数
-const determineAreaAndPrefecture = (address: string): { area: string; prefecture: string } => {
-  if (!address) return { area: '', prefecture: '東京' };
 
-  // 県別の抽出
-  let pref = '東京';
-  const prefMatch = address.match(/^(東京都|北海道|京都府|大阪府|.{2,3}県)/);
-  if (prefMatch) {
-    pref = prefMatch[1].replace(/都|府|県/, '');
-  }
-
-  // 住所のクリーニング（都府県をトリム）
-  const cleanAddress = address.replace(/^(東京都|北海道|京都府|大阪府|.{2,3}県)/, '');
-
-  let areaVal = '';
-
-  if (pref === '東京') {
-    if (cleanAddress.includes('中央区')) {
-      areaVal = '中央区T';
-    } else if (cleanAddress.includes('北区')) {
-      areaVal = '北区T';
-    } else {
-      // 23区名のマッチ（中央区・北区を除く）
-      const is23 = /^(千代田|港|新宿|文京|台東|墨田|江東|品川|目黒|大田|世田谷|渋谷|中野|杉並|豊島|荒川|板橋|練馬|足立|葛飾|江戸川)区/.test(cleanAddress);
-      areaVal = is23 ? '23' : '都下';
-    }
-  } else if (pref === '神奈川') {
-    if (cleanAddress.includes('西区')) {
-      areaVal = '西区K';
-    } else if (cleanAddress.includes('南区')) {
-      areaVal = '南区K';
-    } else if (cleanAddress.includes('緑区')) {
-      areaVal = '緑区K';
-    } else {
-      const wardMatch = cleanAddress.match(/(鶴見|神奈川|中|港南|保土ケ谷|旭|磯子|金沢|港北|青葉|都筑|戸塚|栄|泉|瀬谷|川崎|幸|中原|高津|多摩|宮前|麻生)区/);
-      if (wardMatch) {
-        areaVal = wardMatch[0];
-      }
-    }
-  } else if (pref === '埼玉') {
-    if (cleanAddress.includes('西区')) {
-      areaVal = '西区S';
-    } else if (cleanAddress.includes('北区')) {
-      areaVal = '北区S';
-    } else if (cleanAddress.includes('中央区')) {
-      areaVal = '中央区S';
-    } else if (cleanAddress.includes('南区')) {
-      areaVal = '南区S';
-    } else if (cleanAddress.includes('緑区')) {
-      areaVal = '緑区S';
-    } else {
-      const wardMatch = cleanAddress.match(/(大宮|見沼|桜|浦和|岩槻)区/);
-      if (wardMatch) {
-        areaVal = wardMatch[0];
-      }
-    }
-  } else if (pref === '千葉') {
-    if (cleanAddress.includes('中央区')) {
-      areaVal = '中央区C';
-    } else if (cleanAddress.includes('緑区')) {
-      areaVal = '緑区C';
-    } else {
-      const wardMatch = cleanAddress.match(/(花見川|稲毛|若葉|美浜)区/);
-      if (wardMatch) {
-        areaVal = wardMatch[0];
-      }
-    }
-  }
-
-  // 上記のいずれにも該当しない場合は、従来の「市区町村名」を抽出するロジック
-  if (!areaVal) {
-    const match = cleanAddress.match(/^([^区市町村]+[区市町村])/);
-    areaVal = match ? match[1] : cleanAddress;
-  }
-
-  return { area: areaVal, prefecture: pref };
-};
 
 export const ScheduleModal: React.FC<ScheduleModalProps> = ({
   isOpen,
@@ -167,6 +92,50 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
     setSearchTimeout(timeout);
   };
 
+  const handleUnitNumberBlur = async () => {
+    // サジェストを非表示（200ms of 遅延を設けることでリスト項目のクリックを可能にする）
+    setTimeout(() => setShowSuggestions(false), 200);
+
+    const val = unitNumber.trim();
+    if (val === '') return;
+
+    try {
+      // ユーザーの入力物件名が未設定、またはデフォルトの場合に自動補完を試みる
+      const needsNameAutoFill = !propertyName || propertyName.trim() === '' || propertyName === '（物件名未定）';
+      const needsAreaAutoFill = !area || area.trim() === '';
+      const needsPrefAutoFill = !prefecture || prefecture.trim() === '';
+
+      if (needsNameAutoFill || needsAreaAutoFill || needsPrefAutoFill) {
+        // バックエンドAPIを叩いて、入力値で検索
+        const res = await fetch(`http://localhost:5000/api/properties/search?q=${encodeURIComponent(val)}`);
+        if (res.ok) {
+          const data = await res.json();
+          // 号機が完全一致する物件を検索
+          const matched = data.find((p: any) => p.unit_number && String(p.unit_number).trim() === val);
+          if (matched) {
+            if (needsNameAutoFill) {
+              setPropertyName(matched.property_name || '');
+            }
+            setBox(matched.box_count ? String(matched.box_count) : '');
+            setType(matched.model_type || '');
+            
+            if (matched.address) {
+              const { area: determinedArea, prefecture: determinedPref } = resolveAddress(matched.address);
+              if (needsAreaAutoFill && determinedArea) {
+                setArea(determinedArea);
+              }
+              if (needsPrefAutoFill && determinedPref) {
+                setPrefecture(determinedPref);
+              }
+            }
+          }
+        }
+      }
+    } catch (err) {
+      console.error('Failed to auto-complete property on blur:', err);
+    }
+  };
+
   const handleSelectProperty = (prop: any) => {
     setUnitNumber(prop.unit_number || '');
     setPropertyName(prop.property_name || '');
@@ -176,7 +145,7 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
     // 区分はコース番号（course）に連動して自動入力されるため、ここでは設定しません
 
     if (prop.address) {
-      const { area: determinedArea, prefecture: determinedPref } = determineAreaAndPrefecture(prop.address);
+      const { area: determinedArea, prefecture: determinedPref } = resolveAddress(prop.address);
       setArea(determinedArea);
       setPrefecture(determinedPref);
     }
@@ -472,9 +441,7 @@ ${notes || 'なし'}
                 onFocus={() => {
                   if (propertySuggestions.length > 0) setShowSuggestions(true);
                 }}
-                onBlur={() => {
-                  setTimeout(() => setShowSuggestions(false), 200);
-                }}
+                onBlur={handleUnitNumberBlur}
                 autoComplete="off"
                 disabled={isSubmitting}
               />

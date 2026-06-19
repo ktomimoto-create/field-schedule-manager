@@ -522,3 +522,25 @@
 
 #### 4. ビルド確認
 - フロントエンドプロジェクトで `npm run build` を実行し、ビルドがエラーなく正常に完了することを確認しました。
+
+## [2026-06-19] 予定追加/編集モーダル（サイドバー）手動入力時の号機連動リアルタイム自動補完の追加
+
+### 変更の目的
+予定の追加/編集モーダル（サイドバー）で号機を手動入力（またはペースト）した際、サジェストドロップダウンから選択しなければ物件名、エリア、県別が画面上で自動補完されないUX上の課題を解決します。
+号機を入力して他の入力欄に移動した（フォーカスアウトした）瞬間、自動で物件マスタを完全一致検索し、物件名・エリア・県別を画面のステートにリアルタイム補完する処理を追加します。あわせて、モーダル内の住所解決処理も最新の共通関数 `resolveAddress` に統合します。
+
+### 変更内容
+
+#### 1. モーダル内住所解決処理の共通化
+* **[MODIFY] [ScheduleModal.tsx](file:///C:/Users/000644/.gemini/antigravity/scratch/field-schedule-manager/frontend/src/components/ScheduleModal.tsx)**:
+  - モーダル内に個別に定義されていた古い住所判定関数 `determineAreaAndPrefecture` を削除し、共通ユーティリティの `resolveAddress` をインポートして使用するように統一しました。
+  - サジェスト選択時（`handleSelectProperty`）の住所解決を `resolveAddress` に置き換えました。
+
+#### 2. フォーカスアウト（onBlur）時のリアルタイム自動補完処理の追加
+* **[MODIFY] [ScheduleModal.tsx](file:///C:/Users/000644/.gemini/antigravity/scratch/field-schedule-manager/frontend/src/components/ScheduleModal.tsx)**:
+  - 号機入力フィールドからフォーカスアウトした際に呼び出される `handleUnitNumberBlur` 関数を実装しました。
+  - 入力された号機番号をキーに物件検索APIを叩き、完全一致する物件マスタが存在し、かつ物件名等の項目が空欄（またはデフォルト値）の場合に、物件名、ボックス数、型式、エリア、県別を自動で画面上のステートへ代入補完します。
+  - JSX内の号機 `input` タグの `onBlur` イベントハンドラをこの `handleUnitNumberBlur` に変更しました。
+
+#### 3. ビルド確認
+- フロントエンドプロジェクトで `npm run build` を実行し、ビルドがエラーなく正常に完了することを確認しました。
