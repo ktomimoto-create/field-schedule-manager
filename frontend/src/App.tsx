@@ -464,18 +464,21 @@ function App() {
       }
 
       let savedId: number | null = null;
+      let finalParentRecord: any = null;
       if (isEdit) {
         const idVal = Number(payload.id);
         delete payload.id;
         res = await supabase.from('schedules').update(payload).eq('id', idVal).select();
         if (!res.error && res.data && res.data.length > 0) {
           savedId = res.data[0].id;
+          finalParentRecord = res.data[0];
         }
       } else {
         delete payload.id;
         res = await supabase.from('schedules').insert([payload]).select();
         if (!res.error && res.data && res.data.length > 0) {
           savedId = res.data[0].id;
+          finalParentRecord = res.data[0];
         }
       }
 
@@ -484,7 +487,7 @@ function App() {
       }
 
       // 同行予定の自動同期処理（メタデータ方式）
-      if (savedId) {
+      if (savedId && finalParentRecord) {
         // 1. 以前のこの予定に関連付けられていた同行子予定を一括削除
         await supabase
           .from('schedules')
@@ -492,10 +495,10 @@ function App() {
           .like('notes', `%[__parent_id:${savedId}__]%`);
 
         // 2. 新しい同行者リストに基づいて子予定を同期生成
-        const coWorkersStr = payload.co_worker || '';
+        const coWorkersStr = finalParentRecord.co_worker || '';
         if (coWorkersStr.trim() !== '') {
           // カンマまたは全角カンマや読点で分割してトリム
-          const names = coWorkersStr.split(/[,、]/).map(n => n.trim()).filter(n => n !== '');
+          const names = coWorkersStr.split(/[,、]/).map((n: string) => n.trim()).filter((n: string) => n !== '');
           const newCoWorkerSchedules: any[] = [];
 
           for (const name of names) {
@@ -511,22 +514,22 @@ function App() {
 
               // 子の予定レコードを作成
               const childPayload = {
-                status: payload.status,
+                status: finalParentRecord.status,
                 division: coWorkerDivision,
-                type: payload.type || null,
-                box: payload.box || null,
-                unit_number: payload.unit_number || null,
+                type: finalParentRecord.type || null,
+                box: finalParentRecord.box || null,
+                unit_number: finalParentRecord.unit_number || null,
                 // 物件名に「山田同行: エル・コモド下馬」形式で保存
-                property_name: `${payload.staff_name || '対応者'}同行: ${payload.property_name}`,
-                work_type: payload.work_type || null,
-                description: payload.description || null,
-                target_time: payload.target_time || null,
-                date: payload.date,
+                property_name: `${finalParentRecord.staff_name || '対応者'}同行: ${finalParentRecord.property_name}`,
+                work_type: finalParentRecord.work_type || null,
+                description: finalParentRecord.description || null,
+                target_time: finalParentRecord.target_time || null,
+                date: finalParentRecord.date,
                 staff_id: matchedCoWorker.id,
                 staff_name: matchedCoWorker.name,
                 course: defaultCourse || null,
-                notes: `${payload.notes || ''}\n\n[__parent_id:${savedId}__]`,
-                is_transferred: payload.is_transferred ?? 0
+                notes: `${finalParentRecord.notes || ''}\n\n[__parent_id:${savedId}__]`,
+                is_transferred: finalParentRecord.is_transferred ?? 0
               };
               newCoWorkerSchedules.push(childPayload);
             }
