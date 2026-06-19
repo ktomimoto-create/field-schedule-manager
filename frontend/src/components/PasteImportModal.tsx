@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { X, Check, AlertTriangle, FileText, Plus, Trash2 } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import './PasteImportModal.css';
-
+import { resolveAddress } from '../utils/addressResolver';
 interface PasteImportModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -384,14 +384,9 @@ export const PasteImportModal: React.FC<PasteImportModalProps> = ({
           finalItem.type = master.model_type || finalItem.type;
           
           if (master.address) {
-            let clean = master.address.replace(/^(東京都|北海道|京都府|大阪府|.{2,3}県)/, '');
-            const match = clean.match(/^([^区市町村]+[区市町村])/);
-            finalItem.area = match ? match[1] : clean;
-            
-            const prefMatch = master.address.match(/^(東京都|北海道|京都府|大阪府|.{2,3}県)/);
-            if (prefMatch) {
-              finalItem.prefecture = prefMatch[1].replace(/都|府|県/, '');
-            }
+            const { prefecture, area } = resolveAddress(master.address);
+            if (prefecture) finalItem.prefecture = prefecture;
+            if (area) finalItem.area = area;
           }
         }
       }
@@ -870,12 +865,8 @@ export const PasteImportModal: React.FC<PasteImportModalProps> = ({
                                   <span style={{ color: '#94a3b8' }}>-</span>
                                 )}
                               </td>
-                              <td style={{ padding: '8px 4px' }}>{hasCorrection && shouldCorrect && master ? (
-                                (() => {
-                                  let clean = master.address.replace(/^(東京都|北海道|京都府|大阪府|.{2,3}県)/, '');
-                                  const match = clean.match(/^([^区市町村]+[区市町村])/);
-                                  return match ? match[1] : clean;
-                                })()
+                              <td style={{ padding: '8px 4px' }}>{hasCorrection && shouldCorrect && master && master.address ? (
+                                resolveAddress(master.address).area
                               ) : (original.area || '-')}</td>
                               <td style={{ padding: '8px 4px' }}>{original.staff_name || '-'}</td>
                               <td style={{ 

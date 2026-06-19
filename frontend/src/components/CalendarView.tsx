@@ -1458,7 +1458,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
           <span className="matrix-date-range">{formatJapaneseMonth()}</span>
         </div>
         <div className="matrix-controls">
-          <div className="matrix-nav-buttons">
+          <div className="matrix-nav-buttons date-group">
             <button className="btn btn-secondary btn-sm-nav" onClick={handlePrevMonth} title={`${getPrevMonthName()}へ移動`}>
               <ChevronLeft size={16} /> {getPrevMonthName()}
             </button>
@@ -1485,6 +1485,8 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
             <button className="btn btn-secondary btn-sm-nav" onClick={handleToday}>
               本日
             </button>
+          </div>
+          <div className="matrix-nav-buttons action-group">
             <button 
               className="btn btn-secondary btn-sm-nav" 
               onClick={onOpenPasteImportModal} 
@@ -1500,27 +1502,27 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
               <Plus size={14} style={{ marginRight: '4px' }} />
               予定を追加
             </button>
-          </div>
-          <div className="calendar-search-wrapper">
-            <Search size={14} className="calendar-search-icon" />
-            <input
-              ref={searchInputRef}
-              type="text"
-              className="calendar-search-input"
-              placeholder="号機・物件名・対応者で検索 (Ctrl+F)"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-            {searchQuery && (
-              <button
-                type="button"
-                className="calendar-search-clear-btn"
-                onClick={() => setSearchQuery('')}
-                title="検索をクリア"
-              >
-                ✕
-              </button>
-            )}
+            <div className="calendar-search-wrapper">
+              <Search size={14} className="calendar-search-icon" />
+              <input
+                ref={searchInputRef}
+                type="text"
+                className="calendar-search-input"
+                placeholder="号機・物件名・対応者で検索 (Ctrl+F)"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  className="calendar-search-clear-btn"
+                  onClick={() => setSearchQuery('')}
+                  title="検索をクリア"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </div>

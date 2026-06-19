@@ -476,3 +476,49 @@
 
 #### 3. ビルド確認
 - フロントエンドプロジェクトで `npm run build` を実行し、ビルドがエラーなく正常に完了することを確認しました。
+
+## [2026-06-19] カレンダーヘッダーコントロールの日付操作（左）と予定アクション（右）の左右分離レイアウト化
+
+### 変更の目的
+ナビゲーションである「日付操作」と、アクションである「予定追加・インポート」が並列に混在していた違和感を解消するため、日付操作系を左寄せ、予定操作・検索系を右寄せに明確に分離し、視覚的に整理されたプロ仕様の対比レイアウトに改善します。
+
+### 変更内容
+
+#### 1. HTML構造のグループ分割と整理
+* **[CalendarView.tsx](file:///C:/Users/000644/.gemini/antigravity/scratch/field-schedule-manager/frontend/src/components/CalendarView.tsx)**:
+  - `.matrix-controls` 内の各コントロールを、**`.matrix-nav-buttons.date-group`**（左側：前月/次月、日付指定、本日）と **`.matrix-nav-buttons.action-group`**（右側：スプレッドシートから貼り付け、予定を追加、検索窓） of 2グループに分割定義しました。
+  - 各種ボタンから不要なインライン余白スタイルを排除し、CSSクラスによるレイアウト管理へ集約しました。
+
+#### 2. CSSによる左右分離とレスポンシブ配置の定義
+* **[CalendarView.css](file:///C:/Users/000644/.gemini/antigravity/scratch/field-schedule-manager/frontend/src/components/CalendarView.css)**:
+  - 親コンテナ `.matrix-controls` に対し `justify-content: space-between` を適用しました。
+  - 右側の `.matrix-nav-buttons.action-group` に対し `margin-left: auto` を適用し、十分な幅がある環境では自動的に右端へ集約配置されるようにアライメントを設定しました。
+  - 画面縮小時にはそれぞれのグループがまとまりを持ったままスマートに折り返されるよう `flex-wrap: wrap` を維持し、レイアウトが崩れないように調整しました。
+
+#### 3. ビルド確認
+- フロントエンドプロジェクトで `npm run build` を実行し、ビルドがエラーなく正常に完了することを確認しました。
+
+## [2026-06-19] 住所自動解決ロジックの共通ユーティリティ化およびインポート機能（貼り付けインポート）への適用
+
+### 変更の目的
+物件の手動保存処理（`App.tsx`）に適用された最新の住所自動解決仕様（重複区へのアルファベット付加、特定政令市例外処理など）が、「スプレッドシートからの貼り付け」インポート（`PasteImportModal.tsx`）およびそのプレビューUI画面で反映されておらず、古い仕様のままで動作していた不整合を解決します。
+住所解決ロジックを共通関数 `resolveAddress` として切り出し、システム全体で一貫した住所解決ルールを統一適用します。
+
+### 変更内容
+
+#### 1. 共通住所解決ユーティリティ関数の新設
+* **[NEW] [addressResolver.ts](file:///C:/Users/000644/.gemini/antigravity/scratch/field-schedule-manager/frontend/src/utils/addressResolver.ts)**:
+  - 物件マスタの住所表記から「県別」と「エリア」を自動解決する処理を実装しました。
+  - 東京23区（`23`）/ 東京23区外（`都下`）の分類、政令指定都市（横浜、川崎、さいたま、千葉、静岡。相模原・浜松は除く）の区名抽出、重複区名（中央、北、南、西、緑）への識別用アルファベット（T, C, S, K）の付与を含む最新の仕様を実装。
+
+#### 2. 手動保存処理での共通関数の適用
+* **[MODIFY] [App.tsx](file:///C:/Users/000644/.gemini/antigravity/scratch/field-schedule-manager/frontend/src/App.tsx)**:
+  - 内部で定義されていた長大な住所解決ロジックを削除し、`resolveAddress` 共通関数をインポートして呼び出す形にリファクタリングしました。
+
+#### 3. 貼り付けインポート処理およびプレビューUIでの共通関数の適用
+* **[MODIFY] [PasteImportModal.tsx](file:///C:/Users/000644/.gemini/antigravity/scratch/field-schedule-manager/frontend/src/components/PasteImportModal.tsx)**:
+  - インポート時の自動補正およびデータパース処理内の古い住所解決ロジックを `resolveAddress` の呼び出しに変更しました。
+  - インポート実行前のプレビュー表示テーブル内の「エリア」表示ロジックも `resolveAddress` に統一し、事前に最新の解決結果が正しくUI上に確認できるよう改善しました。
+
+#### 4. ビルド確認
+- フロントエンドプロジェクトで `npm run build` を実行し、ビルドがエラーなく正常に完了することを確認しました。
