@@ -7,7 +7,9 @@
   border: 1px solid var(--border-glass);
   border-radius: var(--radius-md);
   padding: 1.5rem;
-  min-height: calc(100vh - 200px);
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
 }
 
 /* サブタブバー */

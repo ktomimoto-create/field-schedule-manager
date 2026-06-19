@@ -1,5 +1,33 @@
 # 変更履歴 (walkthrough.md)
 
+## [2026-06-19] マスタ管理・集計分析・変更履歴（監査ログ）画面の縦スクロールバグ修正
+
+### 変更の目的
+「100vh固定のFlexbox全体フィットレイアウト」の導入によって、画面全体の縦スクロールを禁止した結果、マスタ管理（`.master-mgmt-container`）、集計分析（`.analytics-container`）、および変更履歴/監査ログ（`.audit-log-container`）の各画面において、データ数が画面の高さを超えた場合に下部が見切れ、縦スクロールできなくなっていたバグを修正します。
+
+### 変更内容
+
+#### 1. フロントエンドCSSの修正
+
+##### [MasterManagementView.css](file:///C:/Users/000644/.gemini/antigravity/scratch/field-schedule-manager/frontend/src/components/MasterManagementView.css)
+* ルートコンテナ `.master-mgmt-container` に対して、固定的な最小高さ `min-height: calc(100vh - 200px)` を廃止しました。
+* Flexboxの子要素として親コンテナに完全に収まるよう `flex: 1; min-height: 0;` を設定し、`overflow-y: auto` を追加することで、マスタ管理（スタッフ・予定項目・データ管理など）画面で下部へスクロールできるように修正しました。
+
+##### [AnalyticsView.css](file:///C:/Users/000644/.gemini/antigravity/scratch/field-schedule-manager/frontend/src/components/AnalyticsView.css)
+* ルートコンテナ `.analytics-container` に対して、同様に `flex: 1; min-height: 0; overflow-y: auto;` を設定し、集計分析画面でのスクロールを可能にしました。
+
+##### [AuditLogView.css](file:///C:/Users/000644/.gemini/antigravity/scratch/field-schedule-manager/frontend/src/components/AuditLogView.css)
+* ルートコンテナ `.audit-log-container` に対して、同様に `flex: 1; min-height: 0; overflow-y: auto;` を設定し、変更履歴（監査ログ）画面でのスクロールを可能にしました。
+
+---
+
+### 検証結果
+
+1. **ビルド検証**:
+   - `frontend` ディレクトリにおいて、`npm.cmd run build` を実行し、TypeScriptコンパイルおよびViteビルドが警告なしで正常終了することを確認しました。
+
+---
+
 ## [2026-06-18] 外注スタッフ紐付け解除・同期除外およびマスタ表示改善
 
 ### 変更の目的
