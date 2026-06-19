@@ -597,3 +597,17 @@
 
 #### 2. ビルド確認
 - フロントエンドプロジェクトで `cmd /c npm run build` を再実行し、型チェックおよびビルドがエラーなく正常に通過することを確認しました。
+
+## [2026-06-19] カレンダービューの作業内容（description）セルの文字色変更
+
+### 変更の目的
+カレンダーグリッドにおいて、「作業内容」に入力された文字が意図的に薄グレーで表示されていた仕様を、他のセル項目（タイプ、BOX、号機、種別など）と同様に、はっきりとした通常文字色（黒）で表示されるように統一します。
+
+### 変更内容
+
+#### 1. スタイルクラスの除外
+* **[CalendarView.tsx](file:///C:/Users/000644/.gemini/antigravity/scratch/field-schedule-manager/frontend/src/components/CalendarView.tsx)**:
+  - `renderEditableCell` を呼び出して `description` カラムをレンダリングする部分から、文字を薄グレーにする `text-muted-cell` スタイルクラスを削除しました。
+
+#### 2. ビルド確認
+- フロントエンドプロジェクトで `cmd /c npm run build` を実行し、ビルドが正常に完了することを確認しました。

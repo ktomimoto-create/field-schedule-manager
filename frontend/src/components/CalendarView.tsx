@@ -2069,7 +2069,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                                   {renderEditableCell(schedule, rowIndex, 'unit_number', `${statusClass} ${isToday ? 'today-td' : ''}`)}
                                   {renderEditableCell(schedule, rowIndex, 'property_name', `${statusClass} ${isToday ? 'today-td' : ''} font-bold-cell`, schedule.property_name)}
                                   {renderEditableCell(schedule, rowIndex, 'work_type', `${statusClass} ${isToday ? 'today-td' : ''}`)}
-                                  {renderEditableCell(schedule, rowIndex, 'description', `${statusClass} ${isToday ? 'today-td' : ''} text-muted-cell`, schedule.description || '')}
+                                  {renderEditableCell(schedule, rowIndex, 'description', `${statusClass} ${isToday ? 'today-td' : ''}`, schedule.description || '')}
                                   {renderEditableCell(schedule, rowIndex, 'target_time', `${statusClass} ${isToday ? 'today-td' : ''} time-limit-cell`, undefined, {
                                     color: schedule.target_time === '必ず' ? 'var(--danger)' : 'inherit',
                                     fontWeight: schedule.target_time === '必ず' ? 'bold' : 'normal'
