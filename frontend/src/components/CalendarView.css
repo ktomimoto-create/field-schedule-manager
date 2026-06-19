@@ -210,6 +210,7 @@
   white-space: nowrap;
   vertical-align: middle;
   height: 36px; /* セルの高さを36pxにして窮屈感を解消 */
+  transition: background-color 0.12s ease; /* セル選択・ホバー時の背景変化を滑らかにする */
 }
 
 
@@ -875,6 +876,7 @@
   background-color: rgba(99, 102, 241, 0.08) !important;
   z-index: 10;
   position: relative;
+  transition: background-color 0.12s ease, outline 0.12s ease;
 }
 
 /* コピー中インジケーターバー（画面下部固定） */
@@ -960,6 +962,7 @@
 .selected-grid-cell {
   background-color: rgba(99, 102, 241, 0.15) !important; /* テーマカラーであるインディゴの半透明でプレミアム感を向上 */
   user-select: none;
+  transition: background-color 0.12s ease, box-shadow 0.12s ease;
 }
 
 /* box-shadow を使って選択矩形の外枠をきれいに描画する（2.5pxの太さで境界線をシャープに強調） */

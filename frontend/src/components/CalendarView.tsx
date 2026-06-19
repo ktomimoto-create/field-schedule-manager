@@ -284,79 +284,119 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
     return dateIdx * FIELD_ORDER.length + fieldIdx;
   };
 
-  const getSortedDaySchedules = (targetDate: string): Schedule[] => {
-    const actualSchedules = schedules.filter(s => s.date === targetDate);
-
-    const holidayStaffIds = new Set<number>();
-    const holidayStaffNames = new Set<string>();
-    const holidaySchedules: Schedule[] = [];
-    actualSchedules.forEach(s => {
-      const isHolidayType = s.work_type === '休暇';
-      if (isHolidayType) {
-        if (s.staff_id) holidayStaffIds.add(s.staff_id);
-        if (s.staff_name) holidayStaffNames.add(s.staff_name.trim());
-        holidaySchedules.push(s);
-      }
-    });
-
+  // 各日付ごとのソート・仮想行適用済みのスケジュールリストをキャッシュして再レンダリング時のもっさり感を完全に解消
+  const sortedSchedulesMap = React.useMemo(() => {
+    const map: Record<string, Schedule[]> = {};
+    
+    // 共通で利用するマスタ関連データをループ外で1回だけ評価
     const internalWorkTypes = workTypes
       .filter(t => t.is_internal === 1 && t.name !== '休暇')
       .map(t => t.name);
 
-    const displaySchedules = actualSchedules.filter(s => {
-      const isHolidayType = s.work_type === '休暇';
-      const isInternalType = s.work_type && internalWorkTypes.includes(s.work_type);
-      
-      if (isHolidayType || isInternalType) return false;
-      if (s.staff_id && holidayStaffIds.has(s.staff_id)) return false;
-      if (s.staff_name && holidayStaffNames.has(s.staff_name.trim())) return false;
-      
-      return true;
-    });
+    const activeStaffs = staff.filter(st => st.default_course && st.is_active !== 0);
 
-    const blended = [...displaySchedules].map(s => {
-      if (s.status === 'cancelled') {
-        return {
-          ...s,
+    calendarDates.forEach(targetDate => {
+      const actualSchedules = schedules.filter(s => s.date === targetDate);
+
+      const holidayStaffIds = new Set<number>();
+      const holidayStaffNames = new Set<string>();
+      const holidaySchedules: Schedule[] = [];
+      
+      actualSchedules.forEach(s => {
+        const isHolidayType = s.work_type === '休暇';
+        if (isHolidayType) {
+          if (s.staff_id) holidayStaffIds.add(s.staff_id);
+          if (s.staff_name) holidayStaffNames.add(s.staff_name.trim());
+          holidaySchedules.push(s);
+        }
+      });
+
+      const displaySchedules = actualSchedules.filter(s => {
+        const isHolidayType = s.work_type === '休暇';
+        const isInternalType = s.work_type && internalWorkTypes.includes(s.work_type);
+        
+        if (isHolidayType || isInternalType) return false;
+        if (s.staff_id && holidayStaffIds.has(s.staff_id)) return false;
+        if (s.staff_name && holidayStaffNames.has(s.staff_name.trim())) return false;
+        
+        return true;
+      });
+
+      const blended = [...displaySchedules].map(s => {
+        if (s.status === 'cancelled') {
+          return {
+            ...s,
+            division: '未定',
+            staff_id: null,
+            staff_name: '',
+            course: ''
+          };
+        }
+        return s;
+      });
+
+      activeStaffs.forEach(stItem => {
+        if (holidayStaffIds.has(stItem.id) || holidayStaffNames.has(stItem.name.trim())) {
+          return;
+        }
+
+        const hasScheduleForThisCourse = displaySchedules.some(s => 
+          s.status !== 'cancelled' && (
+            (s.course && String(s.course).trim() === String(stItem.default_course).trim()) ||
+            (s.staff_id === stItem.id || (s.staff_name && s.staff_name.trim() === stItem.name.trim()))
+          )
+        );
+
+        if (!hasScheduleForThisCourse) {
+          const courseNum = Number(stItem.default_course);
+          let divisionVal = '';
+          if (courseNum >= 1 && courseNum <= 26) {
+            divisionVal = 'FTS';
+          } else if (courseNum >= 90 && courseNum <= 95) {
+            divisionVal = '委託';
+          }
+          
+          blended.push({
+            id: `temp-${stItem.name}-${targetDate}`,
+            status: 'free',
+            division: divisionVal,
+            date: targetDate,
+            staff_id: stItem.id,
+            staff_name: stItem.name,
+            course: stItem.default_course || '',
+            work_type: 'フリー',
+            type: '',
+            property_name: '',
+            box: '',
+            unit_number: '',
+            description: '',
+            target_time: '',
+            area: '',
+            prefecture: '',
+            transport: '',
+            co_worker: '',
+            request_number: '',
+            time_limit: '',
+            result: '',
+            notes: '',
+            disorder_type: null,
+            level: null,
+            level_3: null,
+            created_at: '',
+            updated_at: ''
+          } as Schedule);
+        }
+      });
+
+      for (let i = 0; i < 3; i++) {
+        blended.push({
+          id: `temp-unassigned-${i}-${targetDate}`,
+          status: 'free',
           division: '未定',
+          date: targetDate,
           staff_id: null,
           staff_name: '',
-          course: ''
-        };
-      }
-      return s;
-    });
-
-    const activeStaffs = staff.filter(st => st.default_course && st.is_active !== 0);
-    activeStaffs.forEach(stItem => {
-      if (holidayStaffIds.has(stItem.id) || holidayStaffNames.has(stItem.name.trim())) {
-        return;
-      }
-
-      const hasScheduleForThisCourse = displaySchedules.some(s => 
-        s.status !== 'cancelled' && (
-          (s.course && String(s.course).trim() === String(stItem.default_course).trim()) ||
-          (s.staff_id === stItem.id || (s.staff_name && s.staff_name.trim() === stItem.name.trim()))
-        )
-      );
-
-      if (!hasScheduleForThisCourse) {
-        const courseNum = Number(stItem.default_course);
-        let divisionVal = '';
-        if (courseNum >= 1 && courseNum <= 26) {
-          divisionVal = 'FTS';
-        } else if (courseNum >= 90 && courseNum <= 95) {
-          divisionVal = '委託';
-        }
-        
-        blended.push({
-          id: `temp-${stItem.name}-${targetDate}`,
-          status: 'free',
-          division: divisionVal,
-          date: targetDate,
-          staff_id: stItem.id,
-          staff_name: stItem.name,
-          course: stItem.default_course || '',
+          course: '',
           work_type: 'フリー',
           type: '',
           property_name: '',
@@ -379,68 +419,43 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
           updated_at: ''
         } as Schedule);
       }
+
+      blended.sort((a, b) => {
+        // キャンセルされた予定は常に最下部に配置
+        const aCancelled = a.status === 'cancelled';
+        const bCancelled = b.status === 'cancelled';
+        if (aCancelled !== bCancelled) {
+          return aCancelled ? 1 : -1;
+        }
+
+        const getDivPriority = (div: string | null) => {
+          if (div === 'FTS') return 1;
+          if (div === '委託') return 2;
+          if (div === '未定' || !div) return 4;
+          return 3;
+        };
+
+        const aPriority = getDivPriority(a.division);
+        const bPriority = getDivPriority(b.division);
+
+        if (aPriority !== bPriority) {
+          return aPriority - bPriority;
+        }
+
+        const aCourse = Number(a.course) || 999;
+        const bCourse = Number(b.course) || 999;
+        return aCourse - bCourse;
+      });
+
+      map[targetDate] = blended;
     });
 
-    for (let i = 0; i < 3; i++) {
-      blended.push({
-        id: `temp-unassigned-${i}-${targetDate}`,
-        status: 'free',
-        division: '未定',
-        date: targetDate,
-        staff_id: null,
-        staff_name: '',
-        course: '',
-        work_type: 'フリー',
-        type: '',
-        property_name: '',
-        box: '',
-        unit_number: '',
-        description: '',
-        target_time: '',
-        area: '',
-        prefecture: '',
-        transport: '',
-        co_worker: '',
-        request_number: '',
-        time_limit: '',
-        result: '',
-        notes: '',
-        disorder_type: null,
-        level: null,
-        level_3: null,
-        created_at: '',
-        updated_at: ''
-      } as Schedule);
-    }
+    return map;
+  }, [schedules, staff, workTypes, calendarDates]);
 
-    blended.sort((a, b) => {
-      // キャンセルされた予定は常に最下部に配置
-      const aCancelled = a.status === 'cancelled';
-      const bCancelled = b.status === 'cancelled';
-      if (aCancelled !== bCancelled) {
-        return aCancelled ? 1 : -1;
-      }
-
-      const getDivPriority = (div: string | null) => {
-        if (div === 'FTS') return 1;
-        if (div === '委託') return 2;
-        if (div === '未定' || !div) return 4;
-        return 3;
-      };
-
-      const aPriority = getDivPriority(a.division);
-      const bPriority = getDivPriority(b.division);
-
-      if (aPriority !== bPriority) {
-        return aPriority - bPriority;
-      }
-
-      const aCourse = Number(a.course) || 999;
-      const bCourse = Number(b.course) || 999;
-      return aCourse - bCourse;
-    });
-
-    return blended;
+  // 薄いラッパー関数へ変更してキャッシュを参照
+  const getSortedDaySchedules = (targetDate: string): Schedule[] => {
+    return sortedSchedulesMap[targetDate] || [];
   };
 
   const getCellSelectionStatus = (
