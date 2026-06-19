@@ -77,6 +77,7 @@
   display: flex;
   gap: 12px; /* 曜日間の本物の隙間 */
   width: max-content;
+  padding: 12px; /* 端のカラムがスクロール枠と密着するのを防ぐための余白を追加 */
 }
 
 /* 各曜日をカードとしてカプセル化するブロック */
@@ -84,19 +85,34 @@
   flex: 0 0 1500px; /* 各曜日の幅を1500pxに固定 */
   width: 1500px;
   background: var(--bg-secondary);
-  border: 2px solid var(--border-column-block, #cbd5e1); /* 枠線を太くし、はっきりとした境界にしてチープさを解消 */
+  border: 3px solid var(--border-column-block, #cbd5e1); /* 枠線を3pxに太くし、セルの枠線と同化するのを防止 */
   border-radius: 12px; /* 日付ヘッダーとテーブル全体を角丸にする */
   overflow: hidden; /* 角丸部分からテーブルがはみ出すのを防ぐ */
-  box-shadow: var(--shadow-md);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08); /* 影をより深くして立体感を向上 */
   transition: all 0.2s ease;
   box-sizing: border-box;
   scroll-margin-top: 110px; /* スクロール時にグローバルヘッダーの下に綺麗に日付が見えるようマージンを確保 */
 }
 
+/* 曜日別の枠線色指定 */
+.weekday-column {
+  border-color: var(--border-column-block, #cbd5e1);
+}
+
+.saturday-column {
+  border-color: rgba(37, 99, 235, 0.45) !important; /* 土曜日の枠線を青く強調 */
+  box-shadow: 0 4px 20px rgba(37, 99, 235, 0.06);
+}
+
+.sunday-column {
+  border-color: rgba(220, 38, 38, 0.45) !important; /* 日曜日の枠線を赤く強調 */
+  box-shadow: 0 4px 20px rgba(220, 38, 38, 0.06);
+}
+
 /* 今日の曜日ブロック全体の強調表示 */
 .today-column {
-  border: 1px solid rgba(99, 102, 241, 0.6) !important;
-  box-shadow: 0 0 15px rgba(99, 102, 241, 0.25), 0 4px 20px rgba(0, 0, 0, 0.4) !important;
+  border: 3px solid var(--primary) !important; /* 今日の枠線をプライマリカラーの3pxで極太強調 */
+  box-shadow: 0 0 20px rgba(99, 102, 241, 0.25), 0 8px 30px rgba(0, 0, 0, 0.15) !important;
 }
 
 /* 曜日並列カレンダーテーブル */

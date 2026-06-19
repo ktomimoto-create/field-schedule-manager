@@ -1,13 +1,24 @@
 # 変更履歴 (walkthrough.md)
 
-## [2026-06-19] マスタ管理・集計分析・変更履歴（監査ログ）画面の縦スクロールバグ修正
+## [2026-06-19] カレンダー曜日ブロックの外枠線（境界）強調およびスクロール端余白調整、縦スクロールバグ修正
 
 ### 変更の目的
-「100vh固定のFlexbox全体フィットレイアウト」の導入によって、画面全体の縦スクロールを禁止した結果、マスタ管理（`.master-mgmt-container`）、集計分析（`.analytics-container`）、および変更履歴/監査ログ（`.audit-log-container`）の各画面において、データ数が画面の高さを超えた場合に下部が見切れ、縦スクロールできなくなっていたバグを修正します。
+1. カレンダー（月間予定表）で左右にスクロールしきった際に、最初の日付ブロック（木曜日）や最後の日付ブロック（土曜日）の端のセルがスクロールエリアの黒枠線とぴったり密着して窮屈に見えるデザイン上の違和感を解消するため、外枠との間に適切な余白（パディング）を設けます。
+2. 日付ブロック（曜日カード）の枠線が薄く、テーブル内のセルの境界線と同化して見づらい不具合を解消するため、曜日カードの枠線を太く（`3px`）し、平日・土曜日・日曜日・今日でそれぞれ枠線色を個別定義することで、カードの輪郭をはっきりと際立たせ、強調表示します。
+3. 「100vh固定のFlexbox全体フィットレイアウト」の導入によって、画面全体の縦スクロールを禁止した結果、マスタ管理（`.master-mgmt-container`）、集計分析（`.analytics-container`）、および変更履歴/監査ログ（`.audit-log-container`）の各画面において、データ数が画面の高さを超えた場合に下部が見切れ、縦スクロールできなくなっていたバグを修正します。
 
 ### 変更内容
 
 #### 1. フロントエンドCSSの修正
+
+##### [index.css](file:///C:/Users/000644/.gemini/antigravity/scratch/field-schedule-manager/frontend/src/index.css)
+* カレンダーの標準境界線変数 `--border-column-block` のカラーを、より境界線として認識しやすいコントラストの高い色（ライトテーマ：`#cbd5e1`➔`#94a3b8`、ダークテーマ：`#334155`➔`#475569`）に調整しました。
+
+##### [CalendarView.css](file:///C:/Users/000644/.gemini/antigravity/scratch/field-schedule-manager/frontend/src/components/CalendarView.css)
+* 曜日ブロックを横並びにするコンテナ `.week-days-container` に対し、`padding: 12px` を追加しました。これにより、スクロールした際にも最初と最後の日付カードの端がスクロール枠とぴったり密着せず、周囲にゆとりのあるプレミアムなデザインに改善されました。
+* 日付ブロック `.day-column-block` の `border` を `2px` から `3px` へ太く変更し、陰影（`box-shadow`）もより深みのある影へ強化しました。
+* 土曜日（`.saturday-column`）、日曜日（`.sunday-column`）の枠線色をそれぞれブランドカラーの透過青・透過赤に個別定義しました。
+* 今日（`.today-column`）の枠線を `3px solid var(--primary)` へ太くし、光彩のような強いドロップシャドウをかけることで視認性を最大化しました。
 
 ##### [MasterManagementView.css](file:///C:/Users/000644/.gemini/antigravity/scratch/field-schedule-manager/frontend/src/components/MasterManagementView.css)
 * ルートコンテナ `.master-mgmt-container` に対して、固定的な最小高さ `min-height: calc(100vh - 200px)` を廃止しました。
