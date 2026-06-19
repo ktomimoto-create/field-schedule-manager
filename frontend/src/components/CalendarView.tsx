@@ -1484,7 +1484,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                 ref={searchInputRef}
                 type="text"
                 className="calendar-search-input"
-                placeholder="物件名・対応者名で検索 (Ctrl+F)"
+                placeholder="号機・物件名・対応者で検索 (Ctrl+F)"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
@@ -1966,7 +1966,8 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                                // 検索一致判定
                                const isSearchMatch = searchQuery ? (
                                  (schedule.property_name && schedule.property_name.toLowerCase().includes(searchQuery.toLowerCase())) ||
-                                 (schedule.staff_name && schedule.staff_name.toLowerCase().includes(searchQuery.toLowerCase()))
+                                 (schedule.staff_name && schedule.staff_name.toLowerCase().includes(searchQuery.toLowerCase())) ||
+                                 (schedule.unit_number && schedule.unit_number.toLowerCase().includes(searchQuery.toLowerCase()))
                                ) : false;
 
                                let searchClass = '';

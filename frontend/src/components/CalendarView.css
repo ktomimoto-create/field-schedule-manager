@@ -244,33 +244,33 @@
 
 /* 確定予定の基本行セル */
 .row-cell-confirmed {
-  background: rgba(16, 185, 129, 0.06) !important;
+  background: rgba(239, 68, 68, 0.06) !important; /* 極薄の赤 */
   color: var(--text-primary);
   cursor: pointer;
 }
 
 .row-cell-confirmed:hover {
-  background: rgba(16, 185, 129, 0.12) !important;
+  background: rgba(239, 68, 68, 0.12) !important;
 }
 
 .row-cell-confirmed.first-status-cell {
-  border-left: 5px solid #10b981 !important; /* 左側に緑色のアクセントバー */
+  border-left: 5px solid #ef4444 !important; /* 左側に赤色のアクセントバー */
   position: relative;
 }
 
 /* 仮予定の基本行セル */
 .row-cell-draft {
-  background: rgba(245, 158, 11, 0.04) repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(245, 158, 11, 0.02) 10px, rgba(245, 158, 11, 0.02) 20px) !important;
+  background: rgba(234, 179, 8, 0.04) repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(234, 179, 8, 0.02) 10px, rgba(234, 179, 8, 0.02) 20px) !important; /* 極薄の黄＋斜めストライプ */
   color: var(--text-primary);
   cursor: pointer;
 }
 
 .row-cell-draft:hover {
-  background: rgba(245, 158, 11, 0.1) repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(245, 158, 11, 0.03) 10px, rgba(245, 158, 11, 0.03) 20px) !important;
+  background: rgba(234, 179, 8, 0.1) repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(234, 179, 8, 0.03) 10px, rgba(234, 179, 8, 0.03) 20px) !important;
 }
 
 .row-cell-draft.first-status-cell {
-  border-left: 5px solid #f59e0b !important; /* 左側にオレンジ色のアクセントバー */
+  border-left: 5px solid #eab308 !important; /* 左側に黄色のアクセントバー */
   position: relative;
 }
 
