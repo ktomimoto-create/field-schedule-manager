@@ -666,9 +666,20 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
         alert('登録に失敗しました。');
       }
     } else {
+      let finalValue = value;
+      if (field === 'notes') {
+        const original = schedules.find(s => s.id === scheduleId);
+        if (original && original.notes) {
+          const match = original.notes.match(/\[__parent_id:\d+__\]/);
+          if (match) {
+            finalValue = `${value.trim()}\n\n${match[0]}`;
+          }
+        }
+      }
+
       const payload: Partial<Schedule> = {
         id: Number(scheduleId),
-        [field]: value
+        [field]: finalValue
       };
       
       try {
@@ -1148,8 +1159,14 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
     const isEditing = editingCell?.id === schedule.id && editingCell?.field === field;
     const schedId = schedule.id;
 
+    // メタデータ除去ヘルパー
+    const cleanMetadata = (val: any): string => {
+      if (!val) return '';
+      return String(val).replace(/\s*\[__parent_id:\d+__\]/g, '').trim();
+    };
+
     // 検索一致判定
-    const cellValueStr = schedule[field] ? String(schedule[field]).toLowerCase() : '';
+    const cellValueStr = schedule[field] ? cleanMetadata(schedule[field]).toLowerCase() : '';
     const isCellSearchMatch = searchQuery && cellValueStr.includes(searchQuery.toLowerCase());
     const searchMatchClass = isCellSearchMatch ? 'cell-search-match' : '';
 
@@ -1159,7 +1176,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
       return (
         <td id={cellId} className={className} style={style}>
           <InlineInput
-            initialValue={String(schedule[field] || '')}
+            initialValue={cleanMetadata(schedule[field])}
             field={field}
             workTypes={workTypes}
             onSave={(val) => handleInlineSave(schedId, field, val)}
@@ -1183,7 +1200,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
           id={cellId}
           className={cellClass} 
           style={style}
-          title={title || undefined}
+          title={title ? cleanMetadata(title) : undefined}
           onMouseDown={(e) => handleCellMouseDown(e, schedule.date, rowIndex, field, schedId)}
           onMouseEnter={() => handleCellMouseEnter(schedule.date, rowIndex, field)}
           onDoubleClick={() => {
@@ -1194,7 +1211,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
             {avatarUrl ? (
               <img 
                 src={avatarUrl} 
-                alt={String(value)} 
+                alt={cleanMetadata(value)} 
                 style={{ width: '22px', height: '22px', borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} 
               />
             ) : !isUnassigned ? (
@@ -1211,26 +1228,27 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                 fontWeight: 'bold',
                 flexShrink: 0
               }}>
-                {getShortName(String(value)).substring(0, 1)}
+                {getShortName(cleanMetadata(value)).substring(0, 1)}
               </div>
             ) : null}
             <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {getShortName(String(value || ''))}
+              {getShortName(cleanMetadata(value || ''))}
             </span>
           </div>
         </td>
-
       );
     }
     
     if (field === 'property_name') {
       const isTemp = typeof schedId === 'string' && (schedId.startsWith('temp-') || schedId.startsWith('dummy-'));
+      const isCoWorkerSched = schedule.notes && schedule.notes.includes('[__parent_id:');
+
       return (
         <td 
           id={cellId}
           className={cellClass} 
           style={style}
-          title={title || undefined}
+          title={title ? cleanMetadata(title) : undefined}
           onMouseDown={(e) => handleCellMouseDown(e, schedule.date, rowIndex, field, schedId)}
           onMouseEnter={() => handleCellMouseEnter(schedule.date, rowIndex, field)}
           onDoubleClick={() => {
@@ -1238,9 +1256,26 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
           }}
         >
           <div className="property-cell-wrapper" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', gap: '4px' }}>
-            <span className="property-cell-text" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
-              {String(value || '')}
-            </span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', overflow: 'hidden', flex: 1 }}>
+              {isCoWorkerSched && (
+                <span className="co-worker-badge" style={{
+                  backgroundColor: 'rgba(139, 92, 246, 0.15)',
+                  color: '#7c3aed',
+                  border: '1px solid rgba(139, 92, 246, 0.3)',
+                  fontSize: '0.68rem',
+                  padding: '1px 4px',
+                  borderRadius: '3px',
+                  fontWeight: 'bold',
+                  whiteSpace: 'nowrap',
+                  flexShrink: 0
+                }}>
+                  同行
+                </span>
+              )}
+              <span className="property-cell-text" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
+                {cleanMetadata(value)}
+              </span>
+            </div>
             {!isTemp && (
               <button
                 type="button"
@@ -1264,7 +1299,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
         id={cellId}
         className={cellClass} 
         style={style}
-        title={title || undefined}
+        title={title ? cleanMetadata(title) : undefined}
         onMouseDown={(e) => handleCellMouseDown(e, schedule.date, rowIndex, field, schedId)}
         onMouseEnter={() => handleCellMouseEnter(schedule.date, rowIndex, field)}
         onDoubleClick={() => {
@@ -1274,7 +1309,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
           setEditingCell({ id: schedId, field });
         }}
       >
-        {String(value || '')}
+        {cleanMetadata(value)}
       </td>
     );
   };

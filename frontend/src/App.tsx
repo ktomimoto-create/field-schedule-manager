@@ -463,17 +463,79 @@ function App() {
         }
       }
 
+      let savedId: number | null = null;
       if (isEdit) {
         const idVal = Number(payload.id);
         delete payload.id;
-        res = await supabase.from('schedules').update(payload).eq('id', idVal);
+        res = await supabase.from('schedules').update(payload).eq('id', idVal).select();
+        if (!res.error && res.data && res.data.length > 0) {
+          savedId = res.data[0].id;
+        }
       } else {
         delete payload.id;
-        res = await supabase.from('schedules').insert([payload]);
+        res = await supabase.from('schedules').insert([payload]).select();
+        if (!res.error && res.data && res.data.length > 0) {
+          savedId = res.data[0].id;
+        }
       }
 
       if (res.error) {
         throw new Error('予定の保存に失敗しました。');
+      }
+
+      // 同行予定の自動同期処理（メタデータ方式）
+      if (savedId) {
+        // 1. 以前のこの予定に関連付けられていた同行子予定を一括削除
+        await supabase
+          .from('schedules')
+          .delete()
+          .like('notes', `%[__parent_id:${savedId}__]%`);
+
+        // 2. 新しい同行者リストに基づいて子予定を同期生成
+        const coWorkersStr = payload.co_worker || '';
+        if (coWorkersStr.trim() !== '') {
+          // カンマまたは全角カンマや読点で分割してトリム
+          const names = coWorkersStr.split(/[,、]/).map(n => n.trim()).filter(n => n !== '');
+          const newCoWorkerSchedules: any[] = [];
+
+          for (const name of names) {
+            const matchedCoWorker = staff.find(st => st.name.trim() === name);
+            if (matchedCoWorker) {
+              // コース番号に基づいて区分を判定（1〜26はFTS、それ以外または未設定は委託）
+              const defaultCourse = matchedCoWorker.default_course || '';
+              const courseNum = Number(defaultCourse);
+              let coWorkerDivision = '委託';
+              if (defaultCourse !== '' && !isNaN(courseNum) && courseNum >= 1 && courseNum <= 26) {
+                coWorkerDivision = 'FTS';
+              }
+
+              // 子の予定レコードを作成
+              const childPayload = {
+                status: payload.status,
+                division: coWorkerDivision,
+                type: payload.type || null,
+                box: payload.box || null,
+                unit_number: payload.unit_number || null,
+                // 物件名に「山田同行: エル・コモド下馬」形式で保存
+                property_name: `${payload.staff_name || '対応者'}同行: ${payload.property_name}`,
+                work_type: payload.work_type || null,
+                description: payload.description || null,
+                target_time: payload.target_time || null,
+                date: payload.date,
+                staff_id: matchedCoWorker.id,
+                staff_name: matchedCoWorker.name,
+                course: defaultCourse || null,
+                notes: `${payload.notes || ''}\n\n[__parent_id:${savedId}__]`,
+                is_transferred: payload.is_transferred ?? 0
+              };
+              newCoWorkerSchedules.push(childPayload);
+            }
+          }
+
+          if (newCoWorkerSchedules.length > 0) {
+            await supabase.from('schedules').insert(newCoWorkerSchedules);
+          }
+        }
       }
 
       // 履歴ログの保存
@@ -494,6 +556,13 @@ function App() {
   const handleDeleteSchedule = async (id: number) => {
     try {
       const targetSched = schedules.find(s => s.id === id);
+      
+      // 子レコード（同行予定）の削除
+      await supabase
+        .from('schedules')
+        .delete()
+        .like('notes', `%[__parent_id:${id}__]%`);
+
       const res = await supabase.from('schedules').delete().eq('id', id);
 
       if (res.error) {

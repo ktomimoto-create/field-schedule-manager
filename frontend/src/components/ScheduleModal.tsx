@@ -159,6 +159,24 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
     setShowSuggestions(false);
   };
 
+  const handleToggleCoWorker = (name: string) => {
+    const trimmedName = name.trim();
+    // カンマまたは全角カンマで分割してトリム
+    const currentList = coWorker.split(/[,、]/).map(n => n.trim()).filter(n => n !== '');
+    
+    let newList: string[];
+    if (currentList.includes(trimmedName)) {
+      // すでに選択されている場合は削除
+      newList = currentList.filter(n => n !== trimmedName);
+    } else {
+      // 選択されていない場合は追加
+      newList = [...currentList, trimmedName];
+    }
+    
+    // カンマ区切りの文字列に戻す
+    setCoWorker(newList.join(', '));
+  };
+
   useEffect(() => {
     if (selectedSchedule) {
       setStatus(selectedSchedule.status || 'free');
@@ -596,7 +614,34 @@ ${notes || 'なし'}
                 value={coWorker}
                 onChange={(e) => setCoWorker(e.target.value)}
                 disabled={isSubmitting}
+                placeholder="佐藤, 鈴木 (カンマ区切りで手動入力も可)"
               />
+              <div className="co-worker-quick-select" style={{ marginTop: '6px', display: 'flex', flexWrap: 'wrap', gap: '4px', maxHeight: '80px', overflowY: 'auto' }}>
+                {staff.map((st) => {
+                  const isSelected = coWorker.split(/[,、]/).map(name => name.trim()).includes(st.name.trim());
+                  return (
+                    <button
+                      key={st.id}
+                      type="button"
+                      onClick={() => handleToggleCoWorker(st.name)}
+                      style={{
+                        padding: '2px 6px',
+                        fontSize: '0.7rem',
+                        borderRadius: '12px',
+                        border: '1px solid var(--border-color, #cbd5e1)',
+                        background: isSelected ? 'rgba(99, 102, 241, 0.15)' : 'transparent',
+                        color: isSelected ? 'var(--primary, #4f46e5)' : 'var(--text-secondary, #475569)',
+                        borderColor: isSelected ? 'var(--primary, #4f46e5)' : 'var(--border-color, #cbd5e1)',
+                        cursor: 'pointer',
+                        fontWeight: isSelected ? '600' : 'normal',
+                        transition: 'all 0.1s ease'
+                      }}
+                    >
+                      {isSelected ? '✓ ' : ''}{st.name}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           </div>
 
