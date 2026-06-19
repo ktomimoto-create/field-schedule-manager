@@ -183,6 +183,59 @@ const parseTSV = (text: string): string[][] => {
     .filter(r => r.some(cell => cell !== ''));
 };
 
+// インライン直接入力用の軽量コンポーネント (キー入力による親全体の再レンダリングを防止)
+interface InlineInputProps {
+  initialValue: string;
+  field: keyof Schedule;
+  workTypes: WorkType[];
+  onSave: (val: string) => void;
+  onCancel: () => void;
+}
+
+const InlineInput: React.FC<InlineInputProps> = ({
+  initialValue,
+  field,
+  workTypes,
+  onSave,
+  onCancel
+}) => {
+  const [value, setValue] = React.useState(initialValue);
+
+  if (field === 'work_type') {
+    return (
+      <select
+        className="inline-edit-select"
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        onBlur={() => onSave(value)}
+        autoFocus
+      >
+        {workTypes.map(t => (
+          <option key={t.id} value={t.name}>{t.name}</option>
+        ))}
+      </select>
+    );
+  }
+
+  return (
+    <input
+      type="text"
+      className="inline-edit-input"
+      value={value}
+      onChange={(e) => setValue(e.target.value)}
+      onBlur={() => onSave(value)}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') {
+          onSave(value);
+        } else if (e.key === 'Escape') {
+          onCancel();
+        }
+      }}
+      autoFocus
+    />
+  );
+};
+
 interface CalendarViewProps {
   schedules: Schedule[];
   staff: Staff[];
@@ -236,7 +289,6 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
 
   // === インライン編集・コピペ管理用のステート群 ===
   const [editingCell, setEditingCell] = useState<{ id: number | string; field: keyof Schedule } | null>(null);
-  const [editingValue, setEditingValue] = useState<string>('');
   const [selectedCell, setSelectedCell] = useState<{ id: number | string; field: keyof Schedule } | null>(null);
 
   const [selectedScheduleId, setSelectedScheduleId] = useState<number | string | null>(null);
@@ -759,7 +811,6 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
           if (sched && !isTempSchedule(sched)) {
             e.preventDefault();
             setEditingCell({ id: selectedCell.id, field: selectedCell.field });
-            setEditingValue(String(sched[selectedCell.field] || ''));
           }
         }
         return;
@@ -1105,40 +1156,14 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
     const cellId = `cell-${schedule.date}-${rowIndex}-${field}`;
 
     if (isEditing) {
-      if (field === 'work_type') {
-        return (
-          <td id={cellId} className={className} style={style}>
-            <select
-              className="inline-edit-select"
-              value={editingValue}
-              onChange={(e) => setEditingValue(e.target.value)}
-              onBlur={() => handleInlineSave(schedId, field, editingValue)}
-              autoFocus
-            >
-              {workTypes.map(t => (
-                <option key={t.id} value={t.name}>{t.name}</option>
-              ))}
-            </select>
-          </td>
-        );
-      }
-      
       return (
         <td id={cellId} className={className} style={style}>
-          <input
-            type="text"
-            className="inline-edit-input"
-            value={editingValue}
-            onChange={(e) => setEditingValue(e.target.value)}
-            onBlur={() => handleInlineSave(schedId, field, editingValue)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') {
-                handleInlineSave(schedId, field, editingValue);
-              } else if (e.key === 'Escape') {
-                setEditingCell(null);
-              }
-            }}
-            autoFocus
+          <InlineInput
+            initialValue={String(schedule[field] || '')}
+            field={field}
+            workTypes={workTypes}
+            onSave={(val) => handleInlineSave(schedId, field, val)}
+            onCancel={() => setEditingCell(null)}
           />
         </td>
       );
@@ -1163,7 +1188,6 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
           onMouseEnter={() => handleCellMouseEnter(schedule.date, rowIndex, field)}
           onDoubleClick={() => {
             setEditingCell({ id: schedId, field });
-            setEditingValue(String(value || ''));
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', width: '100%' }}>
@@ -1211,7 +1235,6 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
           onMouseEnter={() => handleCellMouseEnter(schedule.date, rowIndex, field)}
           onDoubleClick={() => {
             setEditingCell({ id: schedId, field });
-            setEditingValue(String(value || ''));
           }}
         >
           <div className="property-cell-wrapper" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', gap: '4px' }}>
@@ -1249,7 +1272,6 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
             return;
           }
           setEditingCell({ id: schedId, field });
-          setEditingValue(String(value || ''));
         }}
       >
         {String(value || '')}
@@ -1985,9 +2007,22 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                                   }}
                                   onContextMenu={(e) => {
                                     e.preventDefault();
+                                    const menuWidth = 220;
+                                    const menuHeight = 320;
+                                    
+                                    let x = e.clientX;
+                                    let y = e.clientY;
+                                    
+                                    if (x + menuWidth > window.innerWidth) {
+                                      x = Math.max(0, window.innerWidth - menuWidth - 10);
+                                    }
+                                    if (y + menuHeight > window.innerHeight) {
+                                      y = Math.max(0, window.innerHeight - menuHeight - 10);
+                                    }
+
                                     setContextMenu({
-                                      x: e.clientX,
-                                      y: e.clientY,
+                                      x,
+                                      y,
                                       schedule
                                     });
                                   }}
