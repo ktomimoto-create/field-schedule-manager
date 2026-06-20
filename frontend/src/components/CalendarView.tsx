@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import type { Schedule, Staff, WorkType } from '../types';
-import { getShortName } from '../types';
+import { getShortName, findStaffByName } from '../types';
 
 import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Edit2, Plus, Search } from 'lucide-react';
 import './CalendarView.css';
@@ -643,7 +643,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
       const isUnassigned = String(scheduleId).startsWith('temp-unassigned-');
       const tempStaffName = isUnassigned ? '' : parts[1];
       const tempDate = isUnassigned ? parts.slice(3).join('-') : parts.slice(2).join('-');
-      const matchedStaff = tempStaffName ? staff.find(st => st.name === tempStaffName) : undefined;
+      const matchedStaff = tempStaffName ? findStaffByName(staff, tempStaffName) : undefined;
 
       const finalPropertyName = field === 'property_name'
         ? (value.trim() || '（物件名未定）')
@@ -1091,7 +1091,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
           const blended = getSortedDaySchedules(startCoord.dateStr);
           const targetSched = blended[startCoord.rowIndex];
           if (targetSched) {
-            const matchedStaff = staff.find(st => st.id === targetSched.staff_id || (st.name && st.name === targetSched.staff_name));
+            const matchedStaff = staff.find(st => st.id === targetSched.staff_id) || findStaffByName(staff, targetSched.staff_name);
             const tStaffId = matchedStaff ? matchedStaff.id : (targetSched.staff_id || 0);
             await handlePaste(startCoord.dateStr, tStaffId);
           }
@@ -1194,7 +1194,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
     const cellClass = `${className} ${selectionClass} ${searchMatchClass}`;
     
     if (field === 'staff_name') {
-      const matchedStaff = staff.find(st => st.id === schedule.staff_id || st.name === value);
+      const matchedStaff = staff.find(st => st.id === schedule.staff_id) || findStaffByName(staff, value as string | null | undefined);
       const avatarUrl = matchedStaff?.avatar_url;
       const isUnassigned = !value;
 
@@ -2357,7 +2357,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                     const parts = String(contextMenu.schedule.id).split('-');
                     const tempStaffName = parts[1];
                     tDate = parts.slice(2).join('-');
-                    const matchedStaff = staff.find(st => st.name === tempStaffName);
+                    const matchedStaff = findStaffByName(staff, tempStaffName);
                     if (matchedStaff) {
                       tStaffId = matchedStaff.id;
                     }

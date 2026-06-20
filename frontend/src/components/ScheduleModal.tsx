@@ -3,6 +3,7 @@ import type { Schedule, Staff, ScheduleStatus, WorkType } from '../types';
 import { X, Mail } from 'lucide-react';
 import { resolveAddress } from '../utils/addressResolver';
 import { supabase } from '../supabaseClient';
+import { findStaffByName } from '../types';
 
 interface ScheduleModalProps {
   isOpen: boolean;
@@ -251,7 +252,7 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
   }, [course]);
 
   // アサインスタッフのメールアドレス検索
-  const targetStaff = staff.find(st => st.name.trim() === staffName.trim());
+  const targetStaff = findStaffByName(staff, staffName);
   const targetStaffEmail = targetStaff?.email;
 
   const handleSendEmailNotification = async () => {
@@ -311,7 +312,7 @@ ${notes || 'なし'}
     setIsSubmitting(true);
     try {
       // 入力された staffName に合致する既存スタッフを特定
-      const matchedStaff = staff.find(st => st.name.trim() === staffName.trim());
+      const matchedStaff = findStaffByName(staff, staffName);
 
       const isCancelled = status === 'cancelled';
       const payload: Partial<Schedule> = {
@@ -591,7 +592,7 @@ ${notes || 'なし'}
                 onChange={(e) => {
                   const val = e.target.value;
                   setStaffName(val);
-                  const matched = staff.find(st => st.name.trim() === val.trim());
+                  const matched = findStaffByName(staff, val);
                   if (matched && matched.default_course) {
                     setCourse(matched.default_course);
                   }

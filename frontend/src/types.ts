@@ -83,4 +83,29 @@ export const getShortName = (name: string | null | undefined): string => {
   return parts[0] || trimmed;
 };
 
+export const findStaffByName = (staff: Staff[], name: string | null | undefined): Staff | undefined => {
+  if (!name) return undefined;
+  const cleanName = name.trim();
+  
+  if (
+    cleanName.includes('フーギー') ||
+    cleanName.includes('ナルマンダフ') ||
+    cleanName.includes('フスレンバヤル')
+  ) {
+    return staff.find(st => 
+      st.name.includes('ナルマンダフ') || 
+      st.name.includes('フスレンバヤル') || 
+      st.name.includes('フーギー')
+    );
+  }
+  
+  let matched = staff.find(st => st.name.trim() === cleanName);
+  if (matched) return matched;
+  
+  matched = staff.find(st => getShortName(st.name) === getShortName(cleanName));
+  if (matched) return matched;
+
+  return undefined;
+};
+
 

@@ -10,6 +10,7 @@ import { PasteImportModal } from './components/PasteImportModal';
 import { Calendar, Layers, RefreshCw, AlertCircle, List, Sliders, Sun, Moon, BarChart3 } from 'lucide-react';
 import { supabase, talkScriptSupabase } from './supabaseClient';
 import { resolveAddress } from './utils/addressResolver';
+import { findStaffByName } from './types';
 import './App.css';
 
 
@@ -502,7 +503,7 @@ function App() {
           const newCoWorkerSchedules: any[] = [];
 
           for (const name of names) {
-            const matchedCoWorker = staff.find(st => st.name.trim() === name);
+            const matchedCoWorker = findStaffByName(staff, name);
             if (matchedCoWorker) {
               // コース番号に基づいて区分を判定（1〜26はFTS、それ以外または未設定は委託）
               const defaultCourse = matchedCoWorker.default_course || '';
