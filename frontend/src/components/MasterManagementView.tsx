@@ -162,8 +162,24 @@ export const MasterManagementView: React.FC<MasterManagementViewProps> = ({
 
         if (matchedProfile && matchedProfile.email) {
           const profileEmail = matchedProfile.email.toLowerCase().trim();
-          const profileName = matchedProfile.display_name ? matchedProfile.display_name.trim() : '';
+          let profileName = matchedProfile.display_name ? matchedProfile.display_name.trim() : '';
           const profileEmpCode = matchedProfile.employee_id ? String(matchedProfile.employee_id).trim() : '';
+
+          // 苗字と名前の間に半角スペースを挿入する（getShortNameが正しく機能するようにするため）
+          if (profileName) {
+            const SURNAMES = [
+              '平本', '築地', '藤井', '神崎', '原', '土橋', '藤田', '佐藤', '吉沼', '小山', 
+              '高橋', '畦崎', '松下', '淺沼', '山内', '中川', '阿部', '藤崎', '本間', '丸山', 
+              '清水', '塙', '伊比', '石山', '平井', '豊見本', '富本'
+            ];
+            const matchedSurname = SURNAMES.find(s => profileName.startsWith(s));
+            if (matchedSurname && profileName !== matchedSurname) {
+              const firstName = profileName.slice(matchedSurname.length).trim();
+              if (firstName) {
+                profileName = `${matchedSurname} ${firstName}`;
+              }
+            }
+          }
 
           const updateData: any = {};
 

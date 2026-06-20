@@ -716,6 +716,9 @@
   - 新規スタッフ登録、および新規予定項目追加のフォーム入力欄（`<input>`）から `placeholder` 属性を削除しました。
   - 同期処理（`handleSyncMicrosoftAccounts`）にて、Microsoftアカウントから取得した `display_name` の値をスタッフの `name` フィールドに反映（更新）するように上書き処理を追加しました。
   - これまで「ダミー以外の本物メールアドレス（@example.com以外）が設定されている場合は同期をスキップする」という制限ガードが入っていたため、すでにメールアドレス設定済みのスタッフが本名に上書きされない状態になっていました。この除外ガードを削除し、すでにメールアドレスが設定されている場合でも名前が未同期であれば本名（フルネーム）へ更新できるようにロジックを最適化しました。
+  - Microsoftアカウントの display_name がスペースなしのフルネーム（例: `平本昭`）であっても、同期時にマスタの苗字データを元に「苗字 ＋ 半角スペース ＋ 名前」（例: `平本 昭`）という形式に自動補正して保存するようにロジックを最適化しました。
+* **[types.ts](file:///C:/Users/000644/.gemini/antigravity/scratch/field-schedule-manager/frontend/src/types.ts)**:
+  - 苗字抽出関数 `getShortName` にて、スペースなしのフルネーム（例: `平本昭`）が引数として渡された場合でも、既定の苗字リスト（平本、築地、藤井など）と前方一致判定を行い、自動的に苗字部分のみを切り出して返す処理を組み込みました。これにより、すでにデータベースにスペースなしの本名が保存されている場合であっても、カレンダーやグリッド等では確実に「平本」「築地」といった苗字のまま表示されます。
 
 #### 2. レイアウトの余白削減（コンパクト化）
 * **[MasterManagementView.css](file:///C:/Users/000644/.gemini/antigravity/scratch/field-schedule-manager/frontend/src/components/MasterManagementView.css)**:

@@ -78,6 +78,18 @@ export const getShortName = (name: string | null | undefined): string => {
   ) {
     return 'フーギー';
   }
+
+  // 既知の苗字リストから前方一致で切り出す（スペースがない本名にも対応）
+  const SURNAMES = [
+    '平本', '築地', '藤井', '神崎', '原', '土橋', '藤田', '佐藤', '吉沼', '小山', 
+    '高橋', '畦崎', '松下', '淺沼', '山内', '中川', '阿部', '藤崎', '本間', '丸山', 
+    '清水', '塙', '伊比', '石山', '平井', '豊見本', '富本'
+  ];
+  const matchedSurname = SURNAMES.find(s => trimmed.startsWith(s));
+  if (matchedSurname) {
+    return matchedSurname;
+  }
+
   // 全角スペースまたは半角スペースでスプリット
   const parts = trimmed.split(/[\s　]+/);
   return parts[0] || trimmed;
