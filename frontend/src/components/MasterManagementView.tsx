@@ -116,12 +116,6 @@ export const MasterManagementView: React.FC<MasterManagementViewProps> = ({
           continue;
         }
 
-        // すでにダミーアドレス以外（example.com以外の本物のメールアドレス）が設定されている場合は上書きしない
-        if (st.email && !st.email.toLowerCase().endsWith('@example.com')) {
-          skippedCount++;
-          continue;
-        }
-
         // 社員番号が設定されている場合は、社員番号ベースで最優先マッチ
         const stEmpCode = st.employee_code ? String(st.employee_code).trim() : '';
         let matchedProfile = null;

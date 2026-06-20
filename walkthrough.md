@@ -714,7 +714,8 @@
 #### 1. プレースホルダーの削除と同期処理の拡張
 * **[MasterManagementView.tsx](file:///C:/Users/000644/.gemini/antigravity/scratch/field-schedule-manager/frontend/src/components/MasterManagementView.tsx)**:
   - 新規スタッフ登録、および新規予定項目追加のフォーム入力欄（`<input>`）から `placeholder` 属性を削除しました。
-  - 同期処理（`handleSyncMicrosoftAccounts`）にて、Microsoftアカウントから取得した `display_name` の値をスタッフの `name` フィールドに反映（更新）するように上書き処理を追加しました。また、すでにメールアドレスが同期されているスタッフであっても、名前が未更新であれば本名へのアップデートが行われるように更新判定条件を最適化しました。
+  - 同期処理（`handleSyncMicrosoftAccounts`）にて、Microsoftアカウントから取得した `display_name` の値をスタッフの `name` フィールドに反映（更新）するように上書き処理を追加しました。
+  - これまで「ダミー以外の本物メールアドレス（@example.com以外）が設定されている場合は同期をスキップする」という制限ガードが入っていたため、すでにメールアドレス設定済みのスタッフが本名に上書きされない状態になっていました。この除外ガードを削除し、すでにメールアドレスが設定されている場合でも名前が未同期であれば本名（フルネーム）へ更新できるようにロジックを最適化しました。
 
 #### 2. レイアウトの余白削減（コンパクト化）
 * **[MasterManagementView.css](file:///C:/Users/000644/.gemini/antigravity/scratch/field-schedule-manager/frontend/src/components/MasterManagementView.css)**:
