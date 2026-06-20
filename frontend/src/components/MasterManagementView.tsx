@@ -167,17 +167,27 @@ export const MasterManagementView: React.FC<MasterManagementViewProps> = ({
         }
 
         if (matchedProfile && matchedProfile.email) {
-          // メールアドレスがすでに同じならスキップ
-          if (st.email && st.email.toLowerCase().trim() === matchedProfile.email.toLowerCase().trim()) {
-            skippedCount++;
-            continue;
+          const profileEmail = matchedProfile.email.toLowerCase().trim();
+          const profileName = matchedProfile.display_name ? matchedProfile.display_name.trim() : '';
+          const profileEmpCode = matchedProfile.employee_id ? String(matchedProfile.employee_id).trim() : '';
+
+          const updateData: any = {};
+
+          if (!st.email || st.email.toLowerCase().trim() !== profileEmail) {
+            updateData.email = profileEmail;
           }
 
-          // 更新データを作成
-          const updateData: any = { email: matchedProfile.email.toLowerCase().trim() };
-          // 社員番号が staff 側に未設定で、profiles 側にある場合は、社員番号も同時に補完して更新する
-          if (!st.employee_code && matchedProfile.employee_id) {
-            updateData.employee_code = String(matchedProfile.employee_id).trim();
+          if (profileName && st.name.trim() !== profileName) {
+            updateData.name = profileName;
+          }
+
+          if (!st.employee_code && profileEmpCode) {
+            updateData.employee_code = profileEmpCode;
+          }
+
+          if (Object.keys(updateData).length === 0) {
+            skippedCount++;
+            continue;
           }
 
           // 更新クエリを準備
@@ -541,7 +551,6 @@ export const MasterManagementView: React.FC<MasterManagementViewProps> = ({
                   <input
                     type="text"
                     className="form-control"
-                    placeholder="例: 佐藤"
                     value={newStaffName}
                     onChange={(e) => setNewStaffName(e.target.value)}
                     required
@@ -553,7 +562,6 @@ export const MasterManagementView: React.FC<MasterManagementViewProps> = ({
                   <input
                     type="email"
                     className="form-control"
-                    placeholder="例: sato@example.com"
                     value={newStaffEmail}
                     onChange={(e) => setNewStaffEmail(e.target.value)}
                     disabled={isSubmitting}
@@ -564,7 +572,6 @@ export const MasterManagementView: React.FC<MasterManagementViewProps> = ({
                   <input
                     type="text"
                     className="form-control"
-                    placeholder="例: 8, 90"
                     value={newStaffCourse}
                     onChange={(e) => setNewStaffCourse(e.target.value)}
                     disabled={isSubmitting}
@@ -575,7 +582,6 @@ export const MasterManagementView: React.FC<MasterManagementViewProps> = ({
                   <input
                     type="text"
                     className="form-control"
-                    placeholder="例: 000869"
                     value={newStaffEmpCode}
                     onChange={(e) => setNewStaffEmpCode(e.target.value)}
                     disabled={isSubmitting}
@@ -802,7 +808,6 @@ export const MasterManagementView: React.FC<MasterManagementViewProps> = ({
                   <input
                     type="text"
                     className="form-control"
-                    placeholder="例: 健康診断, 出張など"
                     value={newTypeName}
                     onChange={(e) => setNewTypeName(e.target.value)}
                     required

@@ -701,3 +701,26 @@
 
 #### 2. ビルド確認
 - フロントエンドプロジェクトで `cmd /c npm run build` を実行し、ビルドが正常に完了することを確認しました。
+
+## [2026-06-20] マスタ管理画面のコンパクト化、プレースホルダー削除、および同期時スタッフ名本名化
+
+### 変更の目的
+1. **不要なプレースホルダー（例文）の削除**: マスタ管理画面の登録フォーム内における不要な例文プレースホルダー（「例: 佐藤」など）を削除して画面を整理します。
+2. **全体的な余白の削減によるデザイン最適化**: マスタ管理画面のコンテナ、タブ、フォーム、テーブルセル、項目カードなどの余白を小さく調整し、多くの情報を一覧できるコンパクトで実用的なレイアウトにします。
+3. **マスタ管理上の氏名を本名（フルネーム）へ更新する同期処理の拡張**: Microsoftアカウント同期の実行時に、外部プロフィールの表示名（`display_name`）をスタッフの `name` フィールドに反映し、マスタ上の表記を本名にアップデートできるようにします。なお、カレンダーやグリッド、印刷プレビューなど他の画面での表示は、すでに `getShortName` が適用されているため、これまでの苗字または「フーギー」表記のまま維持されます。
+
+### 変更内容
+
+#### 1. プレースホルダーの削除と同期処理の拡張
+* **[MasterManagementView.tsx](file:///C:/Users/000644/.gemini/antigravity/scratch/field-schedule-manager/frontend/src/components/MasterManagementView.tsx)**:
+  - 新規スタッフ登録、および新規予定項目追加のフォーム入力欄（`<input>`）から `placeholder` 属性を削除しました。
+  - 同期処理（`handleSyncMicrosoftAccounts`）にて、Microsoftアカウントから取得した `display_name` の値をスタッフの `name` フィールドに反映（更新）するように上書き処理を追加しました。また、すでにメールアドレスが同期されているスタッフであっても、名前が未更新であれば本名へのアップデートが行われるように更新判定条件を最適化しました。
+
+#### 2. レイアウトの余白削減（コンパクト化）
+* **[MasterManagementView.css](file:///C:/Users/000644/.gemini/antigravity/scratch/field-schedule-manager/frontend/src/components/MasterManagementView.css)**:
+  - `.master-mgmt-container` や `.master-add-form` の padding / gap を小さくしました。
+  - 各種ボタン（`.master-tab-btn`）や、一覧テーブルのセル（`th`, `td`）の padding を縮小し、行の高さを抑えてスクロールなしで多くの情報を視認できるよう改善しました。
+  - 予定項目一覧（`.worktype-item-card`, `.worktype-items-list`）の余白やギャップも縮小し、左右2カラムのバランスを整えました。
+
+#### 3. ビルド確認
+- フロントエンドプロジェクトで `cmd /c npm run build` を実行し、TypeScriptのコンパイルエラーがなくビルドが正常に通過することを確認しました。
