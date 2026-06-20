@@ -180,7 +180,7 @@
    ========================================================================== */
 @media print {
   /* 1. 本体のルートコンテンツを非表示にする */
-  #root > :not(.print-preview-overlay) {
+  #root {
     display: none !important;
   }
 

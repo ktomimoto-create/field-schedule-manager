@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import type { Schedule, Staff } from '../types';
 import { getShortName } from '../types';
 import { Printer, X } from 'lucide-react';
@@ -91,7 +92,7 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({
     return `${d.getFullYear()}年 ${d.getMonth() + 1}月${d.getDate()}日 (${weekDays[d.getDay()]})`;
   };
 
-  return (
+  return createPortal(
     <div className="print-preview-overlay">
       <div className="print-preview-modal card">
         <div className="print-preview-header no-print">
@@ -207,6 +208,7 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({
           </table>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };
