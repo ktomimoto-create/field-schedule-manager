@@ -665,33 +665,35 @@ function App() {
                 当日行動予定表
               </button>
               {currentUserRole === 'admin' && (
-                <>
-                  <button
-                    className={`tab-btn ${activeTab === 'calendar' ? 'active' : ''}`}
-                    onClick={() => setActiveTab('calendar')}
-                  >
-                    <Calendar size={16} />
-                    月間予定表
-                  </button>
-                  <button
-                    className={`tab-btn ${activeTab === 'analytics' ? 'active' : ''}`}
-                    onClick={() => setActiveTab('analytics')}
-                  >
-                    <BarChart3 size={16} />
-                    集計分析
-                  </button>
-                  <button
-                    className={`tab-btn ${activeTab === 'master_management' ? 'active' : ''}`}
-                    onClick={() => setActiveTab('master_management')}
-                  >
-                    <Sliders size={16} />
-                    マスタ管理
-                  </button>
-                </>
+                <button
+                  className={`tab-btn ${activeTab === 'calendar' ? 'active' : ''}`}
+                  onClick={() => setActiveTab('calendar')}
+                >
+                  <Calendar size={16} />
+                  月間予定表
+                </button>
               )}
             </div>
 
             <div className="header-actions">
+              {currentUserRole === 'admin' && (
+                <>
+                  <button 
+                    className={`btn ${activeTab === 'analytics' ? 'btn-primary' : 'btn-secondary'}`}
+                    onClick={() => setActiveTab('analytics')}
+                    title="集計分析を開く"
+                  >
+                    <BarChart3 size={16} />
+                  </button>
+                  <button 
+                    className={`btn ${activeTab === 'master_management' ? 'btn-primary' : 'btn-secondary'}`}
+                    onClick={() => setActiveTab('master_management')}
+                    title="マスタ管理を開く"
+                  >
+                    <Sliders size={16} />
+                  </button>
+                </>
+              )}
               <button 
                 className="btn btn-secondary" 
                 onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')} 
