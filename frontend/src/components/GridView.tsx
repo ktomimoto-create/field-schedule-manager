@@ -3,7 +3,8 @@ import XLSX from 'xlsx-js-style';
 import type { Schedule, Staff } from '../types';
 import { getShortName } from '../types';
 
-import { Plus, ChevronLeft, ChevronRight, Calendar as CalendarIcon, Filter, CheckCircle2, Download, Eye, EyeOff } from 'lucide-react';
+import { Plus, ChevronLeft, ChevronRight, Calendar as CalendarIcon, Filter, CheckCircle2, Download, Eye, EyeOff, Printer } from 'lucide-react';
+import { PrintPreviewModal } from './PrintPreviewModal';
 import './GridView.css';
 
 interface GridViewProps {
@@ -162,6 +163,7 @@ export const GridView: React.FC<GridViewProps> = ({
   const [myScheduleOnly, setMyScheduleOnly] = useState(false);
   const [filterStaff, setFilterStaff] = useState<string>('all');
   const [filterStatus, setFilterStatus] = useState<string>('all');
+  const [isPrintPreviewOpen, setIsPrintPreviewOpen] = useState(false);
 
   const changeDate = (days: number) => {
     const d = new Date(selectedDate);
@@ -385,13 +387,23 @@ export const GridView: React.FC<GridViewProps> = ({
           )}
 
           <button 
+            className="btn btn-primary" 
+            onClick={() => setIsPrintPreviewOpen(true)}
+            title="自分の予定だけを絞り込んで、一時的なメモを書き足し、A4用紙等に綺麗に印刷できるプレビュー画面を開きます"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontWeight: 600, backgroundColor: 'var(--primary)', border: 'none' }}
+          >
+            <Printer size={14} />
+            印刷プレビュー
+          </button>
+
+          <button 
             className="btn btn-secondary" 
             onClick={exportToExcel}
             title="現在表示されている予定の一覧を、列幅や折り返し設定が適用されたExcelファイル (.xlsx) としてダウンロードして開きます"
             style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontWeight: 600 }}
           >
             <Download size={14} />
-            Excelで開く/印刷
+            Excelで開く
           </button>
 
           <button 
@@ -554,6 +566,15 @@ export const GridView: React.FC<GridViewProps> = ({
           表示件数: {filteredSchedules.length} 件
         </span>
       </div>
+
+      <PrintPreviewModal
+        isOpen={isPrintPreviewOpen}
+        onClose={() => setIsPrintPreviewOpen(false)}
+        schedules={daySchedules}
+        staff={staff}
+        selectedDate={selectedDate}
+        initialFilterStaff={myScheduleOnly && currentStaffId !== null ? String(currentStaffId) : filterStaff}
+      />
     </div>
   );
 };
