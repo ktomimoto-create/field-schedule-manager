@@ -193,10 +193,6 @@ export const GridView: React.FC<GridViewProps> = ({
     .filter(Boolean);
 
   const filteredSchedules = schedules.filter(s => {
-    // 休み・公休は行から除外
-    if (s.work_type === '休暇') {
-      return false;
-    }
     if (s.date !== selectedDate) {
       return false;
     }
