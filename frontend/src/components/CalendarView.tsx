@@ -453,7 +453,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
           staff_id: null,
           staff_name: '',
           course: '',
-          work_type: 'フリー',
+          work_type: '',
           type: '',
           property_name: '',
           box: '',
@@ -968,7 +968,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                     staff_id: null,
                     staff_name: '',
                     course: '',
-                    work_type: 'フリー',
+                    work_type: '',
                     property_name: ''
                   } as Schedule;
                 }
