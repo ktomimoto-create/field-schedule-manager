@@ -532,6 +532,14 @@ function App() {
                 coWorkerDivision = 'FTS';
               }
 
+              // 同行者の項目（co_worker）の組み立て: 「親の対応者 ＋ 自分以外の他の同行者」
+              const parentName = finalParentRecord.staff_name || '';
+              const otherCoWorkers = names.filter((n: string) => {
+                const cleanedN = n.trim();
+                return cleanedN !== name && cleanedN !== matchedCoWorker.name;
+              });
+              const childCoWorkers = [parentName, ...otherCoWorkers].filter(Boolean).join(', ');
+
               // 子の予定レコードを作成
               const childPayload = {
                 status: finalParentRecord.status,
@@ -539,14 +547,15 @@ function App() {
                 type: finalParentRecord.type || null,
                 box: finalParentRecord.box || null,
                 unit_number: finalParentRecord.unit_number || null,
-                // 物件名に「山田同行: エル・コモド下馬」形式で保存
-                property_name: `${finalParentRecord.staff_name || '対応者'}同行: ${finalParentRecord.property_name}`,
+                // 物件名は親と完全に同一にする
+                property_name: finalParentRecord.property_name,
                 work_type: finalParentRecord.work_type || null,
                 description: finalParentRecord.description || null,
                 target_time: finalParentRecord.target_time || null,
                 date: finalParentRecord.date,
                 staff_id: matchedCoWorker.id,
                 staff_name: matchedCoWorker.name,
+                co_worker: childCoWorkers || null,
                 course: defaultCourse || null,
                 notes: `${finalParentRecord.notes || ''}\n\n[__parent_id:${savedId}__]`,
                 is_transferred: finalParentRecord.is_transferred ?? 0
