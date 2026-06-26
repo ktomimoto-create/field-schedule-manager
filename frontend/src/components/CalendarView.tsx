@@ -403,7 +403,17 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
           )
         );
 
-        if (!hasScheduleForThisCourse) {
+        // 同日の他の予定に同行者として名前が入っているかを判定
+        const isCoWorkerOnThisDay = displaySchedules.some(s => {
+          if (s.status === 'cancelled' || !s.co_worker) return false;
+          const coWorkerNames = s.co_worker.split(/[\s,，、]+/).map(n => n.trim()).filter(Boolean);
+          return coWorkerNames.some(cwName => {
+            const matched = findStaffByName(staff, cwName);
+            return matched && matched.id === stItem.id;
+          });
+        });
+
+        if (!hasScheduleForThisCourse && !isCoWorkerOnThisDay) {
           const courseNum = Number(stItem.default_course);
           let divisionVal = '';
           if (courseNum >= 1 && courseNum <= 26) {
