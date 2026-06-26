@@ -673,10 +673,16 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
       if (field === 'notes') {
         const original = schedules.find(s => s.id === scheduleId);
         if (original && original.notes) {
-          const match = original.notes.match(/\[__parent_id:\d+__\]/);
-          if (match) {
-            finalValue = `${value.trim()}\n\n${match[0]}`;
+          const matchParent = original.notes.match(/\[__parent_id:\d+__\]/);
+          const matchNoSync = original.notes.includes('[__no_sync__]');
+          let suffixes = '';
+          if (matchParent) {
+            suffixes += `\n\n${matchParent[0]}`;
           }
+          if (matchNoSync) {
+            suffixes += `\n\n[__no_sync__]`;
+          }
+          finalValue = `${value.trim()}${suffixes}`;
         }
       }
 
@@ -1165,7 +1171,10 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
     // メタデータ除去ヘルパー
     const cleanMetadata = (val: any): string => {
       if (!val) return '';
-      return String(val).replace(/\s*\[__parent_id:\d+__\]/g, '').trim();
+      return String(val)
+        .replace(/\s*\[__parent_id:\d+__\]/g, '')
+        .replace(/\s*\[__no_sync__\]/g, '')
+        .trim();
     };
 
     // 検索一致判定

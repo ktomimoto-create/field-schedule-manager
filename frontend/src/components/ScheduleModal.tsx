@@ -56,6 +56,7 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
   const [disorderType, setDisorderType] = useState('');
   const [level, setLevel] = useState('');
   const [level3, setLevel3] = useState('');
+  const [isSyncCoWorker, setIsSyncCoWorker] = useState(true);
   
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -207,7 +208,10 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
       setTimeLimit(selectedSchedule.time_limit || '');
       setCourse(selectedSchedule.course || '');
       setResult(selectedSchedule.result || '');
-      setNotes(selectedSchedule.notes || '');
+      const rawNotes = selectedSchedule.notes || '';
+      const hasNoSync = rawNotes.includes('[__no_sync__]');
+      setNotes(rawNotes.replace(/\s*\[__no_sync__\]/g, '').trim());
+      setIsSyncCoWorker(!hasNoSync);
       setDisorderType(selectedSchedule.disorder_type || '');
       setLevel(selectedSchedule.level || '');
       setLevel3(selectedSchedule.level_3 || '');
@@ -232,6 +236,7 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
       setCourse('');
       setResult('');
       setNotes('');
+      setIsSyncCoWorker(true);
       setDisorderType('');
       setLevel('');
       setLevel3('');
@@ -336,7 +341,13 @@ ${notes || 'なし'}
         time_limit: timeLimit.trim() || null,
         course: isCancelled ? '' : (course.trim() || null),
         result: result.trim() || null,
-        notes: notes.trim() || null,
+        notes: (() => {
+          let finalNotes = notes.trim();
+          if (!isSyncCoWorker) {
+            finalNotes = finalNotes ? `${finalNotes}\n\n[__no_sync__]` : '[__no_sync__]';
+          }
+          return finalNotes || null;
+        })(),
         disorder_type: disorderType.trim() || null,
         level: level.trim() || null,
         level_3: level3.trim() || null,
@@ -642,6 +653,19 @@ ${notes || 'なし'}
                     </button>
                   );
                 })}
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '10px' }}>
+                <input
+                  type="checkbox"
+                  id="sync_co_worker"
+                  checked={isSyncCoWorker}
+                  onChange={(e) => setIsSyncCoWorker(e.target.checked)}
+                  disabled={isSubmitting}
+                  style={{ width: '16px', height: '16px', cursor: 'pointer', margin: 0 }}
+                />
+                <label htmlFor="sync_co_worker" style={{ fontSize: '0.82rem', cursor: 'pointer', userSelect: 'none', margin: 0, fontWeight: 'normal', color: 'var(--text-secondary, #475569)' }}>
+                  相手の予定表にも自動登録する（連動登録）
+                </label>
               </div>
             </div>
           </div>

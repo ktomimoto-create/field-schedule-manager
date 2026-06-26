@@ -830,4 +830,27 @@
 #### 2. ビルド確認
 - フロントエンドプロジェクトで `cmd /c npm run build` を実行し、TypeScriptのコンパイルおよびビルドが正常に通過することを確認しました。
 
+## [2026-06-26] 同行予定（子予定）の自動連動登録ON/OFF制御機能の追加
+
+### 変更の目的
+1日同行予定などの場合に、すべての予定が同行者のカレンダー行に重複して自動登録されて行数が膨れ上がってしまうのを防ぐため、予定登録・編集時に同行予定を相手の行に自動登録するかどうか（連動登録のON/OFF）をユーザーが手動で制御できるようにします。
+
+### 変更内容
+
+#### 1. 連動登録制御チェックボックスの追加とメタデータ保存
+* **[ScheduleModal.tsx](file:///C:/Users/000644/.gemini/antigravity/scratch/field-schedule-manager/frontend/src/components/ScheduleModal.tsx)**:
+  - 予定追加・編集モーダルの同行者指定欄の下部に「相手の予定表にも自動登録する（連動登録）」チェックボックスを新設しました。
+  - チェックボックスがOFFの場合、予定の保存時に `notes`（備考）の末尾へ非同期メタデータ `[__no_sync__]` を付加して保存する仕組みを実装しました。既存予定の編集時は `notes` 内の `[__no_sync__]` の有無を自動検出して初期状態へ復元します。
+
+#### 2. メタデータ隠蔽・保護および自動同期制御の追加
+* **[CalendarView.tsx](file:///C:/Users/000644/.gemini/antigravity/scratch/field-schedule-manager/frontend/src/components/CalendarView.tsx)**:
+  - セル上の値から `[__no_sync__]` メタデータを完全に除去して非表示にするよう `cleanMetadata` ヘルパーを更新しました。
+  - インライン編集で備考欄を部分更新した際にも `[__no_sync__]` が消失しないよう、データ書き込み時のメタデータ引き継ぎ保護処理を実装しました。
+* **[App.tsx](file:///C:/Users/000644/.gemini/antigravity/scratch/field-schedule-manager/frontend/src/App.tsx)**:
+  - 同行予定の自動同期処理時、親予定の `notes` に `[__no_sync__]` が含まれる場合には、同行者側の行への予定自動登録（子予定の生成）をスキップするよう同期ロジックを修正しました（すでに登録されていた同行予定は自動的にクリーンアップされます）。
+
+#### 3. ビルド確認
+- フロントエンドプロジェクトで `cmd /c npm run build` を実行し、TypeScriptのコンパイルおよびビルドが正常に通過することを確認しました。
+
+
 

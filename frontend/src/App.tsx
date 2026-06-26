@@ -515,8 +515,11 @@ function App() {
           .like('notes', `%[__parent_id:${savedId}__]%`);
 
         // 2. 新しい同行者リストに基づいて子予定を同期生成
+        const parentNotes = finalParentRecord.notes || '';
+        const hasNoSync = parentNotes.includes('[__no_sync__]');
+
         const coWorkersStr = finalParentRecord.co_worker || '';
-        if (coWorkersStr.trim() !== '') {
+        if (!hasNoSync && coWorkersStr.trim() !== '') {
           // カンマまたは全角カンマや読点で分割してトリム
           const names = coWorkersStr.split(/[,、]/).map((n: string) => n.trim()).filter((n: string) => n !== '');
           const newCoWorkerSchedules: any[] = [];
