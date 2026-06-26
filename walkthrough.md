@@ -794,3 +794,24 @@
 
 #### 2. ビルド確認
 - フロントエンドプロジェクトで `cmd /c npm run build` を実行し、ビルドがエラーなく正常に通過することを確認しました。
+
+## [2026-06-26] 同行者の表示形式を対応者列と統一
+
+### 変更の目的
+カレンダー（月間予定表）だけでなく、予定表（グリッド）や印刷プレビュー画面においても、同行者（`co_worker`）の表示形式を対応者（苗字 / `getShortName` 適用）の列と統一し、デザインスタイルおよび表記の一貫性を向上させます。
+
+### 変更内容
+
+#### 1. 予定表グリッドにおける同行者表示のタグ化と苗字への統一
+* **[GridView.tsx](file:///C:/Users/000644/.gemini/antigravity/scratch/field-schedule-manager/frontend/src/components/GridView.tsx)**:
+  - 同行者列の表示を単なるテキストから、対応者列と同様の `staff-indicator-tag`（苗字を表示するタグ）形式に変更しました。
+  - 同行者に複数名がアサインされている場合（カンマやスペース区切り）に対応するため、文字列をパースして各同行者を個別の `staff-indicator-tag` として横並びで表示するロジックを実装しました。
+
+#### 2. 印刷プレビューにおける同行者表示の苗字統一
+* **[PrintPreviewModal.tsx](file:///C:/Users/000644/.gemini/antigravity/scratch/field-schedule-manager/frontend/src/components/PrintPreviewModal.tsx)**:
+  - 印刷プレビュー内の同行者セルにおいて、表示される名前を `getShortName` により苗字に統一しました。
+  - 複数同行者がいる場合は、苗字に変換した上でカンマ区切り（例: `平本, 築地`）で綺麗に並べて出力するよう修正しました。
+
+#### 3. ビルド確認
+- フロントエンドプロジェクトで `cmd /c npm run build` を実行し、TypeScriptのコンパイルおよびビルドが正常に通過することを確認しました。
+

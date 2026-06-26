@@ -498,7 +498,21 @@ export const GridView: React.FC<GridViewProps> = ({
                     </td>
                     <td>{schedule.area}</td>
                     <td>{schedule.transport}</td>
-                    <td>{schedule.co_worker}</td>
+                    <td>
+                      {(() => {
+                        const coWorkersStr = schedule.co_worker || '';
+                        const coWorkersList = coWorkersStr ? coWorkersStr.split(/[\s,，、]+/).map(s => s.trim()).filter(Boolean) : [];
+                        return (
+                          <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+                            {coWorkersList.map((name, idx) => (
+                              <span key={idx} className="staff-indicator-tag" style={{ borderLeft: '3px solid var(--primary)' }}>
+                                {getShortName(name)}
+                              </span>
+                            ))}
+                          </div>
+                        );
+                      })()}
+                    </td>
                     <td>{schedule.request_number}</td>
                     
                     <td style={{ textAlign: 'center', verticalAlign: 'middle' }}>

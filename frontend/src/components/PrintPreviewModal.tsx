@@ -182,7 +182,13 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({
                       </td>
                       <td>{schedule.area || ''}</td>
                       <td>{schedule.transport || ''}</td>
-                      <td>{schedule.co_worker || ''}</td>
+                      <td>
+                        {(() => {
+                          const coWorkersStr = schedule.co_worker || '';
+                          const coWorkersList = coWorkersStr ? coWorkersStr.split(/[\s,，、]+/).map(s => s.trim()).filter(Boolean) : [];
+                          return coWorkersList.map(name => getShortName(name)).join(', ');
+                        })()}
+                      </td>
                       <td>{schedule.request_number || ''}</td>
                       <td className="print-memo-cell">
                         <textarea

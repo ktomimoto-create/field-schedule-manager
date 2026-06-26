@@ -1297,6 +1297,64 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
       );
     }
 
+    if (field === 'co_worker') {
+      const coWorkersStr = (value as string) || '';
+      const coWorkersList = coWorkersStr ? coWorkersStr.split(/[\s,，、]+/).map(s => s.trim()).filter(Boolean) : [];
+
+      return (
+        <td 
+          id={cellId}
+          className={cellClass} 
+          style={style}
+          title={title ? cleanMetadata(title) : undefined}
+          onMouseDown={(e) => handleCellMouseDown(e, schedule.date, rowIndex, field, schedId)}
+          onMouseEnter={() => handleCellMouseEnter(schedule.date, rowIndex, field)}
+          onDoubleClick={() => {
+            setEditingCell({ id: schedId, field });
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '4px', width: '100%', flexWrap: 'wrap' }}>
+            {coWorkersList.map((stName, idx) => {
+              const matchedStaff = findStaffByName(staff, stName);
+              const avatarUrl = matchedStaff?.avatar_url;
+              const shortName = getShortName(stName);
+
+              return (
+                <div key={idx} style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', padding: '1px 3px', borderRadius: '3px' }}>
+                  {avatarUrl ? (
+                    <img 
+                      src={avatarUrl} 
+                      alt={shortName} 
+                      style={{ width: '18px', height: '18px', borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} 
+                    />
+                  ) : (
+                    <div style={{ 
+                      width: '18px', 
+                      height: '18px', 
+                      borderRadius: '50%', 
+                      backgroundColor: 'var(--primary, #4f46e5)', 
+                      color: 'white', 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      justifyContent: 'center', 
+                      fontSize: '0.6rem', 
+                      fontWeight: 'bold',
+                      flexShrink: 0
+                    }}>
+                      {shortName.substring(0, 1)}
+                    </div>
+                  )}
+                  <span style={{ fontSize: '0.8rem', whiteSpace: 'nowrap' }}>
+                    {shortName}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </td>
+      );
+    }
+
     return (
       <td 
         id={cellId}
