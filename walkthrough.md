@@ -728,3 +728,22 @@
 
 #### 3. ビルド確認
 - フロントエンドプロジェクトで `cmd /c npm run build` を実行し、TypeScriptのコンパイルエラーがなくビルドが正常に通過することを確認しました。
+
+## [2026-06-26] マスタ管理画面の余白の更なる削減（極限コンパクト化）
+
+### 変更の目的
+マスタ管理画面全体の余白（padding/margin/gap）をもう一歩細かくチューニングし、入力フォームやテーブル一覧などの縦のスペースを縮小して画面全体をよりスマートで密度の高い機能的なレイアウトにブラッシュアップします。
+
+### 変更内容
+
+#### 1. 各種余白・サイズ設定の更なる縮小
+* **[MasterManagementView.css](file:///C:/Users/000644/.gemini/antigravity/scratch/field-schedule-manager/frontend/src/components/MasterManagementView.css)**:
+  - コンテナ（`.master-mgmt-container`）のパディングを `1.0rem` から `0.75rem` に、ギャップを `1.0rem` から `0.75rem` に削減。
+  - サブタブバー（`.master-mgmt-tabs`）のパディングやタブボタン（`.master-tab-btn`）の文字サイズ・内側パディングを縮小し、ヘッダー側の省スペース化を追求。
+  - セクション全体（`.master-section`）のギャップをさらに縮小。
+  - 新規登録フォーム（`.master-add-form`）のパディング、および内部グリッド（`.form-grid`, `.form-grid-row`）の間隔をそれぞれ縮小。
+  - 一覧テーブルのセルパディング（`th`/`td` の `padding`）をさらに削減（上下 `0.3rem` / 左右 `0.6rem` 等）して、行高さを極限までスマートに抑え、一覧性を最大化。
+  - 項目カード（`.worktype-item-card`）などのパディングも縮小して統一。
+
+#### 2. ビルド確認
+- フロントエンドプロジェクトで `cmd /c npm run build` を実行し、ビルドが正常に完了することを確認しました。
