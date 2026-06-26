@@ -1674,21 +1674,21 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                       <table className="day-calendar-table">
                         <colgroup>
                           <col style={{ width: '65px' }} /> {/* タイプ (見切れ防止のため幅を確保) */}
-                          <col style={{ width: '65px' }} /> {/* BOX */}
+                          <col style={{ width: '45px' }} /> {/* BOX */}
                           <col style={{ width: '65px' }} /> {/* 号機 */}
                           <col style={{ width: '180px' }} /> {/* 物件名 */}
                           <col style={{ width: '65px' }} /> {/* 種別 */}
                           <col style={{ width: '220px' }} /> {/* 作業内容 */}
                           <col style={{ width: '75px' }} /> {/* 時間 */}
-                          <col style={{ width: '100px' }} /> {/* 対応者 */}
+                          <col style={{ width: '120px' }} /> {/* 対応者 */}
                           <col style={{ width: '75px' }} /> {/* エリア */}
                           <col style={{ width: '65px' }} /> {/* 県別 */}
                           <col style={{ width: '65px' }} /> {/* 移動 */}
                           <col style={{ width: '85px' }} /> {/* 同行者 */}
                           <col style={{ width: '100px' }} /> {/* 依頼番号 */}
-                          <col style={{ width: '65px' }} /> {/* TIME */}
-                          <col style={{ width: '65px' }} /> {/* コース */}
-                          <col style={{ width: '130px' }} /> {/* 備考 */}
+                          <col style={{ width: '45px' }} /> {/* TIME */}
+                          <col style={{ width: '45px' }} /> {/* コース */}
+                          <col style={{ width: '150px' }} /> {/* 備考 */}
                         </colgroup>
                         <thead>
                           {/* 1段目ヘッダー: 各曜日の大結合ヘッダー */}
