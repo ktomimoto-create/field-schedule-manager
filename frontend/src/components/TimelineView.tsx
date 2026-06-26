@@ -50,9 +50,9 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
     setTargetDateStr(new Date().toISOString().split('T')[0]);
   };
 
-  // 当日の対象全予定（確定・仮）
+  // 当日の対象全予定（通常・確定・仮）
   const todaySchedules = schedules.filter(
-    s => s.date === targetDateStr && (s.status === 'confirmed' || s.status === 'draft')
+    s => s.date === targetDateStr && (s.status === 'confirmed' || s.status === 'draft' || s.status === 'free')
   );
 
   // 指定日に「休み」または「公休」が登録されているスタッフIDを特定
