@@ -979,3 +979,20 @@
 
 #### 2. ビルド確認
 - フロントエンドプロジェクトで `cmd /c npm run build` を実行し、TypeScriptのコンパイルおよびビルドが正常に通過することを確認しました。
+
+## [2026-06-29] コピペインポート時の対応者曖昧一致（スタッフID自動解決）バグの修正
+
+### 変更の目的
+スプレッドシートからコピペインポートを行った際に、マスタに存在するスタッフ名（「本間」「平本」など）を入力しているにもかかわらず、タイミング問題によってスタッフIDが正常に解決されず `null` になってしまい、アバターやイニシャルバッジが表示されないバグを修正します。
+
+### 変更内容
+
+#### 1. スタッフマスタリストの親コンポーネント（App.tsx）からの props 移行
+* **[PasteImportModal.tsx](file:///C:/Users/000644/.gemini/antigravity/scratch/field-schedule-manager/frontend/src/components/PasteImportModal.tsx)**:
+  - モーダル内部での `supabase.from('staff').select('*')` を用いたマスタデータの独自フェッチを廃止し、親である `App.tsx` から props 経由で取得済みのスタッフリスト (`staff`) を直接受け取るようにリファクタリングしました。
+  - これにより、フェッチ遅延などの非同期タイミング問題を完全に排除し、インポートプレビュー時や保存処理時の曖昧一致判定（`findStaffByName`）で常に正しい照合を行えるようにしました。
+* **[App.tsx](file:///C:/Users/000644/.gemini/antigravity/scratch/field-schedule-manager/frontend/src/App.tsx)**:
+  - `<PasteImportModal>` レンダリング部分に、親が管理している `staff` ステートを props として渡すように追加しました。
+
+#### 2. ビルド確認
+- フロントエンドプロジェクトで `cmd /c npm run build` を実行し、TypeScriptのコンパイルおよびビルドが正常に通過することを確認しました。

@@ -9,6 +9,7 @@ interface PasteImportModalProps {
   isOpen: boolean;
   onClose: () => void;
   onImportSuccess: () => void;
+  staff: Staff[];
   userEmail?: string;
 }
 
@@ -111,6 +112,7 @@ export const PasteImportModal: React.FC<PasteImportModalProps> = ({
   isOpen,
   onClose,
   onImportSuccess,
+  staff,
   userEmail,
 }) => {
   const [targetDate, setTargetDate] = useState(new Date().toISOString().split('T')[0]);
@@ -119,7 +121,6 @@ export const PasteImportModal: React.FC<PasteImportModalProps> = ({
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
   const [previewItems, setPreviewItems] = useState<any[]>([]);
   const [activeCell, setActiveCell] = useState<{ row: number; col: number } | null>(null);
-  const [staffList, setStaffList] = useState<any[]>([]);
 
   // 物件マスタ突合用の状態
   const [validationResults, setValidationResults] = useState<any[]>([]);
@@ -133,17 +134,6 @@ export const PasteImportModal: React.FC<PasteImportModalProps> = ({
       setAutoCorrectConfig({});
       setValidationErrors([]);
       setActiveCell(null);
-    } else {
-      const fetchStaffs = async () => {
-        try {
-          const { data, error } = await supabase.from('staff').select('*');
-          if (error) throw error;
-          setStaffList(data || []);
-        } catch (err) {
-          console.error('Failed to fetch staff list:', err);
-        }
-      };
-      fetchStaffs();
     }
   }, [isOpen]);
 
@@ -381,7 +371,7 @@ export const PasteImportModal: React.FC<PasteImportModalProps> = ({
       const rawStaffName = finalItem.staff_name ? finalItem.staff_name.trim() : '';
       let resolvedStaff: Staff | undefined = undefined;
       if (rawStaffName) {
-        resolvedStaff = findStaffByName(staffList, rawStaffName);
+        resolvedStaff = findStaffByName(staff, rawStaffName);
         if (resolvedStaff) {
           finalItem.staff_id = resolvedStaff.id;
           finalItem.staff_name = resolvedStaff.name; // マスタの正式名称に上書き
@@ -436,7 +426,7 @@ export const PasteImportModal: React.FC<PasteImportModalProps> = ({
 
     setPreviewItems(finalItems);
     setValidationErrors(errors);
-  }, [validationResults, autoCorrectConfig, parsedRows, staffList]);
+  }, [validationResults, autoCorrectConfig, parsedRows, staff]);
 
   // インポート処理の実行
   const handleImport = async () => {
@@ -465,7 +455,7 @@ export const PasteImportModal: React.FC<PasteImportModalProps> = ({
 
         if (!finalStaffId && finalStaffName !== '') {
           const cVal = course ? String(course).trim() : '';
-          const matched = findStaffByName(staffList, finalStaffName);
+          const matched = findStaffByName(staff, finalStaffName);
 
           if (matched) {
             finalStaffId = matched.id;

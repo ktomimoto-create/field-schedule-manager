@@ -864,6 +864,7 @@ function App() {
             isOpen={isImportOpen}
             onClose={() => setIsImportOpen(false)}
             onImportSuccess={() => fetchData(false)}
+            staff={staff}
             userEmail={user?.email || 'system'}
           />
 
