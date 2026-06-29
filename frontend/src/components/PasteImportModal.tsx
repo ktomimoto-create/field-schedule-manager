@@ -3,6 +3,8 @@ import { X, Check, AlertTriangle, FileText, Plus, Trash2 } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import './PasteImportModal.css';
 import { resolveAddress } from '../utils/addressResolver';
+import { findStaffByName } from '../types';
+import type { Staff } from '../types';
 interface PasteImportModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -375,6 +377,17 @@ export const PasteImportModal: React.FC<PasteImportModalProps> = ({
 
       let finalItem = { ...original, status: 'confirmed' };
 
+      // スタッフの曖昧一致解決
+      const rawStaffName = finalItem.staff_name ? finalItem.staff_name.trim() : '';
+      let resolvedStaff: Staff | undefined = undefined;
+      if (rawStaffName) {
+        resolvedStaff = findStaffByName(staffList, rawStaffName);
+        if (resolvedStaff) {
+          finalItem.staff_id = resolvedStaff.id;
+          finalItem.staff_name = resolvedStaff.name; // マスタの正式名称に上書き
+        }
+      }
+
       // 自動補正が有効な場合、マスタ情報で上書き
       if (master && shouldCorrect) {
         if (status === 'name_mismatch' || status === 'unit_number_mismatch') {
@@ -398,14 +411,8 @@ export const PasteImportModal: React.FC<PasteImportModalProps> = ({
       } else if (workType === '委託') {
         finalItem.course = '121';
       } else {
-        const staffName = finalItem.staff_name ? finalItem.staff_name.trim() : '';
-        if (staffName) {
-          const matchedStaff = staffList.find(s => s.name === staffName);
-          if (matchedStaff && matchedStaff.default_course) {
-            finalItem.course = matchedStaff.default_course;
-          } else {
-            finalItem.course = original.course || '';
-          }
+        if (resolvedStaff && resolvedStaff.default_course) {
+          finalItem.course = resolvedStaff.default_course;
         } else {
           finalItem.course = original.course || '';
         }
@@ -457,51 +464,20 @@ export const PasteImportModal: React.FC<PasteImportModalProps> = ({
         let finalStaffName = staff_name ? staff_name.trim() : '';
 
         if (!finalStaffId && finalStaffName !== '') {
-          const name = finalStaffName;
           const cVal = course ? String(course).trim() : '';
+          const matched = findStaffByName(staffList, finalStaffName);
 
-          let existingStaff = null;
-          if (cVal !== '') {
-            const { data: staffMatch } = await supabase
-              .from('staff')
-              .select('id')
-              .eq('name', name)
-              .eq('default_course', cVal)
-              .maybeSingle();
-            
-            existingStaff = staffMatch;
-
-            if (!existingStaff) {
-              const { data: staffNoCourse } = await supabase
-                .from('staff')
-                .select('id')
-                .eq('name', name)
-                .is('default_course', null)
-                .maybeSingle();
-
-              existingStaff = staffNoCourse;
-              if (existingStaff) {
-                await supabase.from('staff').update({ default_course: cVal }).eq('id', existingStaff.id);
-              }
+          if (matched) {
+            finalStaffId = matched.id;
+            finalStaffName = matched.name;
+            if (cVal !== '' && !matched.default_course) {
+              await supabase.from('staff').update({ default_course: cVal }).eq('id', matched.id);
             }
-          } else {
-            const { data: staffListByName } = await supabase
-              .from('staff')
-              .select('id, default_course')
-              .eq('name', name)
-              .order('default_course', { ascending: true, nullsFirst: true })
-              .limit(1);
-
-            existingStaff = staffListByName && staffListByName.length > 0 ? staffListByName[0] : null;
-          }
-
-          if (existingStaff) {
-            finalStaffId = Number(existingStaff.id);
           } else {
             const { data: newStaff, error: insertError } = await supabase
               .from('staff')
               .insert([
-                { name, default_course: cVal !== '' ? cVal : null }
+                { name: finalStaffName, default_course: cVal !== '' ? cVal : null }
               ])
               .select('id')
               .single();
