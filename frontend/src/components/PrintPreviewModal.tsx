@@ -106,9 +106,11 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({
                 onChange={(e) => setFilterStaff(e.target.value)}
               >
                 <option value="all">全員分</option>
-                {staff.map(st => (
-                  <option key={st.id} value={st.id}>{getShortName(st.name)}</option>
-                ))}
+                {staff
+                  .filter(st => st.is_active !== 0 || String(st.id) === filterStaff)
+                  .map(st => (
+                    <option key={st.id} value={st.id}>{getShortName(st.name)}</option>
+                  ))}
               </select>
             </div>
           </div>

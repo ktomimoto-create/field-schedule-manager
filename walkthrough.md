@@ -941,3 +941,26 @@
 
 #### 2. ビルド確認
 - フロントエンドプロジェクトで `cmd /c npm run build` を実行し、TypeScriptのコンパイルおよびビルドが正常に通過することを確認しました。
+
+## [2026-06-29] 長期休職者等の一時的非アクティブスタッフ（is_active）の表示制御
+
+### 変更の目的
+長期休職中などの一時的に稼働しないスタッフを、カレンダー、タイムライン、予定表グリッド、および予定登録モーダルの選択ドロップダウンから非表示にできるようにします。ただし、過去の予定やアサイン済みのデータ整合性を保つため、すでにそのスタッフ宛てに予定が登録されている画面や日では表示を維持します。
+
+### 変更内容
+
+#### 1. 予定追加・編集時の対応者・同行者候補での無効スタッフ除外
+* **[ScheduleModal.tsx](file:///C:/Users/000644/.gemini/antigravity/scratch/field-schedule-manager/frontend/src/components/ScheduleModal.tsx)**:
+  - 対応者選択プルダウンにおいて、有効なスタッフ (`is_active !== 0`) または現在その予定の担当者として選択されているスタッフのみをフィルタリングして表示するよう修正しました。
+  - 同行者クイック選択バッジにおいて、有効なスタッフ、またはすでに同行者として選択・アサインされているスタッフのみに絞り込んでバッジを描画するようフィルタを適用しました。
+
+#### 2. 当日行動予定表からの無効スタッフ列（ボード）の自動非表示化
+* **[TimelineView.tsx](file:///C:/Users/000644/.gemini/antigravity/scratch/field-schedule-manager/frontend/src/components/TimelineView.tsx)**:
+  - タイムラインに列として表示されるスタッフの決定ロジック (`filteredStaff`) を修正し、無効化されたスタッフ (`is_active === 0`) については「当日の予定が存在しない場合のみ」タイムライン列から自動的に除外するフィルターを適用しました。
+
+#### 3. 各種フィルタープルダウンでの無効スタッフ除外
+* **[GridView.tsx](file:///C:/Users/000644/.gemini/antigravity/scratch/field-schedule-manager/frontend/src/components/GridView.tsx)** / **[PrintPreviewModal.tsx](file:///C:/Users/000644/.gemini/antigravity/scratch/field-schedule-manager/frontend/src/components/PrintPreviewModal.tsx)**:
+  - 予定表グリッド上部の担当者絞り込みプルダウン、および印刷プレビューモーダルの印刷対象プルダウンにおいて、有効なスタッフ、または現在選択されている（フィルター対象となっている）スタッフのみをリスト表示するように修正しました。
+
+#### 4. ビルド確認
+- フロントエンドプロジェクトで `cmd /c npm run build` を実行し、TypeScriptのコンパイルおよびビルドが正常に通過することを確認しました。

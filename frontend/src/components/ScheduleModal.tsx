@@ -616,9 +616,11 @@ ${notes || 'なし'}
                 disabled={isSubmitting}
               />
               <datalist id="staff-options">
-                {staff.map((st) => (
-                  <option key={st.id} value={st.name} />
-                ))}
+                {staff
+                  .filter((st) => st.is_active !== 0 || st.name === staffName)
+                  .map((st) => (
+                    <option key={st.id} value={st.name} />
+                  ))}
               </datalist>
             </div>
             <div className="form-group">
@@ -633,33 +635,41 @@ ${notes || 'なし'}
                 placeholder="佐藤, 鈴木 (カンマ区切りで手動入力も可)"
               />
               <div className="co-worker-quick-select" style={{ marginTop: '8px', display: 'flex', flexWrap: 'wrap', gap: '6px', maxHeight: '100px', overflowY: 'auto', padding: '2px' }}>
-                {staff.map((st) => {
-                  const shortName = getShortName(st.name);
-                  const isSelected = coWorker.split(/[\s,，、]+/)
-                    .map(name => name.trim())
-                    .some(val => val === st.name.trim() || val === shortName);
-                  
-                  return (
-                    <button
-                      key={st.id}
-                      type="button"
-                      onClick={() => handleToggleCoWorker(st.name)}
-                      style={{
-                        padding: '4px 10px',
-                        fontSize: '0.75rem',
-                        borderRadius: '12px',
-                        border: isSelected ? '1px solid var(--primary, #4f46e5)' : '1px solid transparent',
-                        background: isSelected ? 'rgba(99, 102, 241, 0.15)' : '#f1f5f9',
-                        color: isSelected ? 'var(--primary, #4f46e5)' : 'var(--text-secondary, #475569)',
-                        cursor: 'pointer',
-                        fontWeight: isSelected ? '600' : 'normal',
-                        transition: 'all 0.12s ease'
-                      }}
-                    >
-                      {isSelected ? '✓ ' : ''}{shortName}
-                    </button>
-                  );
-                })}
+                {staff
+                  .filter((st) => {
+                    const shortName = getShortName(st.name);
+                    const isSelected = coWorker.split(/[\s,，、]+/)
+                      .map(name => name.trim())
+                      .some(val => val === st.name.trim() || val === shortName);
+                    return st.is_active !== 0 || isSelected;
+                  })
+                  .map((st) => {
+                    const shortName = getShortName(st.name);
+                    const isSelected = coWorker.split(/[\s,，、]+/)
+                      .map(name => name.trim())
+                      .some(val => val === st.name.trim() || val === shortName);
+                    
+                    return (
+                      <button
+                        key={st.id}
+                        type="button"
+                        onClick={() => handleToggleCoWorker(st.name)}
+                        style={{
+                          padding: '4px 10px',
+                          fontSize: '0.75rem',
+                          borderRadius: '12px',
+                          border: isSelected ? '1px solid var(--primary, #4f46e5)' : '1px solid transparent',
+                          background: isSelected ? 'rgba(99, 102, 241, 0.15)' : '#f1f5f9',
+                          color: isSelected ? 'var(--primary, #4f46e5)' : 'var(--text-secondary, #475569)',
+                          cursor: 'pointer',
+                          fontWeight: isSelected ? '600' : 'normal',
+                          transition: 'all 0.12s ease'
+                        }}
+                      >
+                        {isSelected ? '✓ ' : ''}{shortName}
+                      </button>
+                    );
+                  })}
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '10px' }}>
                 <input

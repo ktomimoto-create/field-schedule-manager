@@ -351,9 +351,11 @@ export const GridView: React.FC<GridViewProps> = ({
               }}
             >
               <option value="all">すべての担当者</option>
-              {staff.map(st => (
-                <option key={st.id} value={st.id}>{getShortName(st.name)}</option>
-              ))}
+              {staff
+                .filter(st => st.is_active !== 0 || String(st.id) === filterStaff)
+                .map(st => (
+                  <option key={st.id} value={st.id}>{getShortName(st.name)}</option>
+                ))}
             </select>
           </div>
 

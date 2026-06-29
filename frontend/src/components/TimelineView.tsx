@@ -77,6 +77,11 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
       if (showOnlyMySchedule && currentStaffId !== null) {
         return member.id === currentStaffId;
       }
+      // 無効なスタッフ (is_active === 0) は、当日に予定が存在しない場合のみ除外
+      if (member.is_active === 0) {
+        const hasSchedule = todaySchedules.some(s => s.staff_id === member.id);
+        if (!hasSchedule) return false;
+      }
       return true;
     })
     .sort((a, b) => {
