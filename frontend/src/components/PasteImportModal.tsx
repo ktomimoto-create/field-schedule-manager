@@ -474,18 +474,8 @@ export const PasteImportModal: React.FC<PasteImportModalProps> = ({
               await supabase.from('staff').update({ default_course: cVal }).eq('id', matched.id);
             }
           } else {
-            const { data: newStaff, error: insertError } = await supabase
-              .from('staff')
-              .insert([
-                { name: finalStaffName, default_course: cVal !== '' ? cVal : null }
-              ])
-              .select('id')
-              .single();
-
-            if (insertError) {
-              throw new Error('スタッフの新規登録に失敗しました。');
-            }
-            finalStaffId = Number(newStaff.id);
+            // マスタに存在しない場合は新規登録をスキップし、予定データ上のテキスト保存のみとする（IDはnull）
+            finalStaffId = null;
           }
         }
 
