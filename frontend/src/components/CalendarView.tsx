@@ -680,6 +680,43 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
       }
     } else {
       let finalValue = value;
+      const extraFields: Partial<Schedule> = {};
+
+      if (field === 'staff_name') {
+        const trimmedName = value.trim();
+        if (trimmedName !== '') {
+          const matchedStaff = findStaffByName(staff, trimmedName);
+          if (matchedStaff) {
+            extraFields.staff_id = matchedStaff.id;
+            finalValue = matchedStaff.name; // マスタの正式名称に上書き
+            extraFields.course = matchedStaff.default_course || '';
+            const cNum = Number(extraFields.course);
+            if (extraFields.course !== '' && !isNaN(cNum)) {
+              extraFields.division = (cNum >= 1 && cNum <= 26) ? 'FTS' : '委託';
+            }
+          } else {
+            extraFields.staff_id = null;
+            finalValue = trimmedName;
+            extraFields.course = '';
+            extraFields.division = '未定';
+          }
+        } else {
+          extraFields.staff_id = null;
+          finalValue = '';
+          extraFields.course = '';
+          extraFields.division = '未定';
+        }
+      }
+
+      if (field === 'course') {
+        const cNum = Number(value);
+        if (value !== '' && !isNaN(cNum)) {
+          extraFields.division = (cNum >= 1 && cNum <= 26) ? 'FTS' : '委託';
+        } else {
+          extraFields.division = '未定';
+        }
+      }
+
       if (field === 'notes') {
         const original = schedules.find(s => s.id === scheduleId);
         if (original && original.notes) {
@@ -698,7 +735,8 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
 
       const payload: Partial<Schedule> = {
         id: Number(scheduleId),
-        [field]: finalValue
+        [field]: finalValue,
+        ...extraFields
       };
       
       try {
@@ -1009,7 +1047,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
               if (targetField === 'staff_name') {
                 const trimmedName = val.trim();
                 if (trimmedName !== '') {
-                  const matchedStaff = staff.find(st => st.name === trimmedName);
+                  const matchedStaff = findStaffByName(staff, trimmedName);
                   if (matchedStaff) {
                     rowData.nextStaffId = matchedStaff.id;
                     rowData.nextStaffName = matchedStaff.name;

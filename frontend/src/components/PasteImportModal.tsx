@@ -372,6 +372,7 @@ export const PasteImportModal: React.FC<PasteImportModalProps> = ({
       let resolvedStaff: Staff | undefined = undefined;
       if (rawStaffName) {
         resolvedStaff = findStaffByName(staff, rawStaffName);
+        console.log(`[PasteImportModal DEBUG] rawStaffName: "${rawStaffName}", resolvedStaff:`, resolvedStaff ? `${resolvedStaff.name} (id:${resolvedStaff.id})` : 'undefined', 'staffListLength:', staff.length);
         if (resolvedStaff) {
           finalItem.staff_id = resolvedStaff.id;
           finalItem.staff_name = resolvedStaff.name; // マスタの正式名称に上書き
@@ -456,6 +457,7 @@ export const PasteImportModal: React.FC<PasteImportModalProps> = ({
         if (!finalStaffId && finalStaffName !== '') {
           const cVal = course ? String(course).trim() : '';
           const matched = findStaffByName(staff, finalStaffName);
+          console.log(`[handleImport DEBUG] finalStaffName: "${finalStaffName}", matched:`, matched ? `${matched.name} (id:${matched.id})` : 'undefined');
 
           if (matched) {
             finalStaffId = matched.id;
@@ -824,7 +826,7 @@ export const PasteImportModal: React.FC<PasteImportModalProps> = ({
                               <td style={{ padding: '8px 4px' }}>{hasCorrection && shouldCorrect && master && master.address ? (
                                 resolveAddress(master.address).area
                               ) : (original.area || '-')}</td>
-                              <td style={{ padding: '8px 4px' }}>{original.staff_name || '-'}</td>
+                              <td style={{ padding: '8px 4px' }}>{previewItems[idx]?.staff_name || original.staff_name || '-'}</td>
                               <td style={{ 
                                 padding: '8px 4px',
                                 fontSize: '0.75rem', 

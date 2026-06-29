@@ -996,3 +996,23 @@
 
 #### 2. ビルド確認
 - フロントエンドプロジェクトで `cmd /c npm run build` を実行し、TypeScriptのコンパイルおよびビルドが正常に通過することを確認しました。
+
+## [2026-06-29] カレンダー上のセル直接コピペ・ダブルクリック編集時における対応者曖昧解決バグの修正
+
+### 変更の目的
+スプレッドシートや外部からコピーした「吉沼」「本間」などの名前をカレンダー上の「対応者」セルに直接 `Ctrl + V` で貼り付けた際、およびセルをダブルクリックして「対応者」をインライン編集で変更した際に、マスタとの曖昧解決（`findStaffByName`）が走らず、`staff_id` が `null` のままで保存されてしまう不具合を修正します。
+
+### 変更内容
+
+#### 1. セル直接コピペ（handlePasteEvent）時の曖昧照合の適用
+* **[CalendarView.tsx](file:///C:/Users/000644/.gemini/antigravity/scratch/field-schedule-manager/frontend/src/components/CalendarView.tsx)**:
+  - セル直接貼り付け時のイベントハンドラである `handlePasteEvent` 内において、`staff.find(st => st.name === trimmedName)`（完全一致のみの照合）となっていた箇所を、`findStaffByName(staff, trimmedName)`（曖昧一致照合）に変更しました。
+  - これにより、「吉沼」などのコピペ貼り付け時にマスタの「吉沼亮」を検出し、`staff_id: 9` の紐付け、正式フルネームへの上書き、およびデフォルトコース番号（「9」）や区分（「FTS」）の自動アサインが正しく連動するようにしました。
+
+#### 2. セル直接入力（handleInlineSave）時の曖昧解決と他項目自動連動の組み込み
+* **[CalendarView.tsx](file:///C:/Users/000644/.gemini/antigravity/scratch/field-schedule-manager/frontend/src/components/CalendarView.tsx)**:
+  - セルのインライン編集確定時の処理 `handleInlineSave` の実データ保存（`payload`）生成部において、編集フィールドが `staff_name`（対応者名）である場合に `findStaffByName` による解決を行うロジックを追加しました。
+  - マスタに一致するスタッフが存在する場合、`staff_id` の自動設定・フルネーム上書き・デフォルトコース番号の設定・区分（FTS/委託）の自動決定を行い、すべてを1回の保存ペイロードに含めて適用するように改修しました。
+
+#### 3. ビルド確認
+- フロントエンドプロジェクトで `cmd /c npm run build` を実行し、TypeScriptのコンパイルおよびビルドが正常に通過することを確認しました。
