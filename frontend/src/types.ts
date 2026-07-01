@@ -95,6 +95,13 @@ export const getShortName = (name: string | null | undefined): string => {
   return parts[0] || trimmed;
 };
 
+export const toHalfWidth = (str: string | null | undefined): string => {
+  if (!str) return '';
+  return str.replace(/[Ａ-Ｚａ-ｚ０-９：]/g, (s) => {
+    return String.fromCharCode(s.charCodeAt(0) - 0xFEE0);
+  });
+};
+
 export const findStaffByName = (staff: Staff[], name: string | null | undefined): Staff | undefined => {
   if (!name) return undefined;
   const cleanName = name.trim();

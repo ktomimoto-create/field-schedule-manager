@@ -1016,3 +1016,27 @@
 
 #### 3. ビルド確認
 - フロントエンドプロジェクトで `cmd /c npm run build` を実行し、TypeScriptのコンパイルおよびビルドが正常に通過することを確認しました。
+
+## [2026-07-01] 指定時間（時間の列）の全角英数記号の半角統一
+
+### 変更の目的
+カレンダーの時間の列（`target_time` カラム）に入力される値（「ＡＭ」や「９：００」など）の全角表記がばらつくのを防ぎ、「AM」や「9:00」などの半角表記に自動で統一して保存されるようにします。
+
+### 変更内容
+
+#### 1. 全角英数字・コロンの半角変換ユーティリティの追加
+* **[types.ts](file:///C:/Users/000644/.gemini/antigravity/scratch/field-schedule-manager/frontend/src/types.ts)**:
+  - 入力された文字列の全角英数字および全角コロン（`：`）を半角に自動置換する共通ヘルパー関数 `toHalfWidth` を追加しました。
+
+#### 2. コピペインポートおよびセル直接操作時の半角化の適用
+* **[PasteImportModal.tsx](file:///C:/Users/000644/.gemini/antigravity/scratch/field-schedule-manager/frontend/src/components/PasteImportModal.tsx)**:
+  - スプレッドシートからのコピペインポート時、`target_time` フィールドの値をパースするタイミングで `toHalfWidth` を適用し、半角化された状態で検証・プレビュー生成・保存されるようにしました。
+* **[CalendarView.tsx](file:///C:/Users/000644/.gemini/antigravity/scratch/field-schedule-manager/frontend/src/components/CalendarView.tsx)**:
+  - セル直接貼り付け（`handlePasteEvent`）の際、およびセル直接のインライン編集確定（`handleInlineSave`）の際に、対象フィールドが `target_time` である場合は入力値を `toHalfWidth` で半角化してデータベースに保存するよう変更しました。
+
+#### 3. 予定追加・編集モーダルでの半角化の適用
+* **[ScheduleModal.tsx](file:///C:/Users/000644/.gemini/antigravity/scratch/field-schedule-manager/frontend/src/components/ScheduleModal.tsx)**:
+  - 予定の追加・編集サイドバーフォームから保存（`handleSubmit`）する際、指定時間（`targetTime`）の値に `toHalfWidth` を適用し、半角化されたデータがペイロードとして送信されるようにしました。
+
+#### 4. ビルド確認
+- フロントエンドプロジェクトで `cmd /c npm run build` を実行し、TypeScriptのコンパイルおよびビルドが正常に通過することを確認しました。

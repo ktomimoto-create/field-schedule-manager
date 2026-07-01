@@ -3,7 +3,7 @@ import { X, Check, AlertTriangle, FileText, Plus, Trash2 } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import './PasteImportModal.css';
 import { resolveAddress } from '../utils/addressResolver';
-import { findStaffByName } from '../types';
+import { findStaffByName, toHalfWidth } from '../types';
 import type { Staff } from '../types';
 interface PasteImportModalProps {
   isOpen: boolean;
@@ -244,7 +244,11 @@ export const PasteImportModal: React.FC<PasteImportModalProps> = ({
       
       const item: any = {};
       FIXED_MAPPINGS.forEach((field, colIdx) => {
-        item[field] = row[colIdx] ? row[colIdx].trim() : '';
+        let val = row[colIdx] ? row[colIdx].trim() : '';
+        if (field === 'target_time') {
+          val = toHalfWidth(val);
+        }
+        item[field] = val;
       });
       item.date = targetDate;
       itemsToValidate.push(item);

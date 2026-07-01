@@ -3,7 +3,7 @@ import type { Schedule, Staff, ScheduleStatus, WorkType } from '../types';
 import { X, Mail } from 'lucide-react';
 import { resolveAddress } from '../utils/addressResolver';
 import { supabase } from '../supabaseClient';
-import { findStaffByName, getShortName } from '../types';
+import { findStaffByName, getShortName, toHalfWidth } from '../types';
 
 interface ScheduleModalProps {
   isOpen: boolean;
@@ -333,7 +333,7 @@ ${notes || 'なし'}
         property_name: propertyName.trim(),
         work_type: workType.trim() || null,
         description: description.trim() || null,
-        target_time: targetTime.trim() || null,
+        target_time: toHalfWidth(targetTime.trim()) || null,
         date,
         staff_id: isCancelled ? null : (matchedStaff ? matchedStaff.id : null),
         staff_name: isCancelled ? '' : (matchedStaff ? matchedStaff.name : (staffName.trim() || undefined)),

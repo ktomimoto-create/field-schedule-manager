@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import type { Schedule, Staff, WorkType } from '../types';
-import { getShortName, findStaffByName } from '../types';
+import { getShortName, findStaffByName, toHalfWidth } from '../types';
 
 import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Edit2, Plus, Search } from 'lucide-react';
 import './CalendarView.css';
@@ -682,6 +682,10 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
       let finalValue = value;
       const extraFields: Partial<Schedule> = {};
 
+      if (field === 'target_time') {
+        finalValue = toHalfWidth(value);
+      }
+
       if (field === 'staff_name') {
         const trimmedName = value.trim();
         if (trimmedName !== '') {
@@ -1042,7 +1046,11 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
               }
 
               const rowData = rowUpdates[key];
-              rowData.updateFields[targetField] = val;
+              let finalVal = val;
+              if (targetField === 'target_time') {
+                finalVal = toHalfWidth(val);
+              }
+              rowData.updateFields[targetField] = finalVal;
 
               if (targetField === 'staff_name') {
                 const trimmedName = val.trim();
