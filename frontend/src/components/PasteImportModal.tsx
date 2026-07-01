@@ -369,7 +369,7 @@ export const PasteImportModal: React.FC<PasteImportModalProps> = ({
 
       const shouldCorrect = autoCorrectConfig[rowIdx] !== false;
 
-      let finalItem = { ...original, status: 'confirmed' };
+      let finalItem = { ...original, status: 'free' };
 
       // スタッフの曖昧一致解決
       const rawStaffName = finalItem.staff_name ? finalItem.staff_name.trim() : '';
@@ -511,7 +511,7 @@ export const PasteImportModal: React.FC<PasteImportModalProps> = ({
           }
 
           const updatePayload = {
-            status: status || 'confirmed',
+            status: status || 'free',
             division: division || null,
             type: type || null,
             box: box || null,
@@ -548,7 +548,7 @@ export const PasteImportModal: React.FC<PasteImportModalProps> = ({
           }
 
           const insertPayload = {
-            status: status || 'confirmed',
+            status: status || 'free',
             division: division || null,
             type: type || null,
             box: box || null,

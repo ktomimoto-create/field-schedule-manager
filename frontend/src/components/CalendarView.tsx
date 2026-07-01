@@ -1101,7 +1101,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
             const rowData = rowUpdates[key];
             if (rowData.isTargetTemp) {
               const payload: Partial<Schedule> = {
-                status: 'confirmed',
+                status: 'free',
                 date: rowData.targetDateStr,
                 work_type: 'フリー',
                 property_name: '（物件名未定）',

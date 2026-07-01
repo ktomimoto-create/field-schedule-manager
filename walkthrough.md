@@ -1040,3 +1040,22 @@
 
 #### 4. ビルド確認
 - フロントエンドプロジェクトで `cmd /c npm run build` を実行し、TypeScriptのコンパイルおよびビルドが正常に通過することを確認しました。
+
+## [2026-07-01] コピペインポートおよび貼り付けによる予定のデフォルトステータスの変更 (フリー予定)
+
+### 変更の目的
+スプレッドシート等からの貼り付けインポート、およびカレンダーセル上への直接コピペ（貼り付け）によって新規作成される予定の初期ステータス（`status`）が、デフォルトで `confirmed`（確定予定）になっていたのを、`free`（フリー予定）に変更して登録されるようにします。
+
+### 変更内容
+
+#### 1. スプレッドシートからの貼り付けインポート画面でのデフォルト値変更
+* **[PasteImportModal.tsx](file:///C:/Users/000644/.gemini/antigravity/scratch/field-schedule-manager/frontend/src/components/PasteImportModal.tsx)**:
+  - プレビューデータをマッピングする際、初期ステータス `status` を `'confirmed'` から `'free'` に変更しました。
+  - また、データベースへの登録実行処理（`handleImport` 内のペイロード生成）における `status` のフォールバック値についても `'confirmed'` から `'free'` に変更しました。
+
+#### 2. カレンダーセル直接貼り付け処理時のデフォルト値変更
+* **[CalendarView.tsx](file:///C:/Users/000644/.gemini/antigravity/scratch/field-schedule-manager/frontend/src/components/CalendarView.tsx)**:
+  - セル直接貼り付け時のイベントハンドラである `handlePasteEvent` 内で、新しい予定（一時データ）のペイロードを生成する際の初期 `status` を `'confirmed'` から `'free'` に変更しました。
+
+#### 3. ビルド確認
+- フロントエンドプロジェクトで `cmd /c npm run build` を実行し、TypeScriptのコンパイルおよびビルドが正常に通過することを確認しました。
