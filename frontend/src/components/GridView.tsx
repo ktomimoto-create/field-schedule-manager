@@ -285,137 +285,143 @@ export const GridView: React.FC<GridViewProps> = ({
   return (
     <div className="grid-view-container card">
       <div className="grid-view-header">
-        <div className="grid-date-selector">
-          <div className="date-nav-controls">
-            <button className="btn btn-secondary btn-sm-nav" onClick={() => changeDate(-1)}>
-              <ChevronLeft size={16} />
-            </button>
-            <div className="date-picker-wrapper" onClick={triggerDatePicker} title="クリックして日付を選択" style={{ cursor: 'pointer' }}>
-              <input
-                ref={dateInputRef}
-                type="date"
-                className="date-picker-input"
-                value={selectedDate}
-                onChange={(e) => {
-                  if (e.target.value) {
-                    setSelectedDate(e.target.value);
-                  }
-                }}
-              />
-              <span className="current-date-display">
-                <CalendarIcon size={16} style={{ marginRight: '6px' }} />
-                {formatJapaneseDate(selectedDate)}
-              </span>
+        {/* 1段目: 情報・日付コンテキスト行 */}
+        <div className="grid-header-top-row">
+          <div className="grid-date-selector">
+            <div className="date-nav-controls">
+              <button className="btn btn-secondary btn-sm-nav" onClick={() => changeDate(-1)} title="前日へ">
+                <ChevronLeft size={16} />
+              </button>
+              <div className="date-picker-wrapper" onClick={triggerDatePicker} title="クリックして日付を選択" style={{ cursor: 'pointer' }}>
+                <input
+                  ref={dateInputRef}
+                  type="date"
+                  className="date-picker-input"
+                  value={selectedDate}
+                  onChange={(e) => {
+                    if (e.target.value) {
+                      setSelectedDate(e.target.value);
+                    }
+                  }}
+                />
+                <span className="current-date-display">
+                  <CalendarIcon size={16} style={{ marginRight: '6px' }} />
+                  {formatJapaneseDate(selectedDate)}
+                </span>
+              </div>
+              <button className="btn btn-secondary btn-sm-nav" onClick={setToday}>
+                今日
+              </button>
+              <button className="btn btn-secondary btn-sm-nav" onClick={() => changeDate(1)} title="翌日へ">
+                <ChevronRight size={16} />
+              </button>
             </div>
-            <button className="btn btn-secondary btn-sm-nav" onClick={setToday}>
-              今日
-            </button>
-            <button className="btn btn-secondary btn-sm-nav" onClick={() => changeDate(1)}>
-              <ChevronRight size={16} />
-            </button>
+          </div>
+
+          <div className="grid-header-top-right">
+            {isAdmin && (
+              <span className="grid-double-click-guide">
+                ※ 行をダブルクリックで編集できます
+              </span>
+            )}
+            <div className="remaining-counter-badge">
+              <span className="counter-title">本日の残件数</span>
+              <span className="counter-number">{remainingCount}</span>
+              <span className="counter-total">/ {daySchedules.length}件中</span>
+            </div>
+          </div>
+        </div>
+
+        {/* 2段目: フィルター＆アクション行 */}
+        <div className="grid-header-bottom-row">
+          <div className="grid-filters-left">
             {isAdmin && (
               <button 
-                className="btn btn-primary btn-sm-nav" 
+                className="btn btn-primary btn-add-schedule" 
                 onClick={() => onOpenAddModal(selectedDate)}
                 title="新規予定を追加"
-                style={{ marginLeft: '0.25rem' }}
               >
-                <Plus size={14} style={{ marginRight: '4px' }} />
+                <Plus size={15} />
                 予定を追加
               </button>
             )}
+            
+            <div className="filter-item">
+              <Filter size={14} style={{ color: 'var(--text-muted)' }} />
+              <select 
+                className="form-control filter-select"
+                value={filterStaff}
+                onChange={(e) => {
+                  setFilterStaff(e.target.value);
+                  setMyScheduleOnly(false);
+                }}
+              >
+                <option value="all">すべての担当者</option>
+                {staff
+                  .filter(st => st.is_active !== 0 || String(st.id) === filterStaff)
+                  .map(st => (
+                    <option key={st.id} value={st.id}>{getShortName(st.name)}</option>
+                  ))}
+              </select>
+            </div>
+
+            <div className="filter-item">
+              <select 
+                className="form-control filter-select"
+                value={filterStatus}
+                onChange={(e) => setFilterStatus(e.target.value)}
+              >
+                <option value="all">すべての状況</option>
+                <option value="confirmed">確定予定</option>
+                <option value="draft">仮予定</option>
+                <option value="cancelled">キャンセル</option>
+              </select>
+            </div>
+
+            {currentStaffId !== null && (
+              <button 
+                className={`btn btn-my-schedule ${myScheduleOnly ? 'active' : ''}`} 
+                onClick={() => {
+                  setMyScheduleOnly(!myScheduleOnly);
+                  if (!myScheduleOnly) {
+                    setFilterStaff('all');
+                  }
+                }}
+                title="ログインしているあなたの予定のみに一括で絞り込みます"
+              >
+                自分の予定のみ表示
+              </button>
+            )}
           </div>
-        </div>
 
-        {isAdmin && (
-          <span className="grid-double-click-guide">
-            ※ 行をダブルクリックで編集できます
-          </span>
-        )}
-
-        <div className="remaining-counter-badge">
-          <span className="counter-title">本日の残件数</span>
-          <span className="counter-number">{remainingCount}</span>
-          <span className="counter-total">/ {daySchedules.length}件中</span>
-        </div>
-
-        <div className="grid-filters">
-          <div className="filter-item">
-            <Filter size={14} style={{ color: 'var(--text-muted)' }} />
-            <select 
-              className="form-control filter-select"
-              value={filterStaff}
-              onChange={(e) => {
-                setFilterStaff(e.target.value);
-                setMyScheduleOnly(false); // 手動で担当者を選択した場合は「自分の予定のみ」を解除
-              }}
-            >
-              <option value="all">すべての担当者</option>
-              {staff
-                .filter(st => st.is_active !== 0 || String(st.id) === filterStaff)
-                .map(st => (
-                  <option key={st.id} value={st.id}>{getShortName(st.name)}</option>
-                ))}
-            </select>
-          </div>
-
-          <div className="filter-item">
-            <select 
-              className="form-control filter-select"
-              value={filterStatus}
-              onChange={(e) => setFilterStatus(e.target.value)}
-            >
-              <option value="all">すべての状況</option>
-              <option value="confirmed">確定予定</option>
-              <option value="draft">仮予定</option>
-              <option value="cancelled">キャンセル</option>
-            </select>
-          </div>
-          {currentStaffId !== null && (
+          <div className="grid-actions-right">
             <button 
-              className={`btn ${myScheduleOnly ? 'btn-primary' : 'btn-secondary'}`} 
-              onClick={() => {
-                setMyScheduleOnly(!myScheduleOnly);
-                if (!myScheduleOnly) {
-                  setFilterStaff('all'); // 自分の予定のみにする時は、個別担当者フィルターをリセット
-                }
-              }}
-              title="ログインしているあなたの予定のみに一括で絞り込みます"
-              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontWeight: 600 }}
+              className={`btn btn-toggle-view ${showFullText ? 'active' : ''}`} 
+              onClick={() => setShowFullText(!showFullText)}
+              title="すべての予定の物件名・作業内容・備考のテキストを折り返して全表示します"
             >
-              自分の予定のみ表示
+              {showFullText ? <EyeOff size={15} /> : <Eye size={15} />}
+              <span>{showFullText ? '簡易表示に戻す' : '全文表示に切替'}</span>
             </button>
-          )}
 
-          <button 
-            className="btn btn-primary" 
-            onClick={() => setIsPrintPreviewOpen(true)}
-            title="自分の予定だけを絞り込んで、一時的なメモを書き足し、A4用紙等に綺麗に印刷できるプレビュー画面を開きます"
-            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontWeight: 600, backgroundColor: 'var(--primary)', border: 'none' }}
-          >
-            <Printer size={14} />
-            印刷プレビュー
-          </button>
+            <button 
+              className="btn btn-action-excel" 
+              onClick={exportToExcel}
+              title="Excelファイル (.xlsx) としてダウンロードします"
+            >
+              <Download size={15} />
+              <span>Excelで開く</span>
+            </button>
 
-          <button 
-            className="btn btn-secondary" 
-            onClick={exportToExcel}
-            title="現在表示されている予定の一覧を、列幅や折り返し設定が適用されたExcelファイル (.xlsx) としてダウンロードして開きます"
-            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontWeight: 600 }}
-          >
-            <Download size={14} />
-            Excelで開く
-          </button>
-
-          <button 
-            className={`btn ${showFullText ? 'btn-primary' : 'btn-secondary'}`} 
-            onClick={() => setShowFullText(!showFullText)}
-            title="すべての予定の物件名・作業内容・備考の改行や長いテキストを折り返して全表示します"
-            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontWeight: 600 }}
-          >
-            {showFullText ? <EyeOff size={14} /> : <Eye size={14} />}
-            {showFullText ? '簡易表示に戻す' : '全文表示に切替'}
-          </button>
+            <button 
+              className="btn btn-action-print" 
+              onClick={() => setIsPrintPreviewOpen(true)}
+              title="印刷用のプレビュー画面を開きます"
+            >
+              <Printer size={15} />
+              <span>印刷プレビュー</span>
+            </button>
+          </div>
         </div>
       </div>
 

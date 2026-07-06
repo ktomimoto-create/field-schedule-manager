@@ -10,10 +10,56 @@
 
 .grid-view-header {
   display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  margin-bottom: 1.5rem;
+  width: 100%;
+}
+
+.grid-header-top-row {
+  display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 1.25rem;
+  width: 100%;
+  flex-wrap: wrap;
   gap: 1rem;
+}
+
+.grid-header-top-right {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  flex-wrap: wrap;
+}
+
+.grid-double-click-guide {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.grid-header-bottom-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  flex-wrap: wrap;
+  gap: 1rem;
+  padding-top: 0.75rem;
+  border-top: 1px dashed var(--border-glass);
+}
+
+.grid-filters-left {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.grid-actions-right {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
   flex-wrap: wrap;
 }
 
@@ -106,9 +152,100 @@
   color: var(--text-muted);
 }
 
-.grid-filters {
-  display: flex;
-  gap: 0.75rem;
+/* アクションボタンの個別プレミアムスタイル */
+.btn-add-schedule {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 700;
+  padding: 0.5rem 1rem !important;
+  background: linear-gradient(135deg, var(--primary, #4f46e5), #6366f1) !important;
+  box-shadow: 0 4px 12px rgba(79, 70, 229, 0.25);
+  border: none !important;
+  color: white !important;
+  transition: all var(--transition-fast);
+}
+
+.btn-add-schedule:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(79, 70, 229, 0.35);
+  opacity: 0.95;
+}
+
+.btn-my-schedule {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+  padding: 0.5rem 1rem !important;
+  border: 1px solid var(--border-glass) !important;
+  background: var(--bg-primary) !important;
+  color: var(--text-secondary) !important;
+  border-radius: var(--radius-sm);
+  transition: all var(--transition-fast);
+}
+
+.btn-my-schedule.active {
+  background: rgba(79, 70, 229, 0.1) !important;
+  color: var(--primary) !important;
+  border-color: rgba(79, 70, 229, 0.4) !important;
+}
+
+.btn-my-schedule:hover {
+  background: var(--bg-tertiary) !important;
+}
+
+.btn-toggle-view,
+.btn-action-excel,
+.btn-action-print {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+  padding: 0.5rem 1rem !important;
+  border-radius: var(--radius-sm);
+  transition: all var(--transition-fast);
+}
+
+.btn-toggle-view {
+  background: var(--bg-primary) !important;
+  border: 1px solid var(--border-glass) !important;
+  color: var(--text-secondary) !important;
+}
+
+.btn-toggle-view.active {
+  background: rgba(79, 70, 229, 0.1) !important;
+  color: var(--primary) !important;
+  border-color: rgba(79, 70, 229, 0.4) !important;
+}
+
+.btn-toggle-view:hover {
+  background: var(--bg-tertiary) !important;
+}
+
+.btn-action-excel {
+  background: var(--bg-primary) !important;
+  border: 1px solid var(--border-glass) !important;
+  color: var(--text-secondary) !important;
+}
+
+.btn-action-excel:hover {
+  background: rgba(22, 163, 74, 0.08) !important;
+  color: #16a34a !important;
+  border-color: rgba(22, 163, 74, 0.4) !important;
+}
+
+.btn-action-print {
+  background: linear-gradient(135deg, #0284c7, #0ea5e9) !important;
+  color: white !important;
+  border: none !important;
+  box-shadow: 0 4px 12px rgba(2, 132, 199, 0.2);
+}
+
+.btn-action-print:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(2, 132, 199, 0.3);
+  opacity: 0.95;
 }
 
 .filter-item {
