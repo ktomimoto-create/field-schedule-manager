@@ -405,17 +405,6 @@ export const GridView: React.FC<GridViewProps> = ({
               <Printer size={15} />
               <span>印刷プレビュー</span>
             </button>
-
-            {isAdmin && (
-              <button 
-                className="btn btn-primary btn-add-schedule" 
-                onClick={() => onOpenAddModal(selectedDate)}
-                title="新規予定を追加"
-              >
-                <Plus size={15} />
-                予定を追加
-              </button>
-            )}
           </div>
         </div>
       </div>
@@ -567,13 +556,14 @@ export const GridView: React.FC<GridViewProps> = ({
       </div>
 
       <div className="grid-view-footer">
-        {currentUserRole === 'admin' ? (
+        {isAdmin ? (
           <button 
-            className="btn btn-primary"
+            className="btn btn-primary btn-add-schedule"
             onClick={() => onOpenAddModal(selectedDate)}
+            title="新規予定を追加"
           >
             <Plus size={16} />
-            新しい行（予定）を追加
+            予定を追加
           </button>
         ) : (
           <div></div>
