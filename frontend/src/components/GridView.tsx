@@ -319,11 +319,6 @@ export const GridView: React.FC<GridViewProps> = ({
           </div>
 
           <div className="grid-header-top-right">
-            {isAdmin && (
-              <span className="grid-double-click-guide">
-                ※ 行をダブルクリックで編集できます
-              </span>
-            )}
             <div className="remaining-counter-badge">
               <span className="counter-title">本日の残件数</span>
               <span className="counter-number">{remainingCount}</span>
@@ -335,17 +330,6 @@ export const GridView: React.FC<GridViewProps> = ({
         {/* 2段目: フィルター＆アクション行 */}
         <div className="grid-header-bottom-row">
           <div className="grid-filters-left">
-            {isAdmin && (
-              <button 
-                className="btn btn-primary btn-add-schedule" 
-                onClick={() => onOpenAddModal(selectedDate)}
-                title="新規予定を追加"
-              >
-                <Plus size={15} />
-                予定を追加
-              </button>
-            )}
-            
             <div className="filter-item">
               <Filter size={14} style={{ color: 'var(--text-muted)' }} />
               <select 
@@ -421,6 +405,17 @@ export const GridView: React.FC<GridViewProps> = ({
               <Printer size={15} />
               <span>印刷プレビュー</span>
             </button>
+
+            {isAdmin && (
+              <button 
+                className="btn btn-primary btn-add-schedule" 
+                onClick={() => onOpenAddModal(selectedDate)}
+                title="新規予定を追加"
+              >
+                <Plus size={15} />
+                予定を追加
+              </button>
+            )}
           </div>
         </div>
       </div>
