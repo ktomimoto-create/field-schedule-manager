@@ -102,6 +102,14 @@ export const toHalfWidth = (str: string | null | undefined): string => {
   });
 };
 
+export const cleanMetadata = (val: string | null | undefined): string => {
+  if (!val) return '';
+  return String(val)
+    .replace(/\s*\[__parent_id:\d+__\]/g, '')
+    .replace(/\s*\[__no_sync__\]/g, '')
+    .trim();
+};
+
 export const findStaffByName = (staff: Staff[], name: string | null | undefined): Staff | undefined => {
   if (!name) return undefined;
   const cleanName = name.trim();

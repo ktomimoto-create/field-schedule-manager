@@ -1143,4 +1143,22 @@
   - マスタに未登録のスタッフ名が入力されている場合はグレーライン付きのタグを表示し、対応者が完全に未設定の場合は「未設定」と斜体テキストで表示するフォールバック処理を実装しました。
 
 #### 2. ビルド確認
+- フロントエンドプロジェクトで `cmd /c npm run build` を実行し、TypeScript of コンパイルおよびビルドが正常に通過することを確認しました。
+
+## [2026-07-29] 予定表グリッド（GridView）およびExcel出力における備考欄メタデータの非表示化
+
+### 変更の目的
+同行者予定を自動同期連動する目的でシステム内部（Supabase）に保存している親子紐付けメタデータ `[__parent_id:親ID__]` や `[__no_sync__]` が、予定表グリッド画面の「備考」セル、およびExcelで開いた際の備考列にそのまま露出してしまっていた不具合を解消し、画面上および出力データ上の表示からクリアに除去します。
+
+### 変更内容
+
+#### 1. 共通メタデータ除去関数の追加と画面・Excel出力への適用
+* **[types.ts](file:///C:/Users/000644/.gemini/antigravity/scratch/field-schedule-manager/frontend/src/types.ts)**:
+  - 備考欄の文字列から正規表現を用いて `[__parent_id:親ID__]` や `[__no_sync__]` を綺麗に除去する共通ヘルパー関数 `cleanMetadata` を追加しました。
+* **[GridView.tsx](file:///C:/Users/000644/.gemini/antigravity/scratch/field-schedule-manager/frontend/src/components/GridView.tsx)**:
+  - 共通ヘルパー `cleanMetadata` をインポートしました。
+  - 予定表グリッドのテーブル描画部における「備考（`notes`）」セルの表示、およびセルの `title` 属性（ツールチップ）に `cleanMetadata` を適用し、メタデータを非表示にしました。
+  - Excelエクスポート（`exportToExcel`）のデータ書き出し部においても、備考列の出力値に `cleanMetadata` を適用し、出力されたExcelファイルからメタデータ文字列が完全に排除されるように調整しました。
+
+#### 2. ビルド確認
 - フロントエンドプロジェクトで `cmd /c npm run build` を実行し、TypeScriptのコンパイルおよびビルドが正常に通過することを確認しました。

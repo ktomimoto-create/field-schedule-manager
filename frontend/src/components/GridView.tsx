@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import XLSX from 'xlsx-js-style';
 import type { Schedule, Staff } from '../types';
-import { getShortName } from '../types';
+import { getShortName, cleanMetadata } from '../types';
 
 import { Plus, ChevronLeft, ChevronRight, Calendar as CalendarIcon, Filter, CheckCircle2, Download, Eye, EyeOff, Printer } from 'lucide-react';
 import { PrintPreviewModal } from './PrintPreviewModal';
@@ -63,7 +63,7 @@ export const GridView: React.FC<GridViewProps> = ({
         s.co_worker || '',
         s.request_number || '',
         s.result || '未対応',
-        s.notes || ''
+        cleanMetadata(s.notes)
       ];
     });
 
@@ -576,8 +576,8 @@ export const GridView: React.FC<GridViewProps> = ({
                       )}
                     </td>
 
-                    <td className="notes-cell" title={schedule.notes || ''}>
-                      {schedule.notes}
+                    <td className="notes-cell" title={cleanMetadata(schedule.notes)}>
+                      {cleanMetadata(schedule.notes)}
                     </td>
                   </tr>
                 );
