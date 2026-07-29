@@ -298,8 +298,8 @@
   color: var(--text-primary);
   font-weight: 600;
   padding: 0.6rem 0.4rem; /* 読みやすさのために余白をわずかに拡張 */
-  border-right: 1px solid rgba(0, 0, 0, 0.12); /* 境界線を明瞭化 */
-  border-bottom: 2px solid rgba(0, 0, 0, 0.15); /* ヘッダー境界線を強調 */
+  border-right: 1px solid #94a3b8; /* ヘッダー境界線をしっかり太め・濃いめに */
+  border-bottom: 2px solid #64748b; /* ヘッダー下線を強調 */
   z-index: 10;
   font-size: 0.74rem;
   user-select: none;
@@ -307,8 +307,8 @@
 
 .spreadsheet-table td {
   padding: 0.5rem 0.4rem; /* 読みやすさのために余白をわずかに拡張 */
-  border-right: 1px solid rgba(0, 0, 0, 0.08); /* 境界線を明瞭化 */
-  border-bottom: 1px solid rgba(0, 0, 0, 0.08); /* 境界線を明瞭化 */
+  border-right: 1px solid #cbd5e1; /* ライトモードのセルの線を濃くはっきりと */
+  border-bottom: 1px solid #cbd5e1; /* ライトモードのセルの線を濃くはっきりと */
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -319,12 +319,12 @@
 
 /* ダークテーマ時の境界線カラー */
 .dark-theme .spreadsheet-table th {
-  border-right: 1px solid rgba(255, 255, 255, 0.1);
-  border-bottom: 2px solid rgba(255, 255, 255, 0.15);
+  border-right: 1px solid #475569;
+  border-bottom: 2px solid #64748b;
 }
 .dark-theme .spreadsheet-table td {
-  border-right: 1px solid rgba(255, 255, 255, 0.06);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  border-right: 1px solid #334155;
+  border-bottom: 1px solid #334155;
 }
 
 .spreadsheet-row {
