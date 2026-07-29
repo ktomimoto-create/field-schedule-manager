@@ -1253,3 +1253,17 @@
 
 #### 2. ビルド確認
 - フロントエンドプロジェクトで `cmd /c npm run build` を実行し、TypeScriptのコンパイルおよびビルドが正常に通過することを確認しました。
+
+## [2026-07-29] 予定表（グリッド）における完了行の打ち消し線（横線）の削除
+
+### 変更の目的
+ステータスが「完了」となった予定行について、不透明度を下げて半透明（`opacity: 0.5`）にする処理に加えて適用されていた、文字の「打ち消し線（横線）」表示を削除します。これにより、完了状態であることが一目でわかりつつ、テキストの文字が消されずに明瞭に読めるよう可読性を改善します。
+
+### 変更内容
+
+#### 1. 完了行のスタイル変更
+* **[GridView.css](file:///C:/Users/000644/.gemini/antigravity/scratch/field-schedule-manager/frontend/src/components/GridView.css)**:
+  - 完了行（`.row-completed td:not(:first-child)`）のスタイルから `text-decoration: line-through;` プロパティを削除しました。
+
+#### 2. ビルド確認
+- フロントエンドプロジェクトで `cmd /c npm run build` を実行し、TypeScriptのコンパイルおよびビルドが正常に通過することを確認しました。

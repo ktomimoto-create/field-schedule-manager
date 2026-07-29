@@ -356,7 +356,6 @@
 }
 
 .row-completed td:not(:first-child) {
-  text-decoration: line-through;
   color: var(--text-muted) !important;
 }
 
