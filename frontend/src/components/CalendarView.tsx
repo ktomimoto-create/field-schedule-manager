@@ -275,6 +275,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
   // クイック追加用の状態変数
   const [activeAddFormDate, setActiveAddFormDate] = useState<string | null>(null);
   const [quickWorkType, setQuickWorkType] = useState('休暇');
+  const [quickCustomWorkType, setQuickCustomWorkType] = useState('');
   const [quickStaffIds, setQuickStaffIds] = useState<number[]>([]);
   const [showStaffDropdown, setShowStaffDropdown] = useState<string | null>(null);
   const [quickTargetTime, setQuickTargetTime] = useState('');
@@ -1449,7 +1450,11 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
     if (isQuickAdding) return;
     setIsQuickAdding(true);
 
-    const isHoliday = quickWorkType === '休暇';
+    const workTypeVal = quickWorkType === 'その他' 
+      ? (quickCustomWorkType.trim() || 'その他') 
+      : quickWorkType;
+
+    const isHoliday = workTypeVal === '休暇';
     const propertyName = isHoliday ? '（休暇）' : '（社内用務）';
 
     try {
@@ -1462,7 +1467,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
         const payload: Partial<Schedule> = {
           status: 'confirmed',
           date: dateStr,
-          work_type: quickWorkType,
+          work_type: workTypeVal,
           staff_id: matchedStaff.id,
           staff_name: matchedStaff.name,
           target_time: quickTargetTime.trim() || (isHoliday ? '終日' : '指定なし'),
@@ -1476,6 +1481,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
       setActiveAddFormDate(null);
       setQuickStaffIds([]);
       setShowStaffDropdown(null);
+      setQuickCustomWorkType('');
     } catch (err) {
       console.error('Failed to quick add schedules:', err);
       alert('簡易登録に失敗しました。');
@@ -1995,7 +2001,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                                 {/* クイック追加ボタンと簡易入力フォーム */}
                                 {activeAddFormDate === day.dateStr ? (
                                   <div className="quick-add-form-inline" onClick={(e) => e.stopPropagation()}>
-                                    <div style={{ fontSize: '0.72rem', fontWeight: 'bold', color: 'var(--text-secondary)', marginBottom: '6px', textAlign: 'left', borderBottom: '1px solid var(--border-cell)', paddingBottom: '3px', whiteSpace: 'nowrap' }}>休暇・社内予定の簡易登録</div>
+                                    <div style={{ width: '100%', fontSize: '0.72rem', fontWeight: 'bold', color: 'var(--text-secondary)', marginBottom: '6px', textAlign: 'left', borderBottom: '1px solid var(--border-cell)', paddingBottom: '3px', whiteSpace: 'nowrap' }}>休暇・社内予定の簡易登録</div>
                                     <select
                                       className="quick-form-control quick-select-worktype"
                                       value={quickWorkType}
@@ -2004,7 +2010,20 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                                       {workTypes.filter(t => t.is_internal === 1).map(t => (
                                         <option key={t.id} value={t.name}>{t.name}</option>
                                       ))}
+                                      <option value="その他">その他（自由入力）</option>
                                     </select>
+
+                                    {quickWorkType === 'その他' && (
+                                      <input
+                                        type="text"
+                                        className="quick-form-control"
+                                        placeholder="予定名を入力"
+                                        value={quickCustomWorkType}
+                                        onChange={(e) => setQuickCustomWorkType(e.target.value)}
+                                        style={{ width: '110px' }}
+                                        autoFocus
+                                      />
+                                    )}
 
                                     {/* 複数選択チェックドロップダウン */}
                                     <div className="quick-staff-select-container">
@@ -2092,6 +2111,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                                       className="btn-quick-action btn-quick-cancel"
                                       onClick={() => {
                                         setActiveAddFormDate(null);
+                                        setQuickCustomWorkType('');
                                         setShowStaffDropdown(null);
                                       }}
                                     >
@@ -2106,6 +2126,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                                       setQuickWorkType(workTypes.filter(t => t.is_internal === 1)[0]?.name || '休暇');
                                       setQuickStaffIds([]);
                                       setQuickTargetTime('');
+                                      setQuickCustomWorkType('');
                                       setActiveAddFormDate(day.dateStr);
                                     }}
                                   >

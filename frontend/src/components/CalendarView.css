@@ -430,11 +430,12 @@
 /* インライン簡易フォーム */
 .quick-add-form-inline {
   display: flex;
+  flex-wrap: wrap; /* 折り返しを許可してレイアウト破綻を防止 */
   align-items: center;
   gap: 0.35rem;
   background: var(--bg-glass);
   border: 1px solid var(--border-glass);
-  padding: 0.2rem 0.4rem;
+  padding: 0.3rem 0.5rem; /* 余白を少し調整 */
   border-radius: 6px;
   animation: fadeIn 0.15s ease-out;
 }

@@ -1177,3 +1177,22 @@
 
 #### 2. ビルド確認
 - フロントエンドプロジェクトで `cmd /c npm run build` を実行し、TypeScriptのコンパイルおよびビルドが正常に通過することを確認しました。
+
+## [2026-07-29] 簡易登録フォーム（旧クイック追加）における「その他（自由入力）」項目の追加
+
+### 変更の目的
+月間予定表（CalendarView）の簡易登録フォームにおいて、マスタにあらかじめ定義されていない一時的な社内用務・予定項目（例: 「健康診断」「大掃除」など）をその日だけ臨機応変に入力できるようにするため、選択肢に「その他（自由入力）」を追加し、テキストボックスによる自由入力をサポートします。
+
+### 変更内容
+
+#### 1. 自由入力欄の動的表示と登録ロジックの実装
+* **[CalendarView.tsx](file:///C:/Users/000644/.gemini/antigravity/scratch/field-schedule-manager/frontend/src/components/CalendarView.tsx)**:
+  - クイック追加用の新しいState `quickCustomWorkType` を追加しました。
+  - 項目選択のセレクトボックス of 末尾に「その他（自由入力）」オプションを追加しました。
+  - セレクトボックスで「その他」が選択された場合、隣に動的にテキスト入力フィールド（`placeholder="予定名を入力"`）が表示されるように調整し、自動でそこにフォーカスされるよう `autoFocus` 属性を適用しました。
+  - 登録（`handleQuickAdd`）時、「その他」が選択されている場合は自由入力したテキストを `work_type` として保存するようにマッピングを修正しました。また、キャンセル・登録完了・フォーム起動時に入力値が正しくリセットされるように初期化処理を追加しました。
+* **[CalendarView.css](file:///C:/Users/000644/.gemini/antigravity/scratch/field-schedule-manager/frontend/src/components/CalendarView.css)**:
+  - 簡易フォーム容器（`.quick-add-form-inline`）に `flex-wrap: wrap;` を適用し、自由入力欄が表示されてもセルのヘッダー領域でレイアウト崩れ（はみ出し）を起こさないようレスポンシブな折り返しを許可しました。
+
+#### 2. ビルド確認
+- フロントエンドプロジェクトで `cmd /c npm run build` を実行し、TypeScriptのコンパイルおよびビルドが正常に通過することを確認しました。
