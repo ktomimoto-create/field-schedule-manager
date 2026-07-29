@@ -422,20 +422,20 @@ export const GridView: React.FC<GridViewProps> = ({
         <table className={`spreadsheet-table ${showFullText ? 'show-full-text' : ''}`}>
           <thead>
             <tr>
-              <th style={{ width: '45px', textAlign: 'center' }}>区分</th>
-              <th style={{ width: '50px' }}>タイプ</th>
-              <th style={{ width: '60px' }}>BOX</th>
-              <th style={{ width: '65px' }}>号機</th>
-              <th style={{ width: '180px' }}>物件名</th>
-              <th style={{ width: '65px' }}>種別</th>
-              <th style={{ width: '250px' }}>作業内容</th>
-              <th style={{ width: '70px' }}>時間</th>
-              <th style={{ width: '75px' }}>対応者</th>
-              <th style={{ width: '75px' }}>エリア</th>
-              <th style={{ width: '50px' }}>移動</th>
-              <th style={{ width: '75px' }}>同行者</th>
-              <th style={{ width: '85px' }}>依頼番号</th>
-              <th style={{ width: '75px', textAlign: 'center' }}>結果</th>
+              <th style={{ width: '40px', textAlign: 'center' }}>区分</th>
+              <th style={{ width: '38px' }}>タイプ</th>
+              <th style={{ width: '40px' }}>BOX</th>
+              <th style={{ width: '60px' }}>号機</th>
+              <th style={{ width: '220px' }}>物件名</th>
+              <th style={{ width: '55px' }}>種別</th>
+              <th style={{ width: '300px' }}>作業内容</th>
+              <th style={{ width: '65px' }}>時間</th>
+              <th style={{ width: '80px' }}>対応者</th>
+              <th style={{ width: '70px' }}>エリア</th>
+              <th style={{ width: '45px' }}>移動</th>
+              <th style={{ width: '80px' }}>同行者</th>
+              <th style={{ width: '80px' }}>依頼番号</th>
+              <th style={{ width: '70px', textAlign: 'center' }}>結果</th>
               <th style={{ width: '120px' }}>備考</th>
             </tr>
           </thead>

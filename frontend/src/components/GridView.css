@@ -297,24 +297,34 @@
   background: var(--bg-column-header);
   color: var(--text-secondary);
   font-weight: 600;
-  padding: 0.5rem 0.3rem; /* パディングを詰めてセル内の余白を最小限に */
-  border-right: 1px solid var(--border-cell);
-  border-bottom: 2px solid var(--border-cell);
+  padding: 0.6rem 0.4rem; /* 読みやすさのために余白をわずかに拡張 */
+  border-right: 1px solid rgba(0, 0, 0, 0.12); /* 境界線を明瞭化 */
+  border-bottom: 2px solid rgba(0, 0, 0, 0.15); /* ヘッダー境界線を強調 */
   z-index: 10;
   font-size: 0.74rem;
   user-select: none;
 }
 
 .spreadsheet-table td {
-  padding: 0.4rem 0.3rem; /* パディングを詰める */
-  border-right: 1px solid var(--border-cell);
-  border-bottom: 1px solid var(--border-cell);
+  padding: 0.5rem 0.4rem; /* 読みやすさのために余白をわずかに拡張 */
+  border-right: 1px solid rgba(0, 0, 0, 0.08); /* 境界線を明瞭化 */
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08); /* 境界線を明瞭化 */
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  vertical-align: middle; /* 通常時は上下中央揃えで1行表示を綺麗に */
-  height: 36px;
+  vertical-align: middle;
+  height: 38px; /* 高さをわずかに持たせて詰まり感を緩和 */
   box-sizing: border-box;
+}
+
+/* ダークテーマ時の境界線カラー */
+.dark-theme .spreadsheet-table th {
+  border-right: 1px solid rgba(255, 255, 255, 0.1);
+  border-bottom: 2px solid rgba(255, 255, 255, 0.15);
+}
+.dark-theme .spreadsheet-table td {
+  border-right: 1px solid rgba(255, 255, 255, 0.06);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 .spreadsheet-row {
@@ -322,11 +332,14 @@
 }
 
 .spreadsheet-row:hover {
-  background: var(--bg-card-hover) !important;
+  background: rgba(79, 70, 229, 0.07) !important; /* テーマカラーである青紫の薄色ハイライトで選択行をわかりやすく */
+}
+.dark-theme .spreadsheet-row:hover {
+  background: rgba(99, 102, 241, 0.14) !important; /* ダークテーマ向けのホバー */
 }
 
 .spreadsheet-table tbody tr:nth-child(even) {
-  background: var(--bg-primary);
+  background: var(--bg-empty); /* ゼブラストライプのコントラストを強化して行の切り替わりを明瞭に */
 }
 
 .no-data-cell {
