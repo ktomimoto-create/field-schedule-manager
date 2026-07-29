@@ -472,11 +472,7 @@ export const GridView: React.FC<GridViewProps> = ({
                     <td className="description-cell" title={schedule.description || ''}>
                       {schedule.description}
                     </td>
-                    <td className="time-cell" style={{ 
-                      backgroundColor: schedule.target_time === '必ず' ? 'rgba(239, 68, 68, 0.15)' : 'transparent',
-                      color: schedule.target_time === '必ず' ? 'var(--danger)' : 'inherit',
-                      fontWeight: schedule.target_time === '必ず' ? '700' : 'normal'
-                    }}>
+                    <td className="time-cell">
                       {schedule.target_time}
                     </td>
                     <td style={{ verticalAlign: 'middle' }}>
