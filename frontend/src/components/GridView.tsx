@@ -479,13 +479,45 @@ export const GridView: React.FC<GridViewProps> = ({
                     }}>
                       {schedule.target_time}
                     </td>
-                    <td>
-                      {staffMember && (
-                        <span className="staff-indicator-tag" style={{ borderLeft: '3px solid var(--primary)' }}>
-                          {getShortName(staffMember.name)}
-                        </span>
+                    <td style={{ verticalAlign: 'middle' }}>
+                      {staffMember ? (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', width: '100%' }}>
+                          {staffMember.avatar_url ? (
+                            <img 
+                              src={staffMember.avatar_url} 
+                              alt={staffMember.name} 
+                              style={{ width: '22px', height: '22px', borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} 
+                            />
+                          ) : (
+                            <div style={{ 
+                              width: '22px', 
+                              height: '22px', 
+                              borderRadius: '50%', 
+                              backgroundColor: 'var(--primary, #4f46e5)', 
+                              color: 'white', 
+                              display: 'flex', 
+                              alignItems: 'center', 
+                              justifyContent: 'center', 
+                              fontSize: '0.65rem', 
+                              fontWeight: 'bold',
+                              flexShrink: 0
+                            }}>
+                              {getShortName(staffMember.name).substring(0, 1)}
+                            </div>
+                          )}
+                          <span className="staff-indicator-tag" style={{ borderLeft: '3px solid var(--primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {getShortName(staffMember.name)}
+                          </span>
+                        </div>
+                      ) : (
+                        schedule.staff_name ? (
+                          <span className="staff-indicator-tag" style={{ borderLeft: '3px solid #6b7280' }}>
+                            {getShortName(schedule.staff_name)}
+                          </span>
+                        ) : (
+                          <span style={{ color: '#94a3b8', fontStyle: 'italic', fontSize: '0.85rem' }}>未設定</span>
+                        )
                       )}
-
                     </td>
                     <td>{schedule.area}</td>
                     <td>{schedule.transport}</td>
