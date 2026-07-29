@@ -1995,6 +1995,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                                 {/* クイック追加ボタンと簡易入力フォーム */}
                                 {activeAddFormDate === day.dateStr ? (
                                   <div className="quick-add-form-inline" onClick={(e) => e.stopPropagation()}>
+                                    <div style={{ fontSize: '0.72rem', fontWeight: 'bold', color: 'var(--text-secondary)', marginBottom: '6px', textAlign: 'left', borderBottom: '1px solid var(--border-cell)', paddingBottom: '3px', whiteSpace: 'nowrap' }}>休暇・社内予定の簡易登録</div>
                                     <select
                                       className="quick-form-control quick-select-worktype"
                                       value={quickWorkType}
@@ -2108,7 +2109,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                                       setActiveAddFormDate(day.dateStr);
                                     }}
                                   >
-                                    ＋ クイック追加
+                                    ＋ 休暇・社内予定を追加
                                   </button>
                                 )}
                               </div>
