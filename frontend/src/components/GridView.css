@@ -294,8 +294,8 @@
 .spreadsheet-table th {
   position: sticky;
   top: 0;
-  background: var(--bg-column-header);
-  color: var(--text-secondary);
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
   font-weight: 600;
   padding: 0.6rem 0.4rem; /* 読みやすさのために余白をわずかに拡張 */
   border-right: 1px solid rgba(0, 0, 0, 0.12); /* 境界線を明瞭化 */
