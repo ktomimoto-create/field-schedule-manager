@@ -493,14 +493,14 @@
 }
 
 .btn-quick-cancel {
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--bg-empty);
   color: var(--text-secondary);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--border-cell);
 }
 
 .btn-quick-cancel:hover {
-  background: rgba(255, 255, 255, 0.12);
-  color: white;
+  background: var(--bg-empty-hover);
+  color: var(--text-primary);
 }
 
 /* クイック追加起動ボタン */
