@@ -1,5 +1,27 @@
 # 変更履歴 (walkthrough.md)
 
+## [2026-07-20] スプレッドシートからの貼り付け時に対応者のコース番号が自動設定されない不具合の修正とSupabase接続障害の原因特定
+
+### 変更の目的
+1. **スプレッドシート貼り付け時のコース番号自動割り振り機能の強化**:
+   スプレッドシートから予定を一括インポート（貼り付け）する際、対応者名が文字列で入力された場合にスタッフマスタとの照合やコース番号（`course`）の補完が一部ケースで漏れ、コース番号が空欄（`null`）になってしまう問題を解消します。
+2. **Supabase接続エラーの調査**:
+   「接続できなくなった」という報告を受け、バックエンドおよびSupabaseエンドポイントの状態を検証し原因を特定します。
+
+### 変更内容
+
+#### 1. フロントエンドUI・ロジックの修正
+
+##### [PasteImportModal.tsx](file:///C:/Users/000644/.gemini/antigravity/scratch/field-schedule-manager/frontend/src/components/PasteImportModal.tsx)
+* スタッフ名の曖昧一致関数 `findStaffByName` を正しいインポート構成に整理しました。
+* インポート実行時（`handleImport`）、対応者の `staff_id` または `staff_name` から対応するスタッフマスタ（`staff`）を特定し、コース番号（`course`）が未設定（空文字または `null`）の場合にマスタの `default_course` を自動適用する二重フォールバックガードを実装しました。
+
+#### 2. ドキュメントおよび仕様書の更新
+* [specification.md](file:///C:/Users/000644/.gemini/antigravity/scratch/field-schedule-manager/specification.md): インポート時のコース番号自動補完・フォールバックガードに関する仕様を更新しました。
+* [walkthrough.md](file:///C:/Users/000644/.gemini/antigravity/scratch/field-schedule-manager/walkthrough.md): 本変更履歴を追加しました。
+
+---
+
 ## [2026-06-20] ヘッダーナビゲーションUIの整理（集計分析・マスタ管理のアイコン化と右側への分離配置）
 
 ### 変更の目的
@@ -1090,4 +1112,19 @@
   - また、ヘッダーでのボタン削除に伴い未使用となった `isAdmin` 定数エラーを修正し、フッターコンポーネントでも `isAdmin` フラグを参照するようにリファクタリングを行いました。
 
 #### 4. ビルド確認
+- フロントエンドプロジェクトで `cmd /c npm run build` を実行し、TypeScript of コンパイルおよびビルドが正常に通過することを確認しました。
+
+## [2026-07-29] 予定追加・編集サイドバー背景の完全不透明化による視認性向上
+
+### 変更の目的
+画面右端からスライドインする「予定の追加・編集」サイドバー（`.schedule-sidebar-content`）の背景が半透明のガラスモルフィズム（透過）になっていたため、背後のカレンダーの予定文字やテーブル格子線がフォームの入力エリアと重なり、非常に見づらくなっていた不具合を解消し、テキストやフォームがクリアに読めるように改善します。
+
+### 変更内容
+
+#### 1. ガラス透過背景の削除と不透明背景の適用
+* **[index.css](file:///C:/Users/000644/.gemini/antigravity/scratch/field-schedule-manager/frontend/src/index.css)**:
+  - `.schedule-sidebar-content` において、`background` に設定されていた半透明ガラスカラー `var(--bg-glass)` を、不透明なテーマカラー `var(--bg-secondary)` に変更しました。これにより、ライトテーマ時は完全な白（`#ffffff`）、ダークテーマ時は完全なダークネイビー（`#161e31`）の背景となり、背後のカレンダー文字が完全に隠れるようになりました。
+  - 同時に、ぼかしフィルターである `backdrop-filter: blur(20px)` および `-webkit-backdrop-filter` の行を削除し、不要なレンダリング負荷を排除しました。
+
+#### 2. ビルド確認
 - フロントエンドプロジェクトで `cmd /c npm run build` を実行し、TypeScriptのコンパイルおよびビルドが正常に通過することを確認しました。

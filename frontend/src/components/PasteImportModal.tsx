@@ -498,6 +498,19 @@ export const PasteImportModal: React.FC<PasteImportModalProps> = ({
         }
 
         // 3. Upsert
+        let finalCourse = course ? String(course).trim() : null;
+        if (!finalCourse) {
+          let st = null;
+          if (finalStaffId) {
+            st = staff.find(s => s.id === finalStaffId);
+          } else if (finalStaffName) {
+            st = findStaffByName(staff, finalStaffName);
+          }
+          if (st && st.default_course) {
+            finalCourse = st.default_course;
+          }
+        }
+
         if (existingSchedule) {
           let finalCompletedAt = existingSchedule.completed_at;
           if (result !== undefined) {
@@ -527,7 +540,7 @@ export const PasteImportModal: React.FC<PasteImportModalProps> = ({
             co_worker: co_worker || null,
             request_number: request_number || null,
             time_limit: time_limit || null,
-            course: course || null,
+            course: finalCourse,
             result: result || null,
             completed_at: finalCompletedAt,
             notes: notes || null,
@@ -566,7 +579,7 @@ export const PasteImportModal: React.FC<PasteImportModalProps> = ({
             co_worker: co_worker || null,
             request_number: request_number || null,
             time_limit: time_limit || null,
-            course: course || null,
+            course: finalCourse,
             result: result || null,
             completed_at: finalCompletedAt,
             notes: notes || null,
