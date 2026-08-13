@@ -14,9 +14,9 @@
 
 #### 2. フロントエンド保存・更新ロジックの修正
 * [App.tsx](file:///C:/Users/000644/.gemini/antigravity/scratch/field-schedule-manager/frontend/src/App.tsx): 
-  * 予定の新規追加および編集時 (`handleSaveSchedule`)、および当日行動予定表などのステータス・結果更新時 (`handleUpdateScheduleResult`) に、操作を行ったユーザーのメールアドレスを `created_by` / `updated_by` として Supabase に保存するよう実装しました。
+  * 予定の新規追加および編集時 (`handleSaveSchedule`)、および当日行動予定表などのステータス・結果更新時 (`handleUpdateScheduleResult`) に、操作を行ったユーザーの表示名（Microsoftアカウントのフルネーム、またはメールアドレスから解決された本名マスタの氏名）を `created_by` / `updated_by` として Supabase に保存するよう実装しました。
 * [PasteImportModal.tsx](file:///C:/Users/000644/.gemini/antigravity/scratch/field-schedule-manager/frontend/src/components/PasteImportModal.tsx): 
-  * スプレッドシートからの一括インポート時 (`handleImport`) においても、新規作成予定および更新予定それぞれに対して操作ユーザーのメールアドレスを `created_by` / `updated_by` に記録するよう対応しました。
+  * スプレッドシートからの一括インポート時 (`handleImport`) においても、新規作成予定および更新予定それぞれに対して操作ユーザーの表示名（メールアドレスから解決された本名マスタの氏名）を `created_by` / `updated_by` に記録するよう対応しました。
 
 #### 3. UI表示の変更
 * [ScheduleModal.tsx](file:///C:/Users/000644/.gemini/antigravity/scratch/field-schedule-manager/frontend/src/components/ScheduleModal.tsx): 
