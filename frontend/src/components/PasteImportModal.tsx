@@ -442,6 +442,12 @@ export const PasteImportModal: React.FC<PasteImportModalProps> = ({
       const results: { id: number; action: string }[] = [];
       const nowTime = new Date().toLocaleTimeString('ja-JP', { timeZone: 'Asia/Tokyo', hour: '2-digit', minute: '2-digit', hour12: false });
 
+      let editorName = 'system';
+      if (userEmail) {
+        const matched = staff.find(s => s.email?.toLowerCase().trim() === userEmail.toLowerCase().trim());
+        editorName = matched ? matched.name : userEmail;
+      }
+
       for (const item of previewItems) {
         const {
           id, status, division, type, box, unit_number, property_name, work_type, description, 
@@ -548,7 +554,7 @@ export const PasteImportModal: React.FC<PasteImportModalProps> = ({
             level: level || null,
             level_3: level_3 || null,
             is_transferred: is_transferred !== undefined ? Number(is_transferred) : Number(existingSchedule.is_transferred),
-            updated_by: userEmail || 'system',
+            updated_by: editorName,
             updated_at: new Date().toISOString()
           };
 
@@ -588,8 +594,8 @@ export const PasteImportModal: React.FC<PasteImportModalProps> = ({
             level: level || null,
             level_3: level_3 || null,
             is_transferred: is_transferred !== undefined ? Number(is_transferred) : 0,
-            created_by: userEmail || 'system',
-            updated_by: userEmail || 'system'
+            created_by: editorName,
+            updated_by: editorName
           };
 
           const { data: newSched, error: insertError } = await supabase.from('schedules').insert([insertPayload]).select('id').single();

@@ -182,7 +182,16 @@ function App() {
     reportNotes?: string | null
   ) => {
     try {
-      const payload: any = { result: resultValue, updated_by: user?.email || 'system' };
+      const getEditorName = () => {
+        if (!user) return 'system';
+        const metaName = user.user_metadata?.full_name || user.user_metadata?.name;
+        if (metaName) return metaName;
+        const matched = staff.find(st => st.email?.toLowerCase().trim() === user.email?.toLowerCase().trim());
+        return matched ? matched.name : (user.email || 'system');
+      };
+      const editorName = getEditorName();
+
+      const payload: any = { result: resultValue, updated_by: editorName };
       if (startedAt !== undefined) payload.started_at = startedAt;
       if (completedAt !== undefined) payload.completed_at = completedAt;
       if (reportNotes !== undefined) payload.report_notes = reportNotes;
@@ -382,11 +391,20 @@ function App() {
       delete (payload as any).updated_at;
 
       // 登録者・最終更新者の自動記録
+      const getEditorName = () => {
+        if (!user) return 'system';
+        const metaName = user.user_metadata?.full_name || user.user_metadata?.name;
+        if (metaName) return metaName;
+        const matched = staff.find(st => st.email?.toLowerCase().trim() === user.email?.toLowerCase().trim());
+        return matched ? matched.name : (user.email || 'system');
+      };
+      const editorName = getEditorName();
+
       if (isEdit) {
-        payload.updated_by = user?.email || 'system';
+        payload.updated_by = editorName;
       } else {
-        payload.created_by = user?.email || 'system';
-        payload.updated_by = user?.email || 'system';
+        payload.created_by = editorName;
+        payload.updated_by = editorName;
       }
 
       // FTSのスタッフで、かつコース番号が未設定の場合、27以降の空き番号を自動採番
