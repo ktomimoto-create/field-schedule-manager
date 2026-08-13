@@ -1,5 +1,32 @@
 # 変更履歴 (walkthrough.md)
 
+## [2026-08-13] 予定登録者・最終更新者トラッキング機能の追加
+
+### 変更の目的
+1. **予定作成・更新の履歴確認**:
+   カレンダー上で誰が予定を登録し、誰が最後に更新したかを明確にし、変更経緯の確認や作業フローの確認を容易にします。
+
+### 変更内容
+
+#### 1. データベース・型定義の拡張
+* [types.ts](file:///C:/Users/000644/.gemini/antigravity/scratch/field-schedule-manager/frontend/src/types.ts): `Schedule` 型定義に `created_by` (登録者) と `updated_by` (最終更新者) フィールドを追加しました。
+* (※) データベース上の `schedules` テーブルには、すでに `created_by` / `updated_by` カラムが存在していたため、新規のカラム追加 SQL 実行は不要と判断し、既存のスキーマをそのまま利用しています。
+
+#### 2. フロントエンド保存・更新ロジックの修正
+* [App.tsx](file:///C:/Users/000644/.gemini/antigravity/scratch/field-schedule-manager/frontend/src/App.tsx): 
+  * 予定の新規追加および編集時 (`handleSaveSchedule`)、および当日行動予定表などのステータス・結果更新時 (`handleUpdateScheduleResult`) に、操作を行ったユーザーのメールアドレスを `created_by` / `updated_by` として Supabase に保存するよう実装しました。
+* [PasteImportModal.tsx](file:///C:/Users/000644/.gemini/antigravity/scratch/field-schedule-manager/frontend/src/components/PasteImportModal.tsx): 
+  * スプレッドシートからの一括インポート時 (`handleImport`) においても、新規作成予定および更新予定それぞれに対して操作ユーザーのメールアドレスを `created_by` / `updated_by` に記録するよう対応しました。
+
+#### 3. UI表示の変更
+* [ScheduleModal.tsx](file:///C:/Users/000644/.gemini/antigravity/scratch/field-schedule-manager/frontend/src/components/ScheduleModal.tsx): 
+  * 予定編集サイドバーの「管理情報」セクション最下部に、登録者および最終更新者のメールアドレスと対応日時（YYYY/MM/DD HH:mm:ss）を表示するエリアを追加しました。
+
+#### 4. 仕様書の更新
+* [specification.md](file:///C:/Users/000644/.gemini/antigravity/scratch/field-schedule-manager/specification.md): サイドバー（予定詳細）における履歴情報の表示仕様について追記しました。
+
+---
+
 ## [2026-07-20] スプレッドシートからの貼り付け時に対応者のコース番号が自動設定されない不具合の修正とSupabase接続障害の原因特定
 
 ### 変更の目的

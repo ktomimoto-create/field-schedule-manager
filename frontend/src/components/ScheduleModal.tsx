@@ -845,6 +845,32 @@ ${notes || 'なし'}
                 />
               </div>
             </div>
+
+            {isEditMode && (selectedSchedule?.created_by || selectedSchedule?.updated_by) && (
+              <div style={{ 
+                marginTop: '1.25rem', 
+                paddingTop: '0.85rem', 
+                borderTop: '1px dashed var(--border-color, #e2e8f0)',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '0.5rem',
+                fontSize: '0.75rem',
+                color: 'var(--text-secondary, #64748b)'
+              }}>
+                {selectedSchedule.created_by && (
+                  <div>
+                    <span style={{ fontWeight: 600 }}>登録者:</span> {selectedSchedule.created_by} 
+                    {selectedSchedule.created_at && ` (${new Date(selectedSchedule.created_at).toLocaleString('ja-JP')})`}
+                  </div>
+                )}
+                {selectedSchedule.updated_by && (
+                  <div>
+                    <span style={{ fontWeight: 600 }}>最終更新者:</span> {selectedSchedule.updated_by} 
+                    {selectedSchedule.updated_at && ` (${new Date(selectedSchedule.updated_at).toLocaleString('ja-JP')})`}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid var(--border-glass)', paddingTop: '1.25rem', flexWrap: 'wrap', gap: '1rem' }}>

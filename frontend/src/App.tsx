@@ -182,7 +182,7 @@ function App() {
     reportNotes?: string | null
   ) => {
     try {
-      const payload: any = { result: resultValue };
+      const payload: any = { result: resultValue, updated_by: user?.email || 'system' };
       if (startedAt !== undefined) payload.started_at = startedAt;
       if (completedAt !== undefined) payload.completed_at = completedAt;
       if (reportNotes !== undefined) payload.report_notes = reportNotes;
@@ -380,6 +380,14 @@ function App() {
       const payload = { ...scheduleData };
       delete (payload as any).created_at;
       delete (payload as any).updated_at;
+
+      // 登録者・最終更新者の自動記録
+      if (isEdit) {
+        payload.updated_by = user?.email || 'system';
+      } else {
+        payload.created_by = user?.email || 'system';
+        payload.updated_by = user?.email || 'system';
+      }
 
       // FTSのスタッフで、かつコース番号が未設定の場合、27以降の空き番号を自動採番
       const matchedStaff = payload.staff_id 

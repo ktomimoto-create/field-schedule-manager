@@ -41,6 +41,8 @@ export interface Schedule {
   level: string | null; // レベル
   level_3: string | null; // レベル3
   sort_order?: number;
+  created_by?: string | null;
+  updated_by?: string | null;
   created_at: string;
   updated_at: string;
   staff_name?: string;

@@ -548,6 +548,7 @@ export const PasteImportModal: React.FC<PasteImportModalProps> = ({
             level: level || null,
             level_3: level_3 || null,
             is_transferred: is_transferred !== undefined ? Number(is_transferred) : Number(existingSchedule.is_transferred),
+            updated_by: userEmail || 'system',
             updated_at: new Date().toISOString()
           };
 
@@ -586,7 +587,9 @@ export const PasteImportModal: React.FC<PasteImportModalProps> = ({
             disorder_type: disorder_type || null,
             level: level || null,
             level_3: level_3 || null,
-            is_transferred: is_transferred !== undefined ? Number(is_transferred) : 0
+            is_transferred: is_transferred !== undefined ? Number(is_transferred) : 0,
+            created_by: userEmail || 'system',
+            updated_by: userEmail || 'system'
           };
 
           const { data: newSched, error: insertError } = await supabase.from('schedules').insert([insertPayload]).select('id').single();
