@@ -58,6 +58,10 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
   const [level3, setLevel3] = useState('');
   const [isSyncCoWorker, setIsSyncCoWorker] = useState(true);
   
+  // プルダウン選択時の自由入力モード管理
+  const [isCustomWorkType, setIsCustomWorkType] = useState(false);
+  const [isCustomStaff, setIsCustomStaff] = useState(false);
+
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // 物件マスタ自動補完用の状態
@@ -191,17 +195,34 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
       setBox(selectedSchedule.box || '');
       setUnitNumber(selectedSchedule.unit_number || '');
       setPropertyName(selectedSchedule.property_name || '');
-      setWorkType(selectedSchedule.work_type || '');
+      
+      const curWorkType = selectedSchedule.work_type || '';
+      setWorkType(curWorkType);
+      if (curWorkType) {
+        const isKnownWorkType = workTypes.some(t => t.name === curWorkType);
+        setIsCustomWorkType(!isKnownWorkType);
+      } else {
+        setIsCustomWorkType(false);
+      }
+
       setDescription(selectedSchedule.description || '');
       setTargetTime(selectedSchedule.target_time || '');
       setDate(selectedSchedule.date || selectedDate || '');
       
       const sId = selectedSchedule.staff_id;
+      let curStaffName = '';
       if (sId) {
         const matched = staff.find(st => st.id === sId);
-        setStaffName(matched ? matched.name : (selectedSchedule.staff_name || ''));
+        curStaffName = matched ? matched.name : (selectedSchedule.staff_name || '');
       } else {
-        setStaffName(selectedSchedule.staff_name || '');
+        curStaffName = selectedSchedule.staff_name || '';
+      }
+      setStaffName(curStaffName);
+      if (curStaffName) {
+        const isKnownStaff = staff.some(st => st.name === curStaffName);
+        setIsCustomStaff(!isKnownStaff);
+      } else {
+        setIsCustomStaff(false);
       }
 
       setArea(selectedSchedule.area || '');
@@ -227,10 +248,12 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
       setUnitNumber('');
       setPropertyName('');
       setWorkType('');
+      setIsCustomWorkType(false);
       setDescription('');
       setTargetTime('');
       setDate(selectedDate || new Date().toISOString().split('T')[0]);
       setStaffName('');
+      setIsCustomStaff(false);
       setArea('');
       setPrefecture('');
       setTransport('');
@@ -245,7 +268,7 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
       setLevel('');
       setLevel3('');
     }
-  }, [selectedSchedule, selectedDate, isOpen, staff]);
+  }, [selectedSchedule, selectedDate, isOpen, staff, workTypes]);
 
   // コース番号の変更に連動して、区分を自動判定してセットする
   useEffect(() => {
@@ -446,24 +469,38 @@ ${notes || 'なし'}
               />
             </div>
             <div className="form-group">
-              <label htmlFor="target_time">時間</label>
+              <label htmlFor="target_time">時間（指定時間）</label>
               <input
                 type="text"
                 id="target_time"
                 className="form-control"
                 value={targetTime}
                 onChange={(e) => setTargetTime(e.target.value)}
-                list="time-suggestions"
+                placeholder="時間入力 または 下の定型ボタンから選択"
                 disabled={isSubmitting}
               />
-              <datalist id="time-suggestions">
-                <option value="必ず" />
-                <option value="AM" />
-                <option value="PM" />
-                <option value="12:00" />
-                <option value="14:00迄" />
-                <option value="17:00まで" />
-              </datalist>
+              <div style={{ marginTop: '6px', display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                {['必ず', 'AM', 'PM', '12:00', '14:00迄', '17:00まで'].map((timeOpt) => (
+                  <button
+                    key={timeOpt}
+                    type="button"
+                    onClick={() => setTargetTime(timeOpt)}
+                    style={{
+                      padding: '2px 8px',
+                      fontSize: '0.72rem',
+                      borderRadius: '10px',
+                      border: targetTime === timeOpt ? '1px solid var(--primary, #4f46e5)' : '1px solid var(--border-cell, #cbd5e1)',
+                      background: targetTime === timeOpt ? 'rgba(99, 102, 241, 0.15)' : 'var(--bg-empty, #f1f5f9)',
+                      color: targetTime === timeOpt ? 'var(--primary, #4f46e5)' : 'var(--text-secondary, #475569)',
+                      cursor: 'pointer',
+                      fontWeight: targetTime === timeOpt ? '600' : 'normal',
+                      transition: 'all 0.12s ease'
+                    }}
+                  >
+                    {timeOpt}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
 
@@ -558,29 +595,54 @@ ${notes || 'なし'}
           {/* セクション 3: 物件詳細・種別・タイプ */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1.5rem' }}>
             <div className="form-group">
-              <label htmlFor="work_type">種別</label>
-              <input
-                type="text"
+              <label htmlFor="work_type">種別（プルダウン選択）</label>
+              <select
                 id="work_type"
                 className="form-control"
-                value={workType}
+                value={isCustomWorkType ? '__custom__' : workType}
                 onChange={(e) => {
                   const val = e.target.value;
-                  setWorkType(val);
-                  if (val === '休暇') {
-                    setPropertyName('（休暇）');
-                  } else if (propertyName === '（休暇）') {
-                    setPropertyName('');
+                  if (val === '__custom__') {
+                    setIsCustomWorkType(true);
+                    setWorkType('');
+                  } else {
+                    setIsCustomWorkType(false);
+                    setWorkType(val);
+                    if (val === '休暇') {
+                      setPropertyName('（休暇）');
+                    } else if (propertyName === '（休暇）') {
+                      setPropertyName('');
+                    }
                   }
                 }}
-                list="work-type-suggestions"
                 disabled={isSubmitting}
-              />
-              <datalist id="work-type-suggestions">
+              >
+                <option value="">-- 種別を選択 --</option>
                 {workTypes.map(t => (
-                  <option key={t.id} value={t.name} />
+                  <option key={t.id} value={t.name}>{t.name}</option>
                 ))}
-              </datalist>
+                <option value="__custom__">その他（自由入力）</option>
+              </select>
+              {isCustomWorkType && (
+                <input
+                  type="text"
+                  className="form-control"
+                  style={{ marginTop: '6px' }}
+                  placeholder="任意の種別名を入力"
+                  value={workType}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setWorkType(val);
+                    if (val === '休暇') {
+                      setPropertyName('（休暇）');
+                    } else if (propertyName === '（休暇）') {
+                      setPropertyName('');
+                    }
+                  }}
+                  autoFocus
+                  disabled={isSubmitting}
+                />
+              )}
             </div>
             <div className="form-group">
               <label htmlFor="type">タイプ</label>
@@ -598,30 +660,56 @@ ${notes || 'なし'}
           {/* セクション 4: 担当アサイン */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
             <div className="form-group">
-              <label htmlFor="staff-input">対応者</label>
-              <input
-                type="text"
+              <label htmlFor="staff-input">対応者（プルダウン選択）</label>
+              <select
                 id="staff-input"
                 className="form-control"
-                value={staffName}
+                value={isCustomStaff ? '__custom__' : staffName}
                 onChange={(e) => {
                   const val = e.target.value;
-                  setStaffName(val);
-                  const matched = findStaffByName(staff, val);
-                  if (matched && matched.default_course) {
-                    setCourse(matched.default_course);
+                  if (val === '__custom__') {
+                    setIsCustomStaff(true);
+                    setStaffName('');
+                  } else {
+                    setIsCustomStaff(false);
+                    setStaffName(val);
+                    const matched = findStaffByName(staff, val);
+                    if (matched && matched.default_course) {
+                      setCourse(matched.default_course);
+                    }
                   }
                 }}
-                list="staff-options"
                 disabled={isSubmitting}
-              />
-              <datalist id="staff-options">
+              >
+                <option value="">-- 未設定（フリー） --</option>
                 {staff
                   .filter((st) => st.is_active !== 0 || st.name === staffName)
                   .map((st) => (
-                    <option key={st.id} value={st.name} />
+                    <option key={st.id} value={st.name}>
+                      {st.name}{st.default_course ? ` (${st.default_course}コース)` : ''}
+                    </option>
                   ))}
-              </datalist>
+                <option value="__custom__">その他（自由入力）</option>
+              </select>
+              {isCustomStaff && (
+                <input
+                  type="text"
+                  className="form-control"
+                  style={{ marginTop: '6px' }}
+                  placeholder="担当者名を入力"
+                  value={staffName}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setStaffName(val);
+                    const matched = findStaffByName(staff, val);
+                    if (matched && matched.default_course) {
+                      setCourse(matched.default_course);
+                    }
+                  }}
+                  autoFocus
+                  disabled={isSubmitting}
+                />
+              )}
             </div>
             <div className="form-group">
               <label htmlFor="co_worker">同行者</label>
