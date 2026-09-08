@@ -32,11 +32,12 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
   currentUserEmail,
   defaultTransferred,
 }) => {
-  // 現場作業用の種別リスト（ユーザー指定の標準項目 + マスタの現場種別）
+  // 現場作業用の種別リスト（不要な「保守」「依頼有/非認可」を除外し、フリーを含める）
   const fieldWorkTypeList = useMemo(() => {
-    const defaultList = ['定期', '障害', '2次', '依頼者承認済', '工事', '設置'];
+    const defaultList = ['定期', '障害', '2次', '依頼者承認済', '工事', '設置', 'フリー'];
+    const excluded = ['保守', '依頼有/非認可'];
     const masterFieldTypes = (workTypes || [])
-      .filter(t => t.is_internal === 0)
+      .filter(t => t.is_internal === 0 && !excluded.includes(t.name))
       .map(t => t.name);
 
     const combined = [...defaultList];
