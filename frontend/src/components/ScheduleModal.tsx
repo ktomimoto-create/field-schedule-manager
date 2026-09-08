@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import type { Schedule, Staff, ScheduleStatus, WorkType } from '../types';
 import { X, Mail } from 'lucide-react';
 import { resolveAddress } from '../utils/addressResolver';
@@ -32,6 +32,22 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
   currentUserEmail,
   defaultTransferred,
 }) => {
+  // 現場作業用の種別リスト（ユーザー指定の標準項目 + マスタの現場種別）
+  const fieldWorkTypeList = useMemo(() => {
+    const defaultList = ['定期', '障害', '2次', '依頼者承認済', '工事', '設置'];
+    const masterFieldTypes = (workTypes || [])
+      .filter(t => t.is_internal === 0)
+      .map(t => t.name);
+
+    const combined = [...defaultList];
+    masterFieldTypes.forEach(name => {
+      if (!combined.includes(name)) {
+        combined.push(name);
+      }
+    });
+    return combined;
+  }, [workTypes]);
+
   // 状態管理
   const [status, setStatus] = useState<ScheduleStatus>('free');
   const [division, setDivision] = useState('');
@@ -199,7 +215,7 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
       const curWorkType = selectedSchedule.work_type || '';
       setWorkType(curWorkType);
       if (curWorkType) {
-        const isKnownWorkType = workTypes.some(t => t.name === curWorkType);
+        const isKnownWorkType = fieldWorkTypeList.includes(curWorkType);
         setIsCustomWorkType(!isKnownWorkType);
       } else {
         setIsCustomWorkType(false);
@@ -268,7 +284,7 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
       setLevel('');
       setLevel3('');
     }
-  }, [selectedSchedule, selectedDate, isOpen, staff, workTypes]);
+  }, [selectedSchedule, selectedDate, isOpen, staff, fieldWorkTypeList]);
 
   // コース番号の変更に連動して、区分を自動判定してセットする
   useEffect(() => {
@@ -599,7 +615,7 @@ ${notes || 'なし'}
               <select
                 id="work_type"
                 className="form-control"
-                value={isCustomWorkType ? '__custom__' : workType}
+                value={isCustomWorkType ? '__custom__' : (fieldWorkTypeList.includes(workType) ? workType : (workType ? '__custom__' : ''))}
                 onChange={(e) => {
                   const val = e.target.value;
                   if (val === '__custom__') {
@@ -608,18 +624,13 @@ ${notes || 'なし'}
                   } else {
                     setIsCustomWorkType(false);
                     setWorkType(val);
-                    if (val === '休暇') {
-                      setPropertyName('（休暇）');
-                    } else if (propertyName === '（休暇）') {
-                      setPropertyName('');
-                    }
                   }
                 }}
                 disabled={isSubmitting}
               >
                 <option value="">-- 種別を選択 --</option>
-                {workTypes.map(t => (
-                  <option key={t.id} value={t.name}>{t.name}</option>
+                {fieldWorkTypeList.map(name => (
+                  <option key={name} value={name}>{name}</option>
                 ))}
                 <option value="__custom__">その他（自由入力）</option>
               </select>
@@ -630,15 +641,7 @@ ${notes || 'なし'}
                   style={{ marginTop: '6px' }}
                   placeholder="任意の種別名を入力"
                   value={workType}
-                  onChange={(e) => {
-                    const val = e.target.value;
-                    setWorkType(val);
-                    if (val === '休暇') {
-                      setPropertyName('（休暇）');
-                    } else if (propertyName === '（休暇）') {
-                      setPropertyName('');
-                    }
-                  }}
+                  onChange={(e) => setWorkType(e.target.value)}
                   autoFocus
                   disabled={isSubmitting}
                 />
