@@ -440,6 +440,7 @@ export const PasteImportModal: React.FC<PasteImportModalProps> = ({
     setIsSubmitting(true);
     try {
       const results: { id: number; action: string }[] = [];
+      const processedScheduleIds = new Set<number>();
       const nowTime = new Date().toLocaleTimeString('ja-JP', { timeZone: 'Asia/Tokyo', hour: '2-digit', minute: '2-digit', hour12: false });
 
       let editorName = 'system';
@@ -481,7 +482,7 @@ export const PasteImportModal: React.FC<PasteImportModalProps> = ({
           }
         }
 
-        // 2. 重複チェック
+        // 2. 重複チェック（号機番号が異なる場合は別予定とする。また、同一インポート内で登録済みのIDは上書き対象外とする）
         let existingSchedule = null;
         if (id) {
           const { data: sById } = await supabase.from('schedules').select('*').eq('id', Number(id)).maybeSingle();
@@ -493,10 +494,23 @@ export const PasteImportModal: React.FC<PasteImportModalProps> = ({
             .eq('date', date)
             .eq('property_name', property_name);
 
+          // 号機番号の比較（号機が入力されている場合はその号機に完全一致するもののみ検索）
+          const trimmedUnitNumber = unit_number ? String(unit_number).trim() : '';
+          if (trimmedUnitNumber !== '') {
+            query = query.eq('unit_number', trimmedUnitNumber);
+          } else {
+            query = query.or('unit_number.is.null,unit_number.eq.""');
+          }
+
           if (finalStaffId) {
             query = query.eq('staff_id', finalStaffId);
           } else {
             query = query.is('staff_id', null);
+          }
+
+          // 今回のインポートループで既に更新・作成したレコードは除外（別行として新規作成させる）
+          if (processedScheduleIds.size > 0) {
+            query = query.not('id', 'in', `(${Array.from(processedScheduleIds).join(',')})`);
           }
           
           const { data: sByMatch } = await query.maybeSingle();
@@ -561,6 +575,7 @@ export const PasteImportModal: React.FC<PasteImportModalProps> = ({
           const { error: updateError } = await supabase.from('schedules').update(updatePayload).eq('id', Number(existingSchedule.id));
           if (updateError) throw updateError;
           results.push({ id: Number(existingSchedule.id), action: 'updated' });
+          processedScheduleIds.add(Number(existingSchedule.id));
         } else {
           let finalCompletedAt = null;
           if (result === '完了') {
@@ -601,6 +616,7 @@ export const PasteImportModal: React.FC<PasteImportModalProps> = ({
           const { data: newSched, error: insertError } = await supabase.from('schedules').insert([insertPayload]).select('id').single();
           if (insertError) throw insertError;
           results.push({ id: Number(newSched.id), action: 'created' });
+          processedScheduleIds.add(Number(newSched.id));
         }
       }
 
