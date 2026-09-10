@@ -296,6 +296,18 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
   const [selectedEmptyCell, setSelectedEmptyCell] = useState<{ date: string; staffId: number } | null>(null);
   const [copiedSchedule, setCopiedSchedule] = useState<Schedule | null>(null);
 
+  // === 複数行選択用のステート ===
+  const [selectedScheduleIds, setSelectedScheduleIds] = useState<number[]>([]);
+  const lastSelectedScheduleIdRef = useRef<number | null>(null);
+
+  // === 別日へ移動モーダル用のステート ===
+  const [isMoveModalOpen, setIsMoveModalOpen] = useState(false);
+  const [targetMoveScheduleIds, setTargetMoveScheduleIds] = useState<number[]>([]);
+  const [destinationDate, setDestinationDate] = useState('');
+  const [keepAsCancelled, setKeepAsCancelled] = useState(true);
+  const [isMoving, setIsMoving] = useState(false);
+  const [isBulkOperating, setIsBulkOperating] = useState(false);
+
   // === 検索用のステートとRef ===
   const [searchQuery, setSearchQuery] = useState<string>('');
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -311,6 +323,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
     schedule?: Schedule;
     dateStr?: string;
     staffId?: number;
+    selectedIds?: number[];
   } | null>(null);
 
   const weeks = getWeeksInMonth(currentDate);
@@ -590,8 +603,19 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
     setIsSelecting(true);
 
     setSelectedCell({ id: scheduleId, field });
-    setSelectedScheduleId(scheduleId);
     setSelectedEmptyCell(null);
+
+    // 行の複数選択（Ctrl / Shift）との連動
+    if (typeof scheduleId === 'number') {
+      const sched = schedules.find(s => s.id === scheduleId);
+      if (sched) {
+        handleSelectRow(e, sched);
+      }
+    } else {
+      setSelectedScheduleId(scheduleId);
+      setSelectedScheduleIds([]);
+      lastSelectedScheduleIdRef.current = null;
+    }
   };
 
   const handleCellMouseEnter = (dateStr: string, rowIndex: number, field: keyof Schedule) => {
@@ -638,6 +662,204 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
     } catch (err) {
       console.error('Failed to paste schedule:', err);
       alert('貼り付けに失敗しました。');
+    }
+  };
+
+  // 行選択ハンドラ（通常クリック、Ctrl+クリック、Shift+クリック）
+  const handleSelectRow = (e: React.MouseEvent, schedule: Schedule) => {
+    if (typeof schedule.id !== 'number') {
+      setSelectedScheduleId(schedule.id);
+      setSelectedScheduleIds([]);
+      lastSelectedScheduleIdRef.current = null;
+      return;
+    }
+
+    const clickedId = schedule.id;
+
+    if (e.ctrlKey || e.metaKey) {
+      // Ctrl + クリック: 個別トグル追加/解除
+      setSelectedScheduleIds(prev => {
+        const exists = prev.includes(clickedId);
+        const next = exists ? prev.filter(id => id !== clickedId) : [...prev, clickedId];
+        setSelectedScheduleId(next.length > 0 ? next[next.length - 1] : null);
+        lastSelectedScheduleIdRef.current = clickedId;
+        return next;
+      });
+    } else if (e.shiftKey && lastSelectedScheduleIdRef.current !== null) {
+      // Shift + クリック: 範囲選択（同じ日付のカレンダー内）
+      const daySchedules = (sortedSchedulesMap[schedule.date] || []).filter(s => typeof s.id === 'number');
+      const lastIdx = daySchedules.findIndex(s => s.id === lastSelectedScheduleIdRef.current);
+      const currIdx = daySchedules.findIndex(s => s.id === clickedId);
+
+      if (lastIdx !== -1 && currIdx !== -1) {
+        const start = Math.min(lastIdx, currIdx);
+        const end = Math.max(lastIdx, currIdx);
+        const rangeIds = daySchedules.slice(start, end + 1).map(s => Number(s.id));
+        setSelectedScheduleIds(prev => {
+          const combined = new Set([...prev, ...rangeIds]);
+          return Array.from(combined);
+        });
+        setSelectedScheduleId(clickedId);
+      } else {
+        setSelectedScheduleIds([clickedId]);
+        setSelectedScheduleId(clickedId);
+        lastSelectedScheduleIdRef.current = clickedId;
+      }
+    } else {
+      // 通常クリック: 単一選択
+      setSelectedScheduleIds([clickedId]);
+      setSelectedScheduleId(clickedId);
+      lastSelectedScheduleIdRef.current = clickedId;
+    }
+  };
+
+  // 一括ステータス変更処理
+  const handleBulkStatusChange = async (targetStatus: 'confirmed' | 'draft' | 'cancelled' | 'free', idsToUpdate?: number[]) => {
+    const ids = idsToUpdate || selectedScheduleIds;
+    if (ids.length === 0) return;
+
+    setIsBulkOperating(true);
+    try {
+      for (const id of ids) {
+        const sched = schedules.find(s => s.id === id);
+        if (!sched) continue;
+
+        if (targetStatus === 'cancelled') {
+          await onSave({
+            id,
+            status: 'cancelled',
+            division: '未定',
+            staff_id: null,
+            staff_name: '',
+            course: ''
+          });
+        } else {
+          await onSave({
+            id,
+            status: targetStatus
+          });
+        }
+      }
+      setSelectedScheduleIds([]);
+      setSelectedScheduleId(null);
+    } catch (err) {
+      console.error('一括ステータス変更エラー:', err);
+      alert('一括更新に失敗しました。');
+    } finally {
+      setIsBulkOperating(false);
+    }
+  };
+
+  // 一括削除処理
+  const handleBulkDelete = async (idsToDelete?: number[]) => {
+    const ids = idsToDelete || selectedScheduleIds;
+    if (ids.length === 0) return;
+
+    if (!window.confirm(`選択した ${ids.length} 件の予定を削除してもよろしいですか？`)) {
+      return;
+    }
+
+    setIsBulkOperating(true);
+    try {
+      for (const id of ids) {
+        await onDelete(id);
+      }
+      setSelectedScheduleIds([]);
+      setSelectedScheduleId(null);
+    } catch (err) {
+      console.error('一括削除エラー:', err);
+      alert('一括削除に失敗しました。');
+    } finally {
+      setIsBulkOperating(false);
+    }
+  };
+
+  // 別日へ移動モーダルを開く
+  const handleOpenMoveModal = (ids?: number[]) => {
+    const targetIds = ids && ids.length > 0 ? ids : selectedScheduleIds;
+    if (targetIds.length === 0) return;
+
+    const firstSched = schedules.find(s => targetIds.includes(Number(s.id)));
+    let initialDate = '';
+    if (firstSched && firstSched.date) {
+      const d = new Date(firstSched.date);
+      d.setDate(d.getDate() + 1);
+      initialDate = getLocalDateString(d);
+    } else {
+      const tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      initialDate = getLocalDateString(tomorrow);
+    }
+
+    setTargetMoveScheduleIds(targetIds);
+    setDestinationDate(initialDate);
+    setKeepAsCancelled(true);
+    setIsMoveModalOpen(true);
+  };
+
+  // 別日へ移動の実行処理
+  const handleExecuteMove = async () => {
+    if (!destinationDate) {
+      alert('移動先の日付を選択してください。');
+      return;
+    }
+    if (targetMoveScheduleIds.length === 0) return;
+
+    setIsMoving(true);
+    try {
+      const targetSchedules = schedules.filter(s => targetMoveScheduleIds.includes(Number(s.id)));
+      
+      for (const sched of targetSchedules) {
+        if (keepAsCancelled) {
+          // 1. 元の予定をキャンセルとして更新
+          await onSave({
+            id: sched.id,
+            status: 'cancelled',
+            division: '未定',
+            staff_id: null,
+            staff_name: '',
+            course: ''
+          });
+
+          // 2. 新しい日付に同じ内容で新規作成
+          await onSave({
+            status: 'free',
+            date: destinationDate,
+            property_name: sched.property_name,
+            unit_number: sched.unit_number,
+            type: sched.type,
+            box: sched.box,
+            work_type: sched.work_type,
+            description: sched.description,
+            target_time: sched.target_time,
+            staff_id: sched.staff_id,
+            staff_name: sched.staff_name,
+            area: sched.area,
+            prefecture: sched.prefecture,
+            transport: sched.transport,
+            co_worker: sched.co_worker,
+            request_number: sched.request_number,
+            course: sched.course,
+            division: sched.division,
+            is_transferred: 0
+          });
+        } else {
+          // 日付のみを直接スライド移動
+          await onSave({
+            id: sched.id,
+            date: destinationDate
+          });
+        }
+      }
+
+      setIsMoveModalOpen(false);
+      setSelectedScheduleIds([]);
+      setSelectedScheduleId(null);
+    } catch (err) {
+      console.error('別日へ移動エラー:', err);
+      alert('別日への移動処理に失敗しました。');
+    } finally {
+      setIsMoving(false);
     }
   };
 
@@ -2182,18 +2404,22 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                                  searchClass = isSearchMatch ? 'row-search-match' : 'row-search-no-match';
                                }
 
+                              const isSelected = typeof schedule.id === 'number' 
+                                ? selectedScheduleIds.includes(schedule.id) 
+                                : selectedScheduleId === schedule.id;
+
                               return (
                                 <tr 
                                   key={rowIndex} 
-                                  className={`parallel-calendar-row ${selectedScheduleId === schedule.id ? 'selected-row' : ''} ${searchClass}`}
-                                  onClick={() => {
-                                    setSelectedScheduleId(schedule.id);
+                                  className={`parallel-calendar-row ${isSelected ? 'selected-row' : ''} ${searchClass}`}
+                                  onClick={(e) => {
+                                    handleSelectRow(e, schedule);
                                     setSelectedEmptyCell(null);
                                   }}
                                   onContextMenu={(e) => {
                                     e.preventDefault();
-                                    const menuWidth = 220;
-                                    const menuHeight = 320;
+                                    const menuWidth = 240;
+                                    const menuHeight = 360;
                                     
                                     let x = e.clientX;
                                     let y = e.clientY;
@@ -2205,10 +2431,26 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                                       y = Math.max(0, window.innerHeight - menuHeight - 10);
                                     }
 
+                                    let currentSelectedIds = selectedScheduleIds;
+                                    if (typeof schedule.id === 'number') {
+                                      if (!selectedScheduleIds.includes(schedule.id)) {
+                                        currentSelectedIds = [schedule.id];
+                                        setSelectedScheduleIds([schedule.id]);
+                                        setSelectedScheduleId(schedule.id);
+                                        lastSelectedScheduleIdRef.current = schedule.id;
+                                      }
+                                    } else {
+                                      currentSelectedIds = [];
+                                      setSelectedScheduleIds([]);
+                                      setSelectedScheduleId(schedule.id);
+                                      lastSelectedScheduleIdRef.current = null;
+                                    }
+
                                     setContextMenu({
                                       x,
                                       y,
-                                      schedule
+                                      schedule,
+                                      selectedIds: currentSelectedIds
                                     });
                                   }}
                                 >
@@ -2392,7 +2634,67 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
           style={{ top: contextMenu.y, left: contextMenu.x }}
           onClick={(e) => e.stopPropagation()}
         >
-          {contextMenu.schedule && !isTempSchedule(contextMenu.schedule) ? (
+          {contextMenu.selectedIds && contextMenu.selectedIds.length > 1 ? (
+            <>
+              <div className="custom-context-menu-header">
+                {contextMenu.selectedIds.length}件を選択中
+              </div>
+              <button 
+                type="button" 
+                onClick={() => {
+                  const ids = contextMenu.selectedIds;
+                  setContextMenu(null);
+                  handleBulkStatusChange('confirmed', ids);
+                }}
+              >
+                選択した予定を【確定】に変更
+              </button>
+              <button 
+                type="button" 
+                onClick={() => {
+                  const ids = contextMenu.selectedIds;
+                  setContextMenu(null);
+                  handleBulkStatusChange('draft', ids);
+                }}
+              >
+                選択した予定を【仮】に変更
+              </button>
+              <button 
+                type="button" 
+                onClick={() => {
+                  const ids = contextMenu.selectedIds;
+                  setContextMenu(null);
+                  handleBulkStatusChange('cancelled', ids);
+                }}
+                className="delete-menu-item"
+                style={{ color: '#f87171' }}
+              >
+                選択した予定を【キャンセル】に変更
+              </button>
+              <button 
+                type="button" 
+                onClick={() => {
+                  const ids = contextMenu.selectedIds;
+                  setContextMenu(null);
+                  handleOpenMoveModal(ids);
+                }}
+              >
+                別日へ移動
+              </button>
+              <div className="popup-divider" style={{ margin: '4px 0' }}></div>
+              <button 
+                type="button" 
+                className="delete-menu-item"
+                onClick={() => {
+                  const ids = contextMenu.selectedIds;
+                  setContextMenu(null);
+                  handleBulkDelete(ids);
+                }}
+              >
+                選択した予定を一括削除
+              </button>
+            </>
+          ) : contextMenu.schedule && !isTempSchedule(contextMenu.schedule) ? (
             <>
               <button 
                 type="button" 
@@ -2412,6 +2714,18 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                 }}
               >
                 詳細を編集 (モーダル)
+              </button>
+              <button 
+                type="button" 
+                onClick={() => {
+                  const id = contextMenu.schedule!.id;
+                  setContextMenu(null);
+                  if (typeof id === 'number') {
+                    handleOpenMoveModal([id]);
+                  }
+                }}
+              >
+                別日へ移動
               </button>
               {contextMenu.schedule.status !== 'free' && (
                 <button 
@@ -2534,6 +2848,169 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
           >
             解除
           </button>
+        </div>
+      )}
+
+      {/* 複数選択時の画面下部フローティング一括操作バー */}
+      {selectedScheduleIds.length > 1 && (
+        <div className="bulk-action-floating-bar">
+          <div className="bulk-action-info">
+            <span className="bulk-action-badge">{selectedScheduleIds.length}</span> 件選択中
+          </div>
+          <div className="bulk-action-buttons">
+            <button
+              type="button"
+              className="btn btn-sm btn-bulk-status btn-bulk-confirmed"
+              onClick={() => handleBulkStatusChange('confirmed')}
+              disabled={isBulkOperating}
+              title="選択した予定をすべて確定にします"
+            >
+              一括【確定】
+            </button>
+            <button
+              type="button"
+              className="btn btn-sm btn-bulk-status btn-bulk-draft"
+              onClick={() => handleBulkStatusChange('draft')}
+              disabled={isBulkOperating}
+              title="選択した予定をすべて仮にします"
+            >
+              一括【仮】
+            </button>
+            <button
+              type="button"
+              className="btn btn-sm btn-bulk-status btn-bulk-cancelled"
+              onClick={() => handleBulkStatusChange('cancelled')}
+              disabled={isBulkOperating}
+              title="選択した予定をすべてキャンセルにします"
+            >
+              一括【キャンセル】
+            </button>
+            <button
+              type="button"
+              className="btn btn-sm btn-bulk-primary"
+              onClick={() => handleOpenMoveModal()}
+              disabled={isBulkOperating}
+              title="選択した予定を別の日付に移動または振替します"
+            >
+              別日へ移動
+            </button>
+            <button
+              type="button"
+              className="btn btn-sm btn-bulk-danger"
+              onClick={() => handleBulkDelete()}
+              disabled={isBulkOperating}
+              title="選択した予定を削除します"
+            >
+              一括削除
+            </button>
+            <button
+              type="button"
+              className="btn btn-sm btn-bulk-clear"
+              onClick={() => {
+                setSelectedScheduleIds([]);
+                setSelectedScheduleId(null);
+              }}
+              disabled={isBulkOperating}
+            >
+              選択解除
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* 「別日へ移動」モーダルダイアログ */}
+      {isMoveModalOpen && (
+        <div className="move-modal-overlay" onClick={() => !isMoving && setIsMoveModalOpen(false)}>
+          <div className="move-modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="move-modal-header">
+              <h3>別日へ移動</h3>
+              <button
+                type="button"
+                className="btn-close"
+                onClick={() => setIsMoveModalOpen(false)}
+                disabled={isMoving}
+              >
+                ✕
+              </button>
+            </div>
+            
+            <div className="move-modal-body">
+              <div className="move-modal-info">
+                対象予定: <strong>{targetMoveScheduleIds.length}件</strong>
+              </div>
+
+              {/* 対象予定のサマリー一覧 */}
+              <div className="move-target-list">
+                {schedules
+                  .filter(s => targetMoveScheduleIds.includes(Number(s.id)))
+                  .map(s => (
+                    <div key={s.id} className="move-target-item">
+                      <span className="move-target-date">{s.date}</span>
+                      <span className="move-target-name">{s.property_name || '物件未設定'}</span>
+                      <span className="move-target-type">{s.work_type}</span>
+                      {s.staff_name && <span className="move-target-staff">{getShortName(s.staff_name)}</span>}
+                    </div>
+                  ))}
+              </div>
+
+              {/* 移動先日付 */}
+              <div className="form-group" style={{ marginTop: '16px' }}>
+                <label className="form-label" style={{ fontWeight: 'bold' }}>
+                  移動先の日付 <span style={{ color: 'var(--danger)' }}>*</span>
+                </label>
+                <input
+                  type="date"
+                  className="form-control"
+                  value={destinationDate}
+                  onChange={(e) => setDestinationDate(e.target.value)}
+                  disabled={isMoving}
+                  required
+                />
+              </div>
+
+              {/* 移動モード（キャンセル残し振替 or 日付直接変更） */}
+              <div className="move-option-box" style={{ marginTop: '14px' }}>
+                <label className="checkbox-label" style={{ cursor: 'pointer', display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
+                  <input
+                    type="checkbox"
+                    checked={keepAsCancelled}
+                    onChange={(e) => setKeepAsCancelled(e.target.checked)}
+                    disabled={isMoving}
+                    style={{ marginTop: '3px' }}
+                  />
+                  <div>
+                    <span style={{ fontWeight: 'bold', fontSize: '0.9rem' }}>
+                      元の予定を【キャンセル】として残す（振替・履歴保持）
+                    </span>
+                    <p style={{ margin: '4px 0 0 0', fontSize: '0.78rem', color: 'var(--text-secondary)', lineHeight: '1.4' }}>
+                      {keepAsCancelled
+                        ? '※ 元の予定はステータス「キャンセル」となり履歴が残ります。移動先の日付に同一内容の新しい予定（フリー状態）が作成されます。'
+                        : '※ 元の予定の日付が直接変更されます（履歴は残りません）。'}
+                    </p>
+                  </div>
+                </label>
+              </div>
+            </div>
+
+            <div className="move-modal-footer">
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => setIsMoveModalOpen(false)}
+                disabled={isMoving}
+              >
+                キャンセル
+              </button>
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={handleExecuteMove}
+                disabled={isMoving || !destinationDate}
+              >
+                {isMoving ? '移動処理中...' : '別日へ移動を実行'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

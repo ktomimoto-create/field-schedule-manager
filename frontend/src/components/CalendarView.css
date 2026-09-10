@@ -1148,5 +1148,297 @@
   opacity: 0.8;
 }
 
+/* 複数行選択時のtdセルハイライト */
+.parallel-calendar-row.selected-row td {
+  background-color: rgba(99, 102, 241, 0.1) !important;
+}
+
+/* コンテキストメニューのヘッダー表示 */
+.custom-context-menu-header {
+  padding: 6px 12px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--text-secondary, #64748b);
+  border-bottom: 1px solid var(--border-cell, #e2e8f0);
+  background-color: rgba(0, 0, 0, 0.03);
+  margin-bottom: 4px;
+}
+
+/* 画面下部フローティング一括操作バー */
+.bulk-action-floating-bar {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #1e293b; /* 深みのあるスレートダーク */
+  color: #f8fafc;
+  padding: 8px 18px;
+  border-radius: 40px;
+  box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.1);
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  z-index: 10000;
+  font-size: 0.85rem;
+  animation: bulkBarSlideUp 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes bulkBarSlideUp {
+  from {
+    transform: translate(-50%, 20px);
+    opacity: 0;
+  }
+  to {
+    transform: translate(-50%, 0);
+    opacity: 1;
+  }
+}
+
+.bulk-action-info {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+  font-weight: 500;
+  padding-right: 8px;
+  border-right: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.bulk-action-badge {
+  background: #4f46e5;
+  color: #ffffff;
+  font-weight: 700;
+  font-size: 0.8rem;
+  padding: 2px 8px;
+  border-radius: 12px;
+}
+
+.bulk-action-buttons {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: nowrap;
+}
+
+.btn-bulk-status,
+.btn-bulk-primary,
+.btn-bulk-danger,
+.btn-bulk-clear {
+  padding: 5px 12px;
+  border-radius: 20px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-bulk-confirmed {
+  background-color: #16a34a;
+  color: #ffffff;
+}
+.btn-bulk-confirmed:hover {
+  background-color: #15803d;
+}
+
+.btn-bulk-draft {
+  background-color: #d97706;
+  color: #ffffff;
+}
+.btn-bulk-draft:hover {
+  background-color: #b45309;
+}
+
+.btn-bulk-cancelled {
+  background-color: #ef4444;
+  color: #ffffff;
+}
+.btn-bulk-cancelled:hover {
+  background-color: #dc2626;
+}
+
+.btn-bulk-primary {
+  background-color: #4f46e5;
+  color: #ffffff;
+}
+.btn-bulk-primary:hover {
+  background-color: #4338ca;
+}
+
+.btn-bulk-danger {
+  background-color: #7f1d1d;
+  color: #fca5a5;
+  border: 1px solid #b91c1c;
+}
+.btn-bulk-danger:hover {
+  background-color: #991b1b;
+  color: #ffffff;
+}
+
+.btn-bulk-clear {
+  background: transparent;
+  color: #94a3b8;
+  border: 1px solid #475569;
+}
+.btn-bulk-clear:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+}
+
+/* 「別日へ移動」モーダルダイアログ */
+.move-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(15, 23, 42, 0.6);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 11000;
+  animation: fadeIn 0.15s ease;
+}
+
+.move-modal-content {
+  background-color: var(--bg-card, #ffffff);
+  border-radius: 12px;
+  width: 480px;
+  max-width: 92vw;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.3);
+  border: 1px solid var(--border-color, #e2e8f0);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  animation: modalScaleUp 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes modalScaleUp {
+  from {
+    transform: scale(0.95);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.move-modal-header {
+  padding: 14px 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid var(--border-color, #e2e8f0);
+  background: var(--bg-header, #f8fafc);
+}
+
+.move-modal-header h3 {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--text-primary, #0f172a);
+}
+
+.move-modal-header .btn-close {
+  background: none;
+  border: none;
+  font-size: 1.1rem;
+  color: var(--text-secondary, #64748b);
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+}
+.move-modal-header .btn-close:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+  color: var(--text-primary, #0f172a);
+}
+
+.move-modal-body {
+  padding: 18px 20px;
+  max-height: 65vh;
+  overflow-y: auto;
+}
+
+.move-modal-info {
+  font-size: 0.88rem;
+  color: var(--text-primary, #1e293b);
+  margin-bottom: 10px;
+}
+
+.move-target-list {
+  max-height: 130px;
+  overflow-y: auto;
+  background-color: var(--bg-secondary, #f8fafc);
+  border: 1px solid var(--border-color, #e2e8f0);
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 0.78rem;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.move-target-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 0;
+  border-bottom: 1px dashed rgba(0, 0, 0, 0.08);
+}
+.move-target-item:last-child {
+  border-bottom: none;
+}
+
+.move-target-date {
+  font-family: monospace;
+  font-weight: 600;
+  color: var(--text-secondary, #64748b);
+  width: 75px;
+}
+
+.move-target-name {
+  flex: 1;
+  font-weight: 600;
+  color: var(--text-primary, #0f172a);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.move-target-type {
+  color: var(--text-secondary, #64748b);
+}
+
+.move-target-staff {
+  background-color: rgba(79, 70, 229, 0.1);
+  color: #4f46e5;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
+.move-option-box {
+  background-color: var(--bg-secondary, #f8fafc);
+  border: 1px solid var(--border-color, #e2e8f0);
+  border-radius: 8px;
+  padding: 12px;
+}
+
+.move-modal-footer {
+  padding: 12px 20px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  border-top: 1px solid var(--border-color, #e2e8f0);
+  background: var(--bg-header, #f8fafc);
+}
+
 
 
