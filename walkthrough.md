@@ -1,5 +1,31 @@
 # 変更履歴 (walkthrough.md)
 
+## [2026-09-10] リリース説明資料への現場課題（接続・ログイン障害の解消、当日予定追加のコピペ解消）の追加（全13選へ拡張）
+
+### 変更の目的
+1. **現場運用で頻発していた障害・ストレス要因の解決を明記**:
+   現場の実運用において特に深刻だった2大課題をリリース説明資料（Before ➔ After）へ正式に追加・独立項目化しました。
+   - **「スプレッドシートへのログイン不能・接続エラー障害」**: Googleアカウントの再認証やDrive同期遅延による現場配車の停止リスクを、専用クラウド直結（PostgreSQL）により解消した点。
+   - **「当日急な予定追加時の手動コピペ負担」**: 過去行や連絡メールから物件名・時間・作業内容を1項目ずつコピペし、書式を手作業で直していた二度手間を、ワンクリック入力起動・情報自動補完により解消した点。
+2. **構成を「主な改善点 13選」へ拡張**:
+   ナビゲーション、見出し、FAQ、仕様書（`specification.md`）を13選として同期・拡充しました。
+
+### 変更内容
+
+#### 1. リリース説明資料（HTML）
+- **[MODIFY] [release_guide.html](file:///C:/Users/000644/.gemini/antigravity/scratch/field-schedule-manager/release_guide.html) / [frontend/public/release_guide.html](file:///C:/Users/000644/.gemini/antigravity/scratch/field-schedule-manager/frontend/public/release_guide.html)**:
+  - セクション1「システム化の背景と概要」に、Google再認証不要・常時安定アクセスについて追記。
+  - セクション2に以下の2項目を新設し、全13選へ改訂：
+    - `04. 当日急な予定追加時のダイレクト登録（手動コピペの解消）`
+    - `08. 接続エラーやGoogleログイン障害のない安定アクセス`
+  - セクション5「よくある質問 (FAQ)」に、接続安定性および当日予定追加に関するQ&Aを追加。
+
+#### 2. 仕様書（specification.md）
+- **[MODIFY] [specification.md](file:///C:/Users/000644/.gemini/antigravity/scratch/field-schedule-manager/specification.md)**:
+  - 第13.2章の項目一覧を「従来運用（スプレッドシート）からの主な改善点 13選」へ更新。
+
+---
+
 ## [2026-09-10] リリース説明資料のBefore/Afterを「スプレッドシート運用からの改善」に完全統一
 
 ### 変更の目的
