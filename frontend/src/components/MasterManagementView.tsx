@@ -1047,7 +1047,7 @@ export const MasterManagementView: React.FC<MasterManagementViewProps> = ({
         {/* --- 3. 変更履歴（監査ログ） --- */}
         {activeSubTab === 'audit_logs' && (
           <div className="master-section">
-            <AuditLogView currentUserRole={currentUserRole} />
+            <AuditLogView currentUserRole={currentUserRole} staff={staff} />
           </div>
         )}
 
