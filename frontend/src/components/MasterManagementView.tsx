@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import type { Staff, WorkType } from '../types';
 import { AuditLogView } from './AuditLogView';
-import { Users, Sliders, History, Plus, Trash2, Edit2, Check, X, Shield, ChevronUp, ChevronDown, Database, RefreshCw } from 'lucide-react';
+import { Users, Sliders, History, Plus, Trash2, Edit2, Check, X, Shield, ChevronUp, ChevronDown, Database, RefreshCw, Building2 } from 'lucide-react';
 import { supabase, talkScriptSupabase } from '../supabaseClient';
 
 import './MasterManagementView.css';
@@ -71,27 +71,53 @@ export const MasterManagementView: React.FC<MasterManagementViewProps> = ({
       .trim();
   };
 
+  // エンジニアリング事業部の社員リスト（自動入力用）
+  const [engMembers, setEngMembers] = useState<any[]>([]);
+  const [loadingEngMembers, setLoadingEngMembers] = useState(false);
+
+  useEffect(() => {
+    if (activeSubTab === 'staff') {
+      setLoadingEngMembers(true);
+      talkScriptSupabase
+        .from('profiles')
+        .select('employee_id, display_name, email, section, status, is_active')
+        .eq('department', 'エンジニアリング事業部')
+        .order('employee_id', { ascending: true })
+        .then(({ data, error }) => {
+          setLoadingEngMembers(false);
+          if (!error && data) {
+            const activeOnly = data.filter(p => p.status !== 'retired' && p.is_active !== false);
+            setEngMembers(activeOnly);
+          }
+        });
+    }
+  }, [activeSubTab]);
+
   const handleSyncMicrosoftAccounts = async () => {
     const proceed = window.confirm(
-      "外部プロジェクトのMicrosoftプロフィールと同期します。\n" +
-      "スタッフの名前（苗字）とプロフィールの氏名が一致する人のメールアドレスを一括更新します。\n\n" +
+      "【エンジニアリング事業部 社員マスタ同期】\n\n" +
+      "外部の社員管理ポータル（Employee Master）と照合し、\n" +
+      "部署が「エンジニアリング事業部」の社員のみを対象に氏名・メールアドレス・社員番号・アバター画像を同期します。\n\n" +
       "※同期処理を開始してもよろしいですか？"
     );
     if (!proceed) return;
 
     setIsSyncing(true);
     try {
-      // 1. 外部 profiles の取得
+      // 1. 外部 profiles の取得（エンジニアリング事業部・在籍者のみ）
       const { data: profiles, error: profError } = await talkScriptSupabase
         .from('profiles')
-        .select('display_name, email, employee_id');
+        .select('display_name, email, employee_id, department, status, is_active')
+        .eq('department', 'エンジニアリング事業部');
 
       if (profError) {
         throw new Error(`外部プロフィールの取得に失敗しました: ${profError.message}`);
       }
 
-      if (!profiles || profiles.length === 0) {
-        throw new Error('外部プロフィールデータが見つかりませんでした。');
+      const activeProfiles = (profiles || []).filter(p => p.status !== 'retired' && p.is_active !== false);
+
+      if (activeProfiles.length === 0) {
+        throw new Error('エンジニアリング事業部の社員データが見つかりませんでした。');
       }
 
       // 2. 現在のスタッフリストを取得（最新の状態）
@@ -121,7 +147,7 @@ export const MasterManagementView: React.FC<MasterManagementViewProps> = ({
         let matchedProfile = null;
 
         if (stEmpCode) {
-          matchedProfile = profiles.find(p => p.employee_id && String(p.employee_id).trim() === stEmpCode);
+          matchedProfile = activeProfiles.find(p => p.employee_id && String(p.employee_id).trim() === stEmpCode);
         }
 
         // 社員番号でマッチしない、または社員番号が未設定の場合は名前でマッチ
@@ -138,14 +164,14 @@ export const MasterManagementView: React.FC<MasterManagementViewProps> = ({
           // フーギー / ナルマンダフ・フスレンバヤル 用の特別マッチング
           const isStHoogy = normCleanName.includes('フーギー') || normCleanName.includes('ナルマンダフ') || normCleanName.includes('フスレンバヤル');
           if (isStHoogy) {
-            matchedProfile = profiles.find(p => {
+            matchedProfile = activeProfiles.find(p => {
               if (!p.display_name) return false;
               const normDispName = normalizeName(p.display_name);
               return normDispName.includes('フーギー') || normDispName.includes('ナルマンダフ') || normDispName.includes('フスレンバヤル') || (p.email && p.email.toLowerCase().includes('n_khus'));
             });
           } else {
             // 完全一致するプロフィールをすべて抽出（被り検出のため）
-            const exactMatches = profiles.filter(p => {
+            const exactMatches = activeProfiles.filter(p => {
               if (!p.display_name) return false;
               const normDispName = normalizeName(p.display_name);
               return normDispName === normCleanName;
@@ -225,9 +251,9 @@ export const MasterManagementView: React.FC<MasterManagementViewProps> = ({
       }
 
       alert(
-        `同期処理が完了しました！\n\n` +
-        `・新規同期（メール更新）: ${matchedCount} 名\n` +
-        `・スキップ（未マッチまたは既に同期済）: ${skippedCount} 名`
+        `エンジニアリング事業部マスタとの同期が完了しました！\n\n` +
+        `・更新完了: ${matchedCount} 名\n` +
+        `・スキップ（既に最新または未マッチ）: ${skippedCount} 名`
       );
 
       onRefresh();
@@ -537,17 +563,18 @@ export const MasterManagementView: React.FC<MasterManagementViewProps> = ({
               <div>
                 <h3>スタッフ（対応者）マスタ管理</h3>
                 <p className="helper-text">
-                  予定表や担当者選択ドロップダウンに表示されるスタッフ情報を管理します。
+                  予定表や担当者選択ドロップダウンに表示されるスタッフ情報を管理します（連携元: エンジニアリング事業部）。
                 </p>
               </div>
               <button 
                 className="btn btn-secondary"
                 onClick={handleSyncMicrosoftAccounts}
                 disabled={isSyncing}
+                title="エンジニアリング事業部の社員マスタ（Employee Master）と照合し、氏名・メールアドレス・社員番号・アバター画像を自動同期します"
                 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', whiteSpace: 'nowrap' }}
               >
                 <RefreshCw size={16} className={isSyncing ? 'spin-animation' : ''} />
-                {isSyncing ? 'Microsoftアカウント同期中...' : 'Microsoftアカウント同期 (アバター連携)'}
+                {isSyncing ? 'エンジニアリング事業部と同期中...' : 'エンジニアリング事業部マスタ同期 (アバター・メール連携)'}
               </button>
             </div>
 
@@ -556,6 +583,49 @@ export const MasterManagementView: React.FC<MasterManagementViewProps> = ({
             <form onSubmit={handleAddStaff} className="master-add-form card">
               <h4>新規スタッフの登録</h4>
               <div className="form-grid">
+                <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: 'var(--primary)', fontWeight: 600 }}>
+                    <Building2 size={15} />
+                    エンジニアリング事業部の社員から自動入力（候補から選択）
+                  </label>
+                  <select
+                    className="form-control"
+                    value=""
+                    onChange={(e) => {
+                      const selectedEmpId = e.target.value;
+                      const mem = engMembers.find(m => m.employee_id === selectedEmpId);
+                      if (mem) {
+                        let formattedName = mem.display_name ? mem.display_name.trim() : '';
+                        const SURNAMES = [
+                          '平本', '築地', '藤井', '神崎', '原', '土橋', '藤田', '佐藤', '吉沼', '小山', 
+                          '高橋', '畦崎', '松下', '淺沼', '山内', '中川', '阿部', '藤崎', '本間', '丸山', 
+                          '清水', '塙', '伊比', '石山', '平井', '豊見本', '富本', '村木', '万野', '突丁',
+                          '秋山', '上田', '大川', '諸川', '石﨑', '石崎', '岡﨑', '岡崎'
+                        ];
+                        const matchedSurname = SURNAMES.find(s => formattedName.startsWith(s));
+                        if (matchedSurname && formattedName !== matchedSurname && !formattedName.includes(' ')) {
+                          const firstName = formattedName.slice(matchedSurname.length).trim();
+                          if (firstName) {
+                            formattedName = `${matchedSurname} ${firstName}`;
+                          }
+                        }
+                        setNewStaffName(formattedName);
+                        setNewStaffEmail(mem.email || '');
+                        setNewStaffEmpCode(mem.employee_id || '');
+                      }
+                    }}
+                    disabled={isSubmitting || loadingEngMembers}
+                  >
+                    <option value="">
+                      {loadingEngMembers ? 'エンジニアリング事業部の社員一覧を読み込み中...' : '-- エンジニアリング事業部から社員を選択して自動セット --'}
+                    </option>
+                    {engMembers.map(m => (
+                      <option key={m.employee_id || m.display_name} value={m.employee_id || ''}>
+                        {m.display_name} {m.employee_id ? `(${m.employee_id})` : ''} {m.section ? `[${m.section}]` : ''}
+                      </option>
+                    ))}
+                  </select>
+                </div>
                 <div className="form-group">
                   <label>氏名 <span className="text-danger">*</span></label>
                   <input

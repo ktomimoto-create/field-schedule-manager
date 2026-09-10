@@ -1,5 +1,34 @@
 # 変更履歴 (walkthrough.md)
 
+## [2026-09-10] スタッフ連携元を「エンジニアリング事業部」に限定・一元化および新規登録支援機能の実装
+
+### 変更の目的
+1. **スタッフ連携元の「エンジニアリング事業部」限定化**:
+   社員マスタ（`employee-master.vercel.app` / 外部Supabase `talkScriptSupabase`）からのスタッフ情報・アバター画像の連携元部署を「エンジニアリング事業部」に完全限定。他部署（FRESHROOM、営業部、総務人事等）の社員情報が紛れ込むことによる同姓同名・名寄せの被りリスクを排除し、現場実態に即したエンジニアリング事業部メンバーで安全かつ正確に管理できるようにします。
+2. **マスタ同期および新規スタッフ登録の自動化・効率化**:
+   マスタ管理画面における同期ボタンの対象範囲を明示するとともに、新規スタッフ追加時にエンジニアリング事業部の社員候補から選択してワンクリックで氏名・メールアドレス・社員番号を自動補完入力できるUIを新設しました。
+3. **リリース説明資料（HTML）および仕様書の更新**:
+   リリース説明資料（`release_guide.html`）に改善点「スタッフ連携元を『エンジニアリング事業部』に完全限定」および管理・監査ログ画面の紹介を追記し、仕様書（`specification.md`）の該当章を同期しました。
+
+### 変更内容
+
+#### 1. フロントエンド（アバター取得およびマスタ同期・登録支援）
+- **[MODIFY] [App.tsx](file:///C:/Users/000644/.gemini/antigravity/scratch/field-schedule-manager/frontend/src/App.tsx)**:
+  - 外部Supabase（`talkScriptSupabase`）からのアバター画像取得クエリに `.eq('department', 'エンジニアリング事業部')` フィルタを追加。エンジニアリング事業部所属スタッフのみを同期対象に限定しました。
+- **[MODIFY] [MasterManagementView.tsx](file:///C:/Users/000644/.gemini/antigravity/scratch/field-schedule-manager/frontend/src/components/MasterManagementView.tsx)**:
+  - `handleSyncMicrosoftAccounts` の取得条件をエンジニアリング事業部所属かつ在籍中の社員（`department === 'エンジニアリング事業部'` かつ `status !== 'retired' && is_active !== false`）に限定。
+  - 同期ボタンの表示名を「エンジニアリング事業部マスタ同期 (アバター・メール連携)」へ改称。
+  - 新規スタッフ登録モーダル内に「エンジニアリング事業部の社員から自動入力（候補から選択）」セレクトボックスを新設。選択した社員の氏名、メールアドレス、社員番号（employee_code）が自動補完される支援機能を実装。
+
+#### 2. リリース説明資料および仕様書の改訂
+- **[MODIFY] [release_guide.html](file:///C:/Users/000644/.gemini/antigravity/scratch/field-schedule-manager/release_guide.html) / [frontend/public/release_guide.html](file:///C:/Users/000644/.gemini/antigravity/scratch/field-schedule-manager/frontend/public/release_guide.html)**:
+  - 「現状からの劇的改善点」に「11. スタッフ連携元を『エンジニアリング事業部』に完全限定」を追加。
+  - 主要画面紹介に「⑤ 管理・監査ログ（エンジニアリング事業部マスタ同期と操作追跡）」を追加。
+- **[MODIFY] [specification.md](file:///C:/Users/000644/.gemini/antigravity/scratch/field-schedule-manager/specification.md)**:
+  - 第1.1章「スタッフ情報・アバター画像の連携元」および第2章「マスタ管理 (MasterManagementView)」にエンジニアリング事業部限定同期および登録候補補完仕様を追記。
+
+---
+
 ## [2026-09-10] リリース説明資料（Web/印刷・PDF対応HTML）の作成と操作ガイドからの導線追加
 
 ### 変更の目的

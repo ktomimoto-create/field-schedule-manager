@@ -298,7 +298,10 @@ function App() {
         supabase.from('schedules').select('*'),
         supabase.from('staff').select('*'),
         supabase.from('work_types').select('*').order('sort_order', { ascending: true }),
-        talkScriptSupabase.from('profiles').select('email, avatar_url, employee_id')
+        talkScriptSupabase
+          .from('profiles')
+          .select('email, avatar_url, employee_id, department')
+          .eq('department', 'エンジニアリング事業部')
       ]);
 
       if (schedulesRes.error || staffRes.error || workTypesRes.error) {
