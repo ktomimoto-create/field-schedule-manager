@@ -1413,3 +1413,18 @@
 
 #### 3. ビルド確認
 - フロントエンドプロジェクトで `cmd /c npm run build` を実行し、TypeScriptコンパイルおよびViteビルドが正常に通過することを確認しました。
+
+## [2026-09-10] Excelエクスポート時の対応者・同行者表記の苗字（短縮名）統一
+
+### 変更の目的
+「Excelで開く」機能で生成されるエクセルファイル（.xlsx）において、「対応者」がフルネーム（例: 平本 篤、築地 俊一、藤井 翔平）で出力されていたため、現場での見やすさや印刷プレビューと同様に「苗字のみ」（例: 平本、築地、藤井）で出力されるように統一します。
+
+### 変更内容
+
+#### 1. Excel出力マッピングの修正
+* **[GridView.tsx](file:///C:/Users/000644/.gemini/antigravity/scratch/field-schedule-manager/frontend/src/components/GridView.tsx)**:
+  - `exportToExcel` 関数において、対応者カラムの出力値を `getShortName(staffMember ? staffMember.name : s.staff_name || '')` に変更し、苗字のみで出力されるようにしました。
+  - 同行者カラムについても、複数名がカンマ区切りで指定されている場合にそれぞれの氏名を苗字（`getShortName`）に変換して出力するようにしました。
+
+#### 2. ビルド確認
+- フロントエンドプロジェクトで `cmd /c npm run build` を実行し、正常にコンパイルおよびバンドルが完了することを確認しました。

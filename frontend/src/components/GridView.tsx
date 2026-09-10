@@ -57,10 +57,10 @@ export const GridView: React.FC<GridViewProps> = ({
         s.work_type || '',
         s.description || '',
         s.target_time || '',
-        staffMember ? staffMember.name : s.staff_name || '',
+        getShortName(staffMember ? staffMember.name : s.staff_name || ''),
         s.area || '',
         s.transport || '',
-        s.co_worker || '',
+        s.co_worker ? s.co_worker.split(/[,、]/).map(name => getShortName(name.trim())).filter(Boolean).join(', ') : '',
         s.request_number || '',
         s.result || '未対応',
         cleanMetadata(s.notes)
