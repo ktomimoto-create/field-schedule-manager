@@ -1,5 +1,29 @@
 # 変更履歴 (walkthrough.md)
 
+## [2026-09-10] リリース説明資料への「担当者へメール連絡」機能のBefore/After反映
+
+### 変更の目的
+1. **「担当者へメール連絡」の真の強み・現場価値の反映**:
+   改善点13を「社員マスタ登録支援」から、現場運用の核心である**「担当者へのワンクリック メール連絡（宛先・号機・物件名・作業内容の自動生成）」**へ改訂しました。
+   - **従来（スプレッドシート運用 BEFORE）**: メーラーを起動し、スタッフのアドレスを探して入力し、スプレッドシートから号機・物件名・日時・作業内容を1項目ずつ手作業でコピペして文面を作成していた。
+   - **新システム（AFTER）**: 予定編集モーダルの「担当者へメール連絡」ボタンを1クリックするだけで、宛先・件名・本文に**「号機」「物件名」「予定日時」「作業内容」「同行者」などの必要情報がすべて完成された状態**でメールソフト（Outlook等）が即座に立ち上がる。
+2. **画面紹介・FAQ・仕様書の完全同期**:
+   月間予定表画面の紹介に「担当者へメール連絡」を明記し、FAQに具体的な操作手順を追加、仕様書（`specification.md`）の該当章を同期しました。
+
+### 変更内容
+
+#### 1. リリース説明資料（HTML）
+- **[MODIFY] [release_guide.html](file:///C:/Users/000644/.gemini/antigravity/scratch/field-schedule-manager/release_guide.html) / [frontend/public/release_guide.html](file:///C:/Users/000644/.gemini/antigravity/scratch/field-schedule-manager/frontend/public/release_guide.html)**:
+  - 改善点13を「担当者へのワンクリック メール連絡（宛先・号機・物件名・内容を自動生成）」に全面刷新。
+  - 主要画面紹介「① 月間予定表」に「担当者へメール連絡」を追記。
+  - よくある質問（FAQ）にメール連絡の利用方法に関するQ&Aを追加。
+
+#### 2. 仕様書（specification.md）
+- **[MODIFY] [specification.md](file:///C:/Users/000644/.gemini/antigravity/scratch/field-schedule-manager/specification.md)**:
+  - 第13.2章の項目13を更新。
+
+---
+
 ## [2026-09-10] リリース説明資料への現場課題（接続・ログイン障害の解消、当日予定追加のコピペ解消）の追加（全13選へ拡張）
 
 ### 変更の目的
