@@ -2649,6 +2649,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                   setContextMenu(null);
                   handleBulkStatusChange('confirmed', ids);
                 }}
+                style={{ color: '#ef4444', fontWeight: 600 }}
               >
                 選択した予定を【確定】に変更
               </button>
@@ -2659,6 +2660,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                   setContextMenu(null);
                   handleBulkStatusChange('draft', ids);
                 }}
+                style={{ color: '#eab308', fontWeight: 600 }}
               >
                 選択した予定を【仮】に変更
               </button>
@@ -2669,8 +2671,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                   setContextMenu(null);
                   handleBulkStatusChange('cancelled', ids);
                 }}
-                className="delete-menu-item"
-                style={{ color: '#f87171' }}
+                style={{ color: '#94a3b8' }}
               >
                 選択した予定を【キャンセル】に変更
               </button>
@@ -2754,6 +2755,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                       status: 'confirmed'
                     });
                   }}
+                  style={{ color: '#ef4444', fontWeight: 600 }}
                 >
                   予定を【確定】に変更
                 </button>
@@ -2768,6 +2770,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                       status: 'draft'
                     });
                   }}
+                  style={{ color: '#eab308', fontWeight: 600 }}
                 >
                   予定を【仮】に変更
                 </button>
@@ -2786,8 +2789,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                       course: ''
                     });
                   }}
-                  className="delete-menu-item"
-                  style={{ color: '#f87171' }}
+                  style={{ color: '#94a3b8' }}
                 >
                   予定を【キャンセル】に変更
                 </button>

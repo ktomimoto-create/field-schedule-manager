@@ -39,6 +39,11 @@
 ##### [CalendarView.css](file:///C:/Users/000644/.gemini/antigravity/scratch/field-schedule-manager/frontend/src/components/CalendarView.css)
 * 複数選択行のハイライト（`.selected-row td`）を追加。
 * カレンダー行（`.parallel-calendar-row`）に `user-select: none;` を追加し、Ctrl/Shift操作時のブラウザテキスト範囲選択との干渉を防止。
+* **ボタンカラーの統一（予定表の色塗りと連動）**:
+  - 一括【確定】ボタンを予定表と同じ**赤色**（`#ef4444`）に設定。
+  - 一括【仮】ボタンを予定表と同じ**黄色**（`#eab308`、視認性の高いダークテキスト）に設定。
+  - 一括【キャンセル】ボタンを予定表のキャンセル表示と連動した**スレートグレー**（`#64748b`）に変更。
+  - 右クリックコンテキストメニュー内の各操作テキストカラーも同様のカラースキームに連動。
 * 画面下部フローティング操作バー（`.bulk-action-floating-bar`）のスタイルとスライドアニメーションを追加。
 * 「別日へ移動」モーダル（`.move-modal-overlay`, `.move-modal-content`）のスタイルを追加。
 

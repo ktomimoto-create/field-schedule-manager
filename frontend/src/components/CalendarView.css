@@ -1239,27 +1239,29 @@
 }
 
 .btn-bulk-confirmed {
-  background-color: #16a34a;
+  background-color: #ef4444; /* 予定表と同じ赤色 */
   color: #ffffff;
 }
 .btn-bulk-confirmed:hover {
-  background-color: #15803d;
+  background-color: #dc2626;
 }
 
 .btn-bulk-draft {
-  background-color: #d97706;
-  color: #ffffff;
+  background-color: #eab308; /* 予定表と同じ黄色 */
+  color: #1e293b;
+  font-weight: 700;
 }
 .btn-bulk-draft:hover {
-  background-color: #b45309;
+  background-color: #ca8a04;
+  color: #000000;
 }
 
 .btn-bulk-cancelled {
-  background-color: #ef4444;
+  background-color: #64748b; /* キャンセル用スレートグレー */
   color: #ffffff;
 }
 .btn-bulk-cancelled:hover {
-  background-color: #dc2626;
+  background-color: #475569;
 }
 
 .btn-bulk-primary {
