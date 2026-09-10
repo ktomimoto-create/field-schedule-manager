@@ -1,13 +1,16 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { 
   Search, 
-  HelpCircle, 
   X, 
   ChevronDown, 
   ChevronUp, 
   Lightbulb, 
   Info,
-  CheckCircle2
+  CheckCircle2,
+  MessageSquare,
+  Sparkles,
+  Send,
+  BookOpen
 } from 'lucide-react';
 import './HelpGuideModal.css';
 
@@ -21,6 +24,15 @@ export interface HelpGuideItem {
   steps: string[];
   tips?: string;
   keywords: string[];
+  intents?: string[]; // 自然言語の意図タグ
+}
+
+export interface ChatMessage {
+  id: string;
+  sender: 'user' | 'ai';
+  text: string;
+  matchedGuides?: HelpGuideItem[];
+  timestamp: string;
 }
 
 export const HELP_GUIDE_DATA: HelpGuideItem[] = [
@@ -39,7 +51,8 @@ export const HELP_GUIDE_DATA: HelpGuideItem[] = [
       '「一括【確定】（赤）」「一括【仮】（黄）」「一括【キャンセル】（グレー）」のボタンをクリックすると、選択した予定が一括更新されます。'
     ],
     tips: '選択した行の上で右クリックして表示されるコンテキストメニューからも、一括ステータス変更が可能です。',
-    keywords: ['複数選択', '一括', 'まとめて', '確定', '仮', 'キャンセル', 'ctrl', 'shift', '複数行', '選択', 'ステータス']
+    keywords: ['複数選択', '一括', 'まとめて', '確定', '仮', 'キャンセル', 'ctrl', 'shift', '複数行', '選択', 'ステータス', '変更'],
+    intents: ['一括確定', '一括キャンセル', '一括仮', 'まとめて変更', '複数変更', 'ステータス変更']
   },
   {
     id: 'bulk-move',
@@ -56,7 +69,8 @@ export const HELP_GUIDE_DATA: HelpGuideItem[] = [
       '「別日へ移動を実行」をクリックすると、移動処理が完了します。'
     ],
     tips: 'チェックON（推奨）の場合、元の予定はキャンセルとして履歴に残り、移動先に同一内容の新規フリー予定が作成されます。チェックOFFにすると日付のみが直接スライド移動します。',
-    keywords: ['別日へ移動', '移動', '別日', '振替', 'スライド', '日程変更', 'キャンセル', '日付変更', '履歴', '延期']
+    keywords: ['別日へ移動', '移動', '別日', '振替', 'スライド', '日程変更', 'キャンセル', '日付変更', '履歴', '延期', '日延べ'],
+    intents: ['別日移動', '振替', 'スライド', '延期', '日付変更', '日延べ']
   },
   {
     id: 'bulk-delete',
@@ -71,10 +85,28 @@ export const HELP_GUIDE_DATA: HelpGuideItem[] = [
       '削除確認のメッセージが表示されたら「OK」をクリックすると、一括削除されます。'
     ],
     tips: '削除前に確認ダイアログが表示されるため、誤って削除してしまう心配を防ぎます。',
-    keywords: ['一括削除', 'まとめて削除', '複数削除', '削除', 'クリア', '消去']
+    keywords: ['一括削除', 'まとめて削除', '複数削除', '削除', 'クリア', '消去', '消す'],
+    intents: ['一括削除', 'まとめて消す', '消去']
   },
 
   // === 予定の登録・編集 ===
+  {
+    id: 'schedule-new',
+    title: '新しい予定を追加・登録したい',
+    category: 'schedule',
+    categoryName: '予定の登録・編集',
+    targetScreen: '月間予定表 / 予定表 (グリッド)',
+    summary: '画面右上のボタンから、物件名、号機、種別、対応者、時間などの情報を入力して新しい予定を登録できます。',
+    steps: [
+      '画面右上にある青い「＋ 予定を追加」ボタンをクリックします。',
+      '予定入力モーダルが開きます。',
+      '日付、物件名、号機、種別（定期・障害・2次・工事・設置等）、対応者、目標時間などの必要事項を入力します。',
+      '画面下部の「保存」ボタンをクリックするとカレンダーに登録されます。'
+    ],
+    tips: '対応者欄では、スタッフの苗字を入力すると候補が自動表示されます。',
+    keywords: ['新規作成', '予定追加', '登録', '予定を入れる', '入れる', '追加', '作成', '新規', 'どうやって入れる'],
+    intents: ['予定登録', '予定追加', '予定作成', '新規予定', '予定入れる']
+  },
   {
     id: 'inline-edit',
     title: 'カレンダー上で予定の内容（物件名や作業内容等）を直接すばやく編集したい',
@@ -89,7 +121,8 @@ export const HELP_GUIDE_DATA: HelpGuideItem[] = [
       'Enter キーを押すか、枠外の別の場所をクリックすると自動で保存されます。'
     ],
     tips: 'Esc キーを押すと、変更を保存せずに元の値に戻す（編集キャンセル）ことができます。',
-    keywords: ['インライン編集', '直接入力', 'ダブルクリック', '文字入力', '修正', '編集', '物件名', '作業内容', '備考']
+    keywords: ['インライン編集', '直接入力', 'ダブルクリック', '文字入力', '修正', '編集', '物件名', '作業内容', '備考', '直す'],
+    intents: ['直接編集', 'セル編集', '名前変更', '内容修正']
   },
   {
     id: 'modal-edit',
@@ -105,7 +138,8 @@ export const HELP_GUIDE_DATA: HelpGuideItem[] = [
       'エリア、県別、移動手段、同行者、依頼番号、備考などの項目を修正し、「保存」をクリックします。'
     ],
     tips: 'モーダル最下部の「管理情報」セクションでは、この予定を誰がいつ作成し、誰が最後に更新したかの履歴も確認できます。',
-    keywords: ['詳細編集', 'モーダル', '鉛筆', 'アイコン', 'エリア', '県別', '移動', '依頼番号', '同行者', '修正']
+    keywords: ['詳細編集', 'モーダル', '鉛筆', 'アイコン', 'エリア', '県別', '移動', '依頼番号', '同行者', '修正', '詳細'],
+    intents: ['詳細編集', 'モーダル編集', '依頼番号入力', 'エリア設定']
   },
   {
     id: 'quick-add',
@@ -122,7 +156,8 @@ export const HELP_GUIDE_DATA: HelpGuideItem[] = [
       '「登録」ボタンを押すと、チェックした全員の行に予定が一括登録されます。'
     ],
     tips: '「その他」を選択すると、独自の予定名を自由に入力して登録することも可能です。',
-    keywords: ['休暇', '有休', '社内予定', '会議', '健康診断', 'クイック登録', '簡易登録', '休み', '追加']
+    keywords: ['休暇', '有休', '社内予定', '会議', '健康診断', 'クイック登録', '簡易登録', '休み', '追加', '休暇登録'],
+    intents: ['休暇登録', '有給申請', '会議追加', '社内予定']
   },
   {
     id: 'calendar-search',
@@ -138,7 +173,8 @@ export const HELP_GUIDE_DATA: HelpGuideItem[] = [
       '検索窓の右端にある「✕」ボタンを押すか、文字を消去すると検索状態が解除されます。'
     ],
     tips: '文字入力後、Escape キーを押すと検索窓からフォーカスを外せます。',
-    keywords: ['検索', 'ハイライト', '探す', '号機', '物件名', '対応者', '絞り込み', '黄色', 'フィルター']
+    keywords: ['検索', 'ハイライト', '探す', '号機', '物件名', '対応者', '絞り込み', '黄色', 'フィルター', '見つからない'],
+    intents: ['予定検索', 'スタッフ検索', '物件検索', 'ハイライト']
   },
 
   // === インポート・コピペ ===
@@ -157,7 +193,8 @@ export const HELP_GUIDE_DATA: HelpGuideItem[] = [
       '右下の「インポートを実行」ボタンをクリックすると、カレンダーに一括反映されます。'
     ],
     tips: '同一スタッフに同日複数件の予定がある場合でも、号機番号を識別して上書きされずに正しく複数件取り込まれます。',
-    keywords: ['スプレッドシート', 'エクセル', '貼り付け', 'コピペ', 'インポート', '取込', '一括登録', 'excel', 'スプシ']
+    keywords: ['スプレッドシート', 'エクセル', '貼り付け', 'コピペ', 'インポート', '取込', '一括登録', 'excel', 'スプシ', '取り込み'],
+    intents: ['スプレッドシート取込', 'インポート', 'コピペ一括', '外部データ取込']
   },
   {
     id: 'cell-direct-paste',
@@ -173,7 +210,8 @@ export const HELP_GUIDE_DATA: HelpGuideItem[] = [
       'スタッフマスタと自動照合され、正式な氏名・ID・デフォルトコース番号・区分が自動でセットされて保存されます。'
     ],
     tips: 'マスタに登録されている氏名であれば、苗字だけのコピーでも正しく自動照合されます。',
-    keywords: ['セル貼り付け', '直貼り', 'ctrl+v', 'ショートカット', '対応者コピペ', 'ペースト']
+    keywords: ['セル貼り付け', '直貼り', 'ctrl+v', 'ショートカット', '対応者コピペ', 'ペースト', '直接ペースト'],
+    intents: ['セル直接貼り付け', 'ショートカットペースト']
   },
   {
     id: 'schedule-copy-paste',
@@ -189,7 +227,8 @@ export const HELP_GUIDE_DATA: HelpGuideItem[] = [
       '同一内容の予定が貼り付け先に複製されます。'
     ],
     tips: '画面下部インジケーターの「解除」ボタンを押すと、コピー状態をクリアできます。',
-    keywords: ['予定コピー', '複製', 'コピペ', 'ペースト', '貼り付け', 'コピー']
+    keywords: ['予定コピー', '複製', 'コピペ', 'ペースト', '貼り付け', 'コピー', '同じ予定'],
+    intents: ['予定複製', '予定コピー']
   },
 
   // === 印刷・Excel出力 ===
@@ -208,7 +247,8 @@ export const HELP_GUIDE_DATA: HelpGuideItem[] = [
       'プレビュー画面右上の「印刷する」ボタンをクリックすると、ブラウザの印刷ダイアログが開きます。'
     ],
     tips: '他の人の予定を誤って書き換える心配がなく、各自で安心して自分の予定だけを出力できます。',
-    keywords: ['印刷', 'プリント', 'プレビュー', '個人印刷', '自分の予定', '紙', '出力', 'A4']
+    keywords: ['印刷', 'プリント', 'プレビュー', '個人印刷', '自分の予定', '紙', '出力', 'A4', '印刷したい'],
+    intents: ['印刷', 'プリントアウト', '自分の予定印刷']
   },
   {
     id: 'temporary-memo-print',
@@ -224,7 +264,8 @@ export const HELP_GUIDE_DATA: HelpGuideItem[] = [
       '印刷時は入力枠線が消え、綺麗なインラインテキストとして用紙に印刷されます。'
     ],
     tips: 'このメモは画面を閉じると自動で消去され、サーバーや他のユーザーの共有データには一切保存されないため、100%安全です。',
-    keywords: ['使い捨てメモ', '印刷メモ', 'メモ', '手書き', '連絡事項', '備考', '印刷用メモ']
+    keywords: ['使い捨てメモ', '印刷メモ', 'メモ', '手書き', '連絡事項', '備考', '印刷用メモ', 'メモ書き'],
+    intents: ['メモ印刷', '印刷用メモ', '手書きメモ']
   },
   {
     id: 'excel-export',
@@ -240,7 +281,8 @@ export const HELP_GUIDE_DATA: HelpGuideItem[] = [
       'Excel対応ファイルが自動でダウンロードされるので、ファイルを開きます。'
     ],
     tips: 'Excel出力時、対応者や同行者の氏名は見やすい苗字表記に自動統一されます。',
-    keywords: ['excel', 'エクセル', 'ダウンロード', '出力', 'スプレッドシート', '開く', '表']
+    keywords: ['excel', 'エクセル', 'ダウンロード', '出力', 'スプレッドシート', '開く', '表', '保存'],
+    intents: ['Excel出力', 'エクセル保存', 'データ出力']
   },
 
   // === 同行者・連携 ===
@@ -259,7 +301,8 @@ export const HELP_GUIDE_DATA: HelpGuideItem[] = [
       '同行者に指定されたスタッフのカレンダー行にも、同一内容の予定が自動的に登録されます。'
     ],
     tips: '親のメイン予定を更新・削除すると、連動登録された同行予定も自動的に一緒に連動して更新・削除されます。',
-    keywords: ['同行者', '同行', '相番', 'ペア', '連動登録', '自動登録', '相手の予定', 'バッジ']
+    keywords: ['同行者', '同行', '相番', 'ペア', '連動登録', '自動登録', '相手の予定', 'バッジ', '同乗'],
+    intents: ['同行登録', '連動登録', '同行者追加']
   },
   {
     id: 'coworker-no-sync',
@@ -276,7 +319,8 @@ export const HELP_GUIDE_DATA: HelpGuideItem[] = [
       '自分の予定表には同行者名が表示されますが、相手のカレンダーには新規行は作成されません。'
     ],
     tips: '既に自動作成されていた同行予定がある場合でも、チェックを外して保存すると不要な同行予定が自動で削除されます。',
-    keywords: ['連動解除', '自動登録しない', '連動オフ', '同行者', '行数を増やさない', '1日同行']
+    keywords: ['連動解除', '自動登録しない', '連動オフ', '同行者', '行数を増やさない', '1日同行'],
+    intents: ['連動解除', '同行者登録しない']
   },
   {
     id: 'coworker-badge',
@@ -291,7 +335,8 @@ export const HELP_GUIDE_DATA: HelpGuideItem[] = [
       'メイン担当者が予定を変更または削除した際、こちらの同行予定も自動的に反映されます。'
     ],
     tips: '同行予定をダブルクリックまたはモーダル編集した際も、内部の連携データは保護されるため親子関係が壊れる心配はありません。',
-    keywords: ['同行バッジ', '紫バッジ', 'マーク', '同行', '意味', '親子']
+    keywords: ['同行バッジ', '紫バッジ', 'マーク', '同行', '意味', '親子', '紫'],
+    intents: ['同行バッジ意味']
   },
 
   // === 画面の見方・基本ルール ===
@@ -309,7 +354,8 @@ export const HELP_GUIDE_DATA: HelpGuideItem[] = [
       '【キャンセル（グレー）】: テキストに打ち消し線が入り、グレーアウト表示されます。中止・キャンセルされた予定です。'
     ],
     tips: '画面下部の一括操作バーやコンテキストメニューのボタン色も、このステータス色（確定: 赤、仮: 黄、キャンセル: グレー）と完全に一致しています。',
-    keywords: ['色', 'カラー', '赤', '黄色', 'グレー', 'ステータス', '確定', '仮', 'フリー', 'キャンセル', '意味']
+    keywords: ['色', 'カラー', '赤', '黄色', 'グレー', 'ステータス', '確定', '仮', 'フリー', 'キャンセル', '意味', '配色の違い'],
+    intents: ['色意味', 'ステータス違い', '赤黄色意味']
   },
   {
     id: 'timeline-sort',
@@ -324,7 +370,8 @@ export const HELP_GUIDE_DATA: HelpGuideItem[] = [
       '表示される予定は、「確定」「仮」だけでなく「通常（フリー）」の予定もすべて表示されます。'
     ],
     tips: 'スタッフマスタ管理画面で各スタッフのデフォルトコース番号を設定することで、並び順を調整できます。',
-    keywords: ['並び順', '順番', 'コース', 'ソート', '当日行動予定表', '左から右', '整列']
+    keywords: ['並び順', '順番', 'コース', 'ソート', '当日行動予定表', '左から右', '整列'],
+    intents: ['並び順ルール', 'コースソート']
   },
   {
     id: 'audit-tracking',
@@ -340,9 +387,173 @@ export const HELP_GUIDE_DATA: HelpGuideItem[] = [
       '「最終更新」: 直近で変更を加えたユーザーの氏名・メールアドレス・日時が表示されます。'
     ],
     tips: 'スプレッドシートからインポートした予定についても、取り込み操作を行ったユーザーが記録されます。',
-    keywords: ['登録者', '更新者', '履歴', '誰が', '変更者', '監査ログ', '作成者', 'トラッキング']
+    keywords: ['登録者', '更新者', '履歴', '誰が', '変更者', '監査ログ', '作成者', 'トラッキング'],
+    intents: ['変更履歴確認', '作成者確認', '誰が登録したか']
   }
 ];
+
+// 日本語ストップワード（助詞・疑問詞・語尾・フィラー）
+const STOP_WORDS = [
+  'どうやって', 'どうすれば', 'どうしたら', 'どうやるの', 'どうやってやるの',
+  'やり方', '方法', '仕方', '教えて', 'したい', 'したいんだけど', 'したいです',
+  'できる', 'できますか', 'できるの', 'ことって', 'んだけど', 'ですか', 'ますか',
+  '入れるの', '入れる', 'やりたい', '知りたい', 'について', 'には', 'って',
+  'あるけど', 'これ', 'それ', 'あれ', '何', 'なに', 'なんですか', 'どのような',
+  'ください', 'お願いします', 'ちょっと', 'おすすめ', 'とか', 'など', 'みたいな',
+  'の', 'に', 'を', 'は', 'が', 'で', 'と', 'へ', 'から', 'まで', 'より', 'や'
+];
+
+// 文章からコアキーワードと意図を抽出する自然言語スコアリング
+function matchGuidesByNaturalLanguage(input: string): { guides: HelpGuideItem[]; replyText: string } {
+  const cleanInput = input.trim().toLowerCase();
+  if (!cleanInput) return { guides: [], replyText: '' };
+
+  // 1. 特徴的なインテント・キーワードの検出
+  let terms = cleanInput
+    .replace(/[？\?！!。、,]/g, ' ')
+    .split(/\s+/)
+    .filter(Boolean);
+
+  // ストップワードを除去したクリーン語句
+  let coreKeywords: string[] = [];
+  for (const term of terms) {
+    let word = term;
+    for (const stop of STOP_WORDS) {
+      if (word.includes(stop) && word.length > stop.length) {
+        word = word.replace(stop, '');
+      }
+    }
+    if (word && !STOP_WORDS.includes(word)) {
+      coreKeywords.push(word);
+    }
+  }
+
+  // もしストップワード除去で空になった場合は元の語句を使う
+  if (coreKeywords.length === 0) {
+    coreKeywords = terms;
+  }
+
+  // 2. 各ガイドアイテムへのスコアリング計算
+  const scored = HELP_GUIDE_DATA.map(item => {
+    let score = 0;
+    const fullText = [
+      item.title,
+      item.summary,
+      item.targetScreen,
+      item.categoryName,
+      item.tips || '',
+      ...item.steps,
+      ...item.keywords,
+      ...(item.intents || [])
+    ].join(' ').toLowerCase();
+
+    // 完全入力テキストが含まれているか
+    if (fullText.includes(cleanInput)) {
+      score += 50;
+    }
+
+    // 意図（intent）の合致チェック
+    if (item.intents) {
+      for (const intent of item.intents) {
+        if (cleanInput.includes(intent.toLowerCase())) {
+          score += 30;
+        }
+      }
+    }
+
+    // キーワードの合致チェック
+    for (const kw of item.keywords) {
+      if (cleanInput.includes(kw.toLowerCase())) {
+        score += 15;
+      }
+    }
+
+    // コアキーワードの合致チェック
+    for (const ck of coreKeywords) {
+      if (fullText.includes(ck)) {
+        score += 10;
+      }
+      if (item.title.toLowerCase().includes(ck)) {
+        score += 15;
+      }
+    }
+
+    // 語彙特有のマッピング加点
+    if (cleanInput.includes('入れる') || cleanInput.includes('追加') || cleanInput.includes('登録') || cleanInput.includes('作る')) {
+      if (item.id === 'schedule-new') score += 35;
+      if (item.id === 'quick-add') score += 25;
+      if (item.id === 'paste-import') score += 20;
+    }
+    if (cleanInput.includes('印刷') || cleanInput.includes('プリント') || cleanInput.includes('紙') || cleanInput.includes('a4')) {
+      if (item.id === 'personal-print') score += 40;
+      if (item.id === 'temporary-memo-print') score += 30;
+    }
+    if (cleanInput.includes('メモ') || cleanInput.includes('手書き')) {
+      if (item.id === 'temporary-memo-print') score += 45;
+    }
+    if (cleanInput.includes('移動') || cleanInput.includes('別日') || cleanInput.includes('振替') || cleanInput.includes('スライド') || cleanInput.includes('延期')) {
+      if (item.id === 'bulk-move') score += 45;
+    }
+    if (cleanInput.includes('まとめて') || cleanInput.includes('一括') || cleanInput.includes('複数') || cleanInput.includes('ctrl') || cleanInput.includes('shift')) {
+      if (item.id === 'bulk-status') score += 35;
+      if (item.id === 'bulk-move') score += 25;
+      if (item.id === 'bulk-delete') score += 25;
+    }
+    if (cleanInput.includes('確定') || cleanInput.includes('仮') || cleanInput.includes('赤') || cleanInput.includes('黄色') || cleanInput.includes('色')) {
+      if (item.id === 'status-colors') score += 35;
+      if (item.id === 'bulk-status') score += 30;
+    }
+    if (cleanInput.includes('コピペ') || cleanInput.includes('貼り付け') || cleanInput.includes('スプシ') || cleanInput.includes('エクセル') || cleanInput.includes('excel')) {
+      if (item.id === 'paste-import') score += 35;
+      if (item.id === 'cell-direct-paste') score += 30;
+      if (item.id === 'excel-export') score += 25;
+    }
+    if (cleanInput.includes('同行') || cleanInput.includes('相番') || cleanInput.includes('ペア') || cleanInput.includes('紫')) {
+      if (item.id === 'coworker-sync') score += 35;
+      if (item.id === 'coworker-badge') score += 30;
+      if (item.id === 'coworker-no-sync') score += 25;
+    }
+    if (cleanInput.includes('誰が') || cleanInput.includes('更新') || cleanInput.includes('履歴') || cleanInput.includes('作成者')) {
+      if (item.id === 'audit-tracking') score += 45;
+    }
+
+    return { item, score };
+  });
+
+  // スコア順にソートし、スコアが一定以上のものを抽出
+  const filtered = scored
+    .filter(s => s.score >= 10)
+    .sort((a, b) => b.score - a.score)
+    .map(s => s.item)
+    .slice(0, 3); // 最大3件まで
+
+  // AIからの親切な返答テキストを動的構築
+  let reply = '';
+  if (filtered.length === 0) {
+    reply = '申し訳ありません。ご質問いただいた内容に該当する操作手順が見つかりませんでした。「予定の入れ方」「別日へ移動」「印刷」「確定の変更」などのキーワードを含めてもう一度お尋ねください。';
+  } else {
+    const top = filtered[0];
+    if (cleanInput.includes('予定') && (cleanInput.includes('入れる') || cleanInput.includes('追加') || cleanInput.includes('登録'))) {
+      reply = '予定の追加・登録ですね！画面右上の「＋ 予定を追加」ボタンから通常登録できるほか、休暇のクイック登録やスプレッドシートからの一括貼り付けも可能です。以下の手順をご確認ください：';
+    } else if (cleanInput.includes('移動') || cleanInput.includes('別日') || cleanInput.includes('振替') || cleanInput.includes('スライド')) {
+      reply = '予定の別日への移動・振替ですね！右クリックメニューまたは複数選択時の「別日へ移動」から、元の予定をキャンセル履歴として残しながら新しい日付へスムーズに振替できます：';
+    } else if (cleanInput.includes('印刷') || cleanInput.includes('プリント')) {
+      reply = '印刷機能についてですね！「予定表 (グリッド)」画面から自分の予定を絞り込んで「印刷プレビュー」を開くことで、A4用紙に最適化された綺麗な印刷ができます。使い捨てメモも添えられますよ：';
+    } else if (cleanInput.includes('まとめて') || cleanInput.includes('一括') || cleanInput.includes('複数')) {
+      reply = '複数予定の一括操作ですね！カレンダー上で Ctrl キーを押しながら複数行をクリックすると、画面下に一括操作バーが表示され、まとめて確定・仮・キャンセルや移動が行えます：';
+    } else if (cleanInput.includes('色') || cleanInput.includes('赤') || cleanInput.includes('黄色')) {
+      reply = 'カレンダーの配色の意味についてですね！赤は【確定】、黄色ストライプは【仮】、グレー打ち消し線は【キャンセル】を表しています：';
+    } else if (cleanInput.includes('コピペ') || cleanInput.includes('貼り付け') || cleanInput.includes('スプシ')) {
+      reply = 'スプレッドシートからのコピペ・貼り付けですね！右上の「スプレッドシートから貼り付け」ボタンから一括取込ができるほか、カレンダーのセルに直接 Ctrl+V で対応者名を貼ることも可能です：';
+    } else if (cleanInput.includes('同行') || cleanInput.includes('相番')) {
+      reply = '同行者の設定についてですね！予定編集モーダルで同行者バッジを選ぶと、相手のカレンダーにも「同行」バッジ付きで同一予定が自動連動登録されます：';
+    } else {
+      reply = `「${top.title}」に関する手順が見つかりました！以下の手順を参考に操作してみてください：`;
+    }
+  }
+
+  return { guides: filtered, replyText: reply };
+}
 
 interface HelpGuideModalProps {
   isOpen: boolean;
@@ -350,22 +561,47 @@ interface HelpGuideModalProps {
 }
 
 export const HelpGuideModal: React.FC<HelpGuideModalProps> = ({ isOpen, onClose }) => {
+  // モード切替: 'chat' (AI対話形式) | 'manual' (一覧・検索)
+  const [activeMode, setActiveMode] = useState<'chat' | 'manual'>('chat');
+  
+  // チャット用ステート
+  const [chatInput, setChatInput] = useState('');
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([
+    {
+      id: 'welcome-msg',
+      sender: 'ai',
+      text: 'こんにちは！現地対応予定システムのAI操作アシスタントです。\n「どうやって予定入れるの？」「まとめてキャンセルしたい」「自分の予定だけ印刷できる？」など、知りたい操作を普段の言葉で気軽に入力してくださいね。',
+      timestamp: 'たった今'
+    }
+  ]);
+  const chatBottomRef = useRef<HTMLDivElement>(null);
+  const chatInputRef = useRef<HTMLInputElement>(null);
+
+  // マニュアル一覧用ステート
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [expandedId, setExpandedId] = useState<string | null>(null);
-  const searchInputRef = useRef<HTMLInputElement>(null);
+  const manualSearchInputRef = useRef<HTMLInputElement>(null);
 
-  // モーダルが開かれたら検索窓にフォーカス
+  // モーダルオープン時のフォーカス
   useEffect(() => {
     if (isOpen) {
       setTimeout(() => {
-        searchInputRef.current?.focus();
+        if (activeMode === 'chat') {
+          chatInputRef.current?.focus();
+        } else {
+          manualSearchInputRef.current?.focus();
+        }
       }, 100);
-    } else {
-      setSearchQuery('');
-      setExpandedId(null);
     }
-  }, [isOpen]);
+  }, [isOpen, activeMode]);
+
+  // チャットメッセージ追加時の自動スクロール
+  useEffect(() => {
+    if (activeMode === 'chat') {
+      chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [chatMessages, activeMode]);
 
   // Escキーで閉じる
   useEffect(() => {
@@ -378,6 +614,44 @@ export const HelpGuideModal: React.FC<HelpGuideModalProps> = ({ isOpen, onClose 
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, onClose]);
 
+  // チャット送信処理
+  const handleSendChat = (textToSend?: string) => {
+    const text = (textToSend || chatInput).trim();
+    if (!text) return;
+
+    const userMsg: ChatMessage = {
+      id: `user-${Date.now()}`,
+      sender: 'user',
+      text,
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    };
+
+    // 自然言語マッチング実行
+    const { guides, replyText } = matchGuidesByNaturalLanguage(text);
+
+    const aiMsg: ChatMessage = {
+      id: `ai-${Date.now() + 1}`,
+      sender: 'ai',
+      text: replyText,
+      matchedGuides: guides,
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    };
+
+    setChatMessages(prev => [...prev, userMsg, aiMsg]);
+    setChatInput('');
+  };
+
+  // よくある質問クイックチップ
+  const quickQuestions = [
+    'どうやって予定入れるの？',
+    'まとめて確定やキャンセルにしたい',
+    '予定を別日に移動（振替）したい',
+    '自分の予定だけメモ付きで印刷したい',
+    'スプレッドシートからコピペしたい',
+    'カレンダーの赤や黄色の意味は？',
+    '相手の予定表にも同行者を入れたい'
+  ];
+
   // カテゴリ一覧定義
   const categories = [
     { id: 'all', label: 'すべて' },
@@ -389,21 +663,25 @@ export const HelpGuideModal: React.FC<HelpGuideModalProps> = ({ isOpen, onClose 
     { id: 'rules', label: '画面の見方・基本ルール' }
   ];
 
-  // フィルタリング処理（全文＋キーワード＋シノニム照合）
+  // マニュアルモードのフィルタリング（自然言語スマートスコアリング対応）
   const filteredGuides = useMemo(() => {
     let list = HELP_GUIDE_DATA;
 
-    // カテゴリフィルター
     if (selectedCategory !== 'all') {
       list = list.filter(item => item.category === selectedCategory);
     }
 
-    // 検索ワードフィルター
-    const q = searchQuery.trim().toLowerCase();
+    const q = searchQuery.trim();
     if (!q) return list;
 
-    const terms = q.split(/\s+/).filter(Boolean);
+    // 文章入力にも対応した自然言語マッチング
+    const { guides } = matchGuidesByNaturalLanguage(q);
+    if (guides.length > 0) {
+      return guides;
+    }
 
+    // フォールバック: 通常のキーワード照合
+    const terms = q.toLowerCase().split(/\s+/).filter(Boolean);
     return list.filter(item => {
       const targetText = [
         item.title,
@@ -415,7 +693,6 @@ export const HelpGuideModal: React.FC<HelpGuideModalProps> = ({ isOpen, onClose 
         ...item.keywords
       ].join(' ').toLowerCase();
 
-      // すべての検索語句が含まれているか
       return terms.every(term => targetText.includes(term));
     });
   }, [searchQuery, selectedCategory]);
@@ -432,151 +709,283 @@ export const HelpGuideModal: React.FC<HelpGuideModalProps> = ({ isOpen, onClose 
         {/* ヘッダー */}
         <div className="help-modal-header">
           <div className="help-header-title">
-            <HelpCircle size={22} className="help-header-icon" />
+            <div className="help-ai-avatar">
+              <Sparkles size={20} className="help-sparkle-icon" />
+            </div>
             <div>
-              <h3>操作ガイド・よくある質問（FAQ）</h3>
-              <p className="help-header-sub">操作方法ややりたいことから機能を逆引き検索できます</p>
+              <h3>操作ガイド・AIヘルプアシスタント</h3>
+              <p className="help-header-sub">自然な文章や質問で、操作手順ややりたいことを即座に案内します</p>
             </div>
           </div>
-          <button type="button" className="help-modal-close-btn" onClick={onClose} title="閉じる (Esc)">
-            <X size={20} />
-          </button>
-        </div>
-
-        {/* 検索バーエリア */}
-        <div className="help-search-section">
-          <div className="help-search-box">
-            <Search size={18} className="help-search-icon" />
-            <input
-              ref={searchInputRef}
-              type="text"
-              className="help-search-input"
-              placeholder="やりたい操作やキーワードを入力（例: 印刷、コピペ、振替、確定、同行、複数選択）..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-            {searchQuery && (
-              <button 
-                type="button" 
-                className="help-search-clear" 
-                onClick={() => {
-                  setSearchQuery('');
-                  searchInputRef.current?.focus();
-                }}
-                title="クリア"
-              >
-                <X size={15} />
-              </button>
-            )}
-          </div>
-
-          {/* カテゴリクイックタブ */}
-          <div className="help-category-tabs">
-            {categories.map(cat => (
+          
+          <div className="help-header-actions">
+            {/* モード切替タブ */}
+            <div className="help-mode-toggle">
               <button
-                key={cat.id}
                 type="button"
-                className={`help-cat-btn ${selectedCategory === cat.id ? 'active' : ''}`}
-                onClick={() => setSelectedCategory(cat.id)}
+                className={`help-mode-btn ${activeMode === 'chat' ? 'active' : ''}`}
+                onClick={() => setActiveMode('chat')}
               >
-                {cat.label}
+                <MessageSquare size={14} />
+                <span>AIチャット質問</span>
               </button>
-            ))}
+              <button
+                type="button"
+                className={`help-mode-btn ${activeMode === 'manual' ? 'active' : ''}`}
+                onClick={() => setActiveMode('manual')}
+              >
+                <BookOpen size={14} />
+                <span>操作マニュアル一覧</span>
+              </button>
+            </div>
+
+            <button type="button" className="help-modal-close-btn" onClick={onClose} title="閉じる (Esc)">
+              <X size={20} />
+            </button>
           </div>
         </div>
 
-        {/* ガイド一覧ボディ */}
-        <div className="help-modal-body">
-          <div className="help-results-info">
-            <span>該当する操作ガイド: <strong>{filteredGuides.length}件</strong></span>
-            {searchQuery && <span className="help-search-query-tag">「{searchQuery}」で検索中</span>}
-          </div>
-
-          {filteredGuides.length === 0 ? (
-            <div className="help-no-results">
-              <Info size={36} className="help-no-results-icon" />
-              <p className="help-no-results-text">一致する操作ガイドが見つかりませんでした。</p>
-              <p className="help-no-results-sub">別のキーワード（例: 「印刷」「コピペ」「確定」「同行」など）でお試しください。</p>
-            </div>
-          ) : (
-            <div className="help-accordion-list">
-              {filteredGuides.map(item => {
-                const isExpanded = expandedId === item.id;
-                return (
-                  <div key={item.id} className={`help-accordion-item ${isExpanded ? 'is-open' : ''}`}>
-                    <div 
-                      className="help-item-header" 
-                      onClick={() => toggleExpand(item.id)}
-                    >
-                      <div className="help-item-title-col">
-                        <div className="help-item-badges">
-                          <span className="help-badge-category">{item.categoryName}</span>
-                          <span className="help-badge-screen">対象: {item.targetScreen}</span>
-                        </div>
-                        <h4 className="help-item-title">{item.title}</h4>
-                      </div>
-                      <div className="help-item-arrow">
-                        {isExpanded ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
-                      </div>
+        {/* ========== モード1: AI対話チャット ========== */}
+        {activeMode === 'chat' && (
+          <div className="help-chat-container">
+            {/* メッセージスクロール領域 */}
+            <div className="help-chat-messages">
+              {chatMessages.map(msg => (
+                <div key={msg.id} className={`help-chat-bubble-row ${msg.sender}`}>
+                  {msg.sender === 'ai' && (
+                    <div className="help-chat-avatar ai">
+                      <Sparkles size={16} />
                     </div>
+                  )}
+                  <div className={`help-chat-bubble ${msg.sender}`}>
+                    <p className="help-chat-text">{msg.text}</p>
+                    
+                    {/* マッチした操作ガイドカード（手順付き） */}
+                    {msg.matchedGuides && msg.matchedGuides.length > 0 && (
+                      <div className="help-chat-guides-list">
+                        {msg.matchedGuides.map(guide => (
+                          <div key={guide.id} className="help-chat-guide-card">
+                            <div className="help-chat-card-header">
+                              <span className="help-badge-screen">画面: {guide.targetScreen}</span>
+                              <span className="help-badge-category">{guide.categoryName}</span>
+                            </div>
+                            <h4 className="help-chat-card-title">{guide.title}</h4>
+                            <p className="help-chat-card-summary">{guide.summary}</p>
+                            
+                            <div className="help-chat-steps">
+                              <div className="help-chat-steps-title">
+                                <CheckCircle2 size={14} color="#16a34a" />
+                                <strong>操作手順:</strong>
+                              </div>
+                              <ol className="help-chat-steps-ol">
+                                {guide.steps.map((step, sidx) => (
+                                  <li key={sidx}>{step}</li>
+                                ))}
+                              </ol>
+                            </div>
 
-                    {isExpanded && (
-                      <div className="help-item-content">
-                        <p className="help-item-summary">{item.summary}</p>
-                        
-                        <div className="help-steps-container">
-                          <h5 className="help-steps-heading">
-                            <CheckCircle2 size={16} className="help-steps-icon" />
-                            操作手順
-                          </h5>
-                          <ol className="help-steps-list">
-                            {item.steps.map((step, idx) => (
-                              <li key={idx}>
-                                <span className="help-step-number">{idx + 1}</span>
-                                <span className="help-step-text">{step}</span>
-                              </li>
-                            ))}
-                          </ol>
+                            {guide.tips && (
+                              <div className="help-chat-card-tips">
+                                💡 <strong>Tips:</strong> {guide.tips}
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    <span className="help-chat-time">{msg.timestamp}</span>
+                  </div>
+                </div>
+              ))}
+              <div ref={chatBottomRef} />
+            </div>
+
+            {/* クイック質問チップス */}
+            <div className="help-quick-chips-area">
+              <span className="help-quick-label">よくある質問:</span>
+              <div className="help-quick-chips-scroll">
+                {quickQuestions.map((q, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    className="help-quick-chip-btn"
+                    onClick={() => handleSendChat(q)}
+                  >
+                    {q}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* チャット入力バー */}
+            <div className="help-chat-input-area">
+              <input
+                ref={chatInputRef}
+                type="text"
+                className="help-chat-input"
+                placeholder="質問ややりたいことを自由に入力（例: どうやって予定入れるの？、印刷したい、まとめてキャンセルしたい）..."
+                value={chatInput}
+                onChange={(e) => setChatInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSendChat();
+                  }
+                }}
+              />
+              <button
+                type="button"
+                className="btn btn-primary help-chat-send-btn"
+                onClick={() => handleSendChat()}
+                disabled={!chatInput.trim()}
+              >
+                <Send size={16} />
+                <span>質問する</span>
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* ========== モード2: マニュアル一覧・自然言語検索 ========== */}
+        {activeMode === 'manual' && (
+          <div className="help-manual-container">
+            {/* 検索バーエリア */}
+            <div className="help-search-section">
+              <div className="help-search-box">
+                <Search size={18} className="help-search-icon" />
+                <input
+                  ref={manualSearchInputRef}
+                  type="text"
+                  className="help-search-input"
+                  placeholder="文章やキーワードで検索（例: どうやって予定入れるの？、印刷、振替、まとめて確定）..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
+                {searchQuery && (
+                  <button 
+                    type="button" 
+                    className="help-search-clear" 
+                    onClick={() => {
+                      setSearchQuery('');
+                      manualSearchInputRef.current?.focus();
+                    }}
+                    title="クリア"
+                  >
+                    <X size={15} />
+                  </button>
+                )}
+              </div>
+
+              {/* カテゴリクイックタブ */}
+              <div className="help-category-tabs">
+                {categories.map(cat => (
+                  <button
+                    key={cat.id}
+                    type="button"
+                    className={`help-cat-btn ${selectedCategory === cat.id ? 'active' : ''}`}
+                    onClick={() => setSelectedCategory(cat.id)}
+                  >
+                    {cat.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* ガイド一覧ボディ */}
+            <div className="help-modal-body">
+              <div className="help-results-info">
+                <span>該当する操作ガイド: <strong>{filteredGuides.length}件</strong></span>
+                {searchQuery && <span className="help-search-query-tag">「{searchQuery}」の検索結果</span>}
+              </div>
+
+              {filteredGuides.length === 0 ? (
+                <div className="help-no-results">
+                  <Info size={36} className="help-no-results-icon" />
+                  <p className="help-no-results-text">一致する操作ガイドが見つかりませんでした。</p>
+                  <p className="help-no-results-sub">「AIチャット質問」タブで質問していただくか、別のキーワードでお試しください。</p>
+                </div>
+              ) : (
+                <div className="help-accordion-list">
+                  {filteredGuides.map(item => {
+                    const isExpanded = expandedId === item.id;
+                    return (
+                      <div key={item.id} className={`help-accordion-item ${isExpanded ? 'is-open' : ''}`}>
+                        <div 
+                          className="help-item-header" 
+                          onClick={() => toggleExpand(item.id)}
+                        >
+                          <div className="help-item-title-col">
+                            <div className="help-item-badges">
+                              <span className="help-badge-category">{item.categoryName}</span>
+                              <span className="help-badge-screen">対象: {item.targetScreen}</span>
+                            </div>
+                            <h4 className="help-item-title">{item.title}</h4>
+                          </div>
+                          <div className="help-item-arrow">
+                            {isExpanded ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+                          </div>
                         </div>
 
-                        {item.tips && (
-                          <div className="help-tips-box">
-                            <Lightbulb size={18} className="help-tips-icon" />
-                            <div className="help-tips-text">
-                              <strong>💡 便利なポイント / Tips:</strong>
-                              <p>{item.tips}</p>
+                        {isExpanded && (
+                          <div className="help-item-content">
+                            <p className="help-item-summary">{item.summary}</p>
+                            
+                            <div className="help-steps-container">
+                              <h5 className="help-steps-heading">
+                                <CheckCircle2 size={16} className="help-steps-icon" />
+                                操作手順
+                              </h5>
+                              <ol className="help-steps-list">
+                                {item.steps.map((step, idx) => (
+                                  <li key={idx}>
+                                    <span className="help-step-number">{idx + 1}</span>
+                                    <span className="help-step-text">{step}</span>
+                                  </li>
+                                ))}
+                              </ol>
+                            </div>
+
+                            {item.tips && (
+                              <div className="help-tips-box">
+                                <Lightbulb size={18} className="help-tips-icon" />
+                                <div className="help-tips-text">
+                                  <strong>💡 便利なポイント / Tips:</strong>
+                                  <p>{item.tips}</p>
+                                </div>
+                              </div>
+                            )}
+
+                            <div className="help-keywords-box">
+                              <span className="help-keywords-label">関連キーワード:</span>
+                              {item.keywords.map((kw, kidx) => (
+                                <span 
+                                  key={kidx} 
+                                  className="help-kw-tag"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setSearchQuery(kw);
+                                  }}
+                                >
+                                  #{kw}
+                                </span>
+                              ))}
                             </div>
                           </div>
                         )}
-
-                        <div className="help-keywords-box">
-                          <span className="help-keywords-label">関連キーワード:</span>
-                          {item.keywords.map((kw, kidx) => (
-                            <span 
-                              key={kidx} 
-                              className="help-kw-tag"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setSearchQuery(kw);
-                              }}
-                            >
-                              #{kw}
-                            </span>
-                          ))}
-                        </div>
                       </div>
-                    )}
-                  </div>
-                );
-              })}
+                    );
+                  })}
+                </div>
+              )}
             </div>
-          )}
-        </div>
+          </div>
+        )}
 
         {/* フッター */}
         <div className="help-modal-footer">
           <span className="help-footer-hint">
-            キーボードの <strong>?</strong> キーを押すと、いつでもこのヘルプを呼び出せます（Escで閉じます）
+            キーボードの <strong>?</strong> キーでいつでも呼び出せます（Escで閉じます）
           </span>
           <button type="button" className="btn btn-secondary btn-sm" onClick={onClose}>
             閉じる
