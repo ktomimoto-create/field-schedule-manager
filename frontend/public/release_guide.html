@@ -1,0 +1,1221 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>現場対応予定・行動管理システム リリース説明資料</title>
+  <style>
+    :root {
+      --primary: #4f46e5;
+      --primary-hover: #4338ca;
+      --primary-light: #eef2ff;
+      --success: #10b981;
+      --success-light: #ecfdf5;
+      --warning: #f59e0b;
+      --warning-light: #fffbeb;
+      --danger: #ef4444;
+      --danger-light: #fef2f2;
+      --slate: #64748b;
+      --slate-light: #f8fafc;
+      --bg-main: #f8fafc;
+      --bg-card: #ffffff;
+      --text-main: #1e293b;
+      --text-muted: #64748b;
+      --border: #e2e8f0;
+      --shadow-sm: 0 1px 3px rgba(0,0,0,0.08);
+      --shadow-md: 0 4px 6px -1px rgba(0,0,0,0.08), 0 2px 4px -1px rgba(0,0,0,0.04);
+      --shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.08), 0 4px 6px -2px rgba(0,0,0,0.04);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans JP", sans-serif;
+      background-color: var(--bg-main);
+      color: var(--text-main);
+      line-height: 1.6;
+      padding-bottom: 60px;
+    }
+
+    /* 上部ヘッダー */
+    header.hero-header {
+      background: linear-gradient(135deg, #1e1b4b 0%, #312e81 40%, #4338ca 100%);
+      color: #ffffff;
+      padding: 48px 24px;
+      text-align: center;
+      position: relative;
+      box-shadow: 0 4px 20px rgba(30, 27, 75, 0.25);
+    }
+
+    .hero-container {
+      max-width: 1100px;
+      margin: 0 auto;
+    }
+
+    .hero-badge {
+      display: inline-block;
+      background: rgba(255, 255, 255, 0.15);
+      backdrop-filter: blur(8px);
+      padding: 6px 16px;
+      border-radius: 999px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+      margin-bottom: 16px;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+
+    .hero-header h1 {
+      font-size: 2.2rem;
+      font-weight: 800;
+      margin-bottom: 12px;
+      letter-spacing: -0.02em;
+    }
+
+    .hero-header p.subtitle {
+      font-size: 1.15rem;
+      color: #c7d2fe;
+      max-width: 760px;
+      margin: 0 auto 24px;
+    }
+
+    .hero-actions {
+      display: flex;
+      justify-content: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .btn-action {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 20px;
+      border-radius: 8px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      text-decoration: none;
+      transition: all 0.2s;
+      border: none;
+    }
+
+    .btn-white {
+      background: #ffffff;
+      color: #312e81;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    }
+    .btn-white:hover {
+      background: #f1f5f9;
+      transform: translateY(-1px);
+    }
+
+    .btn-glass {
+      background: rgba(255, 255, 255, 0.15);
+      color: #ffffff;
+      border: 1px solid rgba(255, 255, 255, 0.3);
+    }
+    .btn-glass:hover {
+      background: rgba(255, 255, 255, 0.25);
+    }
+
+    /* ナビゲーションバー */
+    .nav-anchor-bar {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: #ffffff;
+      border-bottom: 1px solid var(--border);
+      box-shadow: var(--shadow-sm);
+    }
+
+    .nav-container {
+      max-width: 1100px;
+      margin: 0 auto;
+      display: flex;
+      gap: 8px;
+      padding: 8px 16px;
+      overflow-x: auto;
+      white-space: nowrap;
+    }
+
+    .nav-link {
+      color: var(--text-muted);
+      text-decoration: none;
+      font-size: 0.88rem;
+      font-weight: 600;
+      padding: 6px 14px;
+      border-radius: 6px;
+      transition: all 0.15s;
+    }
+
+    .nav-link:hover {
+      color: var(--primary);
+      background: var(--primary-light);
+    }
+
+    /* コンテナ */
+    .container {
+      max-width: 1100px;
+      margin: 32px auto;
+      padding: 0 20px;
+    }
+
+    /* セクション共通 */
+    .section-block {
+      margin-bottom: 48px;
+    }
+
+    .section-title-wrap {
+      margin-bottom: 24px;
+      border-bottom: 2px solid var(--border);
+      padding-bottom: 12px;
+    }
+
+    .section-number {
+      display: inline-block;
+      font-size: 0.8rem;
+      font-weight: 800;
+      color: var(--primary);
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      margin-bottom: 4px;
+    }
+
+    .section-title {
+      font-size: 1.6rem;
+      font-weight: 800;
+      color: var(--text-main);
+    }
+
+    .section-desc {
+      color: var(--text-muted);
+      font-size: 0.95rem;
+      margin-top: 4px;
+    }
+
+    /* エグゼクティブサマリーカード */
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 20px;
+      margin-bottom: 24px;
+    }
+
+    .summary-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 24px;
+      box-shadow: var(--shadow-sm);
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .summary-card.highlight {
+      border-top: 4px solid var(--primary);
+    }
+
+    .summary-card h3 {
+      font-size: 1.15rem;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .summary-card p {
+      font-size: 0.92rem;
+      color: var(--text-muted);
+      line-height: 1.6;
+    }
+
+    /* Before / After 比較セクション */
+    .comparison-list {
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+
+    .comparison-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: var(--shadow-sm);
+      transition: box-shadow 0.2s;
+    }
+
+    .comparison-card:hover {
+      box-shadow: var(--shadow-md);
+    }
+
+    .comparison-header {
+      background: var(--slate-light);
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .comparison-header h3 {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: var(--text-main);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .feature-badge {
+      background: var(--primary-light);
+      color: var(--primary);
+      font-size: 0.75rem;
+      font-weight: 700;
+      padding: 4px 10px;
+      border-radius: 999px;
+      border: 1px solid rgba(79, 70, 229, 0.2);
+    }
+
+    .comparison-body {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      padding: 0;
+    }
+
+    @media (max-width: 768px) {
+      .comparison-body {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .before-box, .after-box {
+      padding: 20px;
+    }
+
+    .before-box {
+      background: #fafafa;
+      border-right: 1px solid var(--border);
+    }
+
+    @media (max-width: 768px) {
+      .before-box {
+        border-right: none;
+        border-bottom: 1px solid var(--border);
+      }
+    }
+
+    .after-box {
+      background: #ffffff;
+    }
+
+    .box-label {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.75rem;
+      font-weight: 800;
+      padding: 3px 8px;
+      border-radius: 4px;
+      margin-bottom: 12px;
+      letter-spacing: 0.05em;
+    }
+
+    .before-label {
+      background: #fee2e2;
+      color: #991b1b;
+    }
+
+    .after-label {
+      background: #dcfce7;
+      color: #166534;
+    }
+
+    .box-content h4 {
+      font-size: 0.95rem;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+
+    .before-box .box-content h4 {
+      color: #b91c1c;
+    }
+
+    .after-box .box-content h4 {
+      color: #15803d;
+    }
+
+    .box-content ul {
+      padding-left: 20px;
+      font-size: 0.88rem;
+      color: var(--text-muted);
+      line-height: 1.6;
+    }
+
+    .box-content ul li {
+      margin-bottom: 4px;
+    }
+
+    .benefit-banner {
+      background: #f0fdf4;
+      border-top: 1px solid #bbf7d0;
+      padding: 10px 20px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: #166534;
+    }
+
+    /* 主要画面の機能紹介グリッド */
+    .screen-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 24px;
+    }
+
+    .screen-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: var(--shadow-sm);
+      display: flex;
+      flex-direction: column;
+    }
+
+    .screen-card-header {
+      background: linear-gradient(135deg, #f8fafc 0%, #eef2ff 100%);
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .screen-card-header h3 {
+      font-size: 1.15rem;
+      font-weight: 700;
+      color: var(--primary);
+    }
+
+    .screen-card-header .screen-subtitle {
+      font-size: 0.82rem;
+      color: var(--text-muted);
+    }
+
+    .screen-card-body {
+      padding: 20px;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .screen-card-body p {
+      font-size: 0.9rem;
+      color: var(--text-muted);
+    }
+
+    .screen-features-list {
+      list-style: none;
+      padding: 0;
+      font-size: 0.88rem;
+    }
+
+    .screen-features-list li {
+      position: relative;
+      padding-left: 20px;
+      margin-bottom: 8px;
+      color: var(--text-main);
+    }
+
+    .screen-features-list li::before {
+      content: "✔";
+      position: absolute;
+      left: 0;
+      color: var(--success);
+      font-weight: bold;
+    }
+
+    /* チートシート・ステータス表 */
+    .table-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: var(--shadow-sm);
+      margin-bottom: 24px;
+    }
+
+    table.custom-table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+      font-size: 0.9rem;
+    }
+
+    table.custom-table th {
+      background: var(--slate-light);
+      padding: 12px 16px;
+      font-weight: 700;
+      color: var(--text-main);
+      border-bottom: 1px solid var(--border);
+    }
+
+    table.custom-table td {
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border);
+      color: var(--text-main);
+    }
+
+    table.custom-table tr:last-child td {
+      border-bottom: none;
+    }
+
+    .status-pill {
+      display: inline-block;
+      padding: 3px 10px;
+      border-radius: 6px;
+      font-size: 0.8rem;
+      font-weight: 700;
+      text-align: center;
+    }
+
+    .status-confirmed {
+      background: #fee2e2;
+      color: #dc2626;
+      border: 1px solid #fca5a5;
+    }
+
+    .status-draft {
+      background: #fef3c7;
+      color: #b45309;
+      border: 1px solid #fcd34d;
+    }
+
+    .status-cancelled {
+      background: #f1f5f9;
+      color: #64748b;
+      border: 1px solid #cbd5e1;
+      text-decoration: line-through;
+    }
+
+    .status-free {
+      background: #e0f2fe;
+      color: #0284c7;
+      border: 1px solid #bae6fd;
+    }
+
+    .shortcut-key {
+      display: inline-block;
+      background: #f1f5f9;
+      border: 1px solid #cbd5e1;
+      border-radius: 4px;
+      padding: 2px 8px;
+      font-family: monospace;
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: #334155;
+      box-shadow: 0 1px 1px rgba(0,0,0,0.1);
+    }
+
+    /* FAQ アコーディオン */
+    .faq-list {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .faq-item {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 18px 20px;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .faq-q {
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--primary);
+      margin-bottom: 8px;
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+    }
+
+    .faq-a {
+      font-size: 0.92rem;
+      color: var(--text-main);
+      padding-left: 24px;
+      line-height: 1.6;
+    }
+
+    /* フッター */
+    footer.doc-footer {
+      text-align: center;
+      padding: 32px 20px 16px;
+      border-top: 1px solid var(--border);
+      margin-top: 60px;
+      color: var(--text-muted);
+      font-size: 0.85rem;
+    }
+
+    /* 印刷スタイル (PDF出力用) */
+    @media print {
+      body {
+        background: #ffffff;
+        color: #000000;
+      }
+      .hero-header {
+        background: #ffffff !important;
+        color: #000000 !important;
+        border-bottom: 2px solid #000000;
+        padding: 20px 0;
+      }
+      .hero-badge, .btn-action, .nav-anchor-bar, .hero-actions {
+        display: none !important;
+      }
+      .hero-header p.subtitle {
+        color: #555555 !important;
+      }
+      .comparison-card, .screen-card, .table-card, .summary-card, .faq-item {
+        box-shadow: none !important;
+        border: 1px solid #cccccc !important;
+        break-inside: avoid;
+        page-break-inside: avoid;
+      }
+      .before-box {
+        background: #f9f9f9 !important;
+      }
+      .after-box {
+        background: #ffffff !important;
+      }
+      .benefit-banner {
+        background: #f0f0f0 !important;
+        color: #000000 !important;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ヒーローヘッダー -->
+  <header class="hero-header">
+    <div class="hero-container">
+      <div class="hero-badge">OFFICIAL RELEASE GUIDE 2026</div>
+      <h1>現場対応予定・行動管理システム リリース説明資料</h1>
+      <p class="subtitle">
+        従来のExcel・手動スプレッドシート運用からクラウド型行動管理システムへ。<br>
+        現場配車・予定管理の劇的な効率化と新機能の全貌をご案内します。
+      </p>
+      <div class="hero-actions">
+        <button class="btn-action btn-white" onclick="window.print()">
+          🖨️ この資料を印刷 / PDF保存
+        </button>
+        <a class="btn-action btn-glass" href="./" target="_blank">
+          🚀 システムを開く
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <!-- ナビゲーションバー -->
+  <nav class="nav-anchor-bar">
+    <div class="nav-container">
+      <a href="#summary" class="nav-link">1. システム概要</a>
+      <a href="#improvements" class="nav-link">2. 劇的改善点10選 (Before/After)</a>
+      <a href="#screens" class="nav-link">3. 主要画面と機能</a>
+      <a href="#cheatsheet" class="nav-link">4. 操作チートシート</a>
+      <a href="#faq" class="nav-link">5. よくある質問 (FAQ)</a>
+    </div>
+  </nav>
+
+  <main class="container">
+
+    <!-- セクション1: システム概要 -->
+    <section id="summary" class="section-block">
+      <div class="section-title-wrap">
+        <span class="section-number">SECTION 01</span>
+        <h2 class="section-title">システム化の背景と概要</h2>
+        <p class="section-desc">なぜ新しいシステムが必要とされ、何が解決されるのか</p>
+      </div>
+
+      <div class="summary-grid">
+        <div class="summary-card highlight">
+          <h3>⚡ リアルタイム同時編集と整合性</h3>
+          <p>
+            複数の担当者や管理者が同時にアクセスしても、競合やデータ上書きの事故が起こりません。全員が常に最新の現場スケジュールを即座に共有できます。
+          </p>
+        </div>
+        <div class="summary-card highlight">
+          <h3>🎯 直感操作と一括処理</h3>
+          <p>
+            カレンダー上でのドラッグ選択、Ctrl/Shiftによる複数予定の一括確定・仮・キャンセル・別日移動など、現場業務に直結したスピード操作を実現しました。
+          </p>
+        </div>
+        <div class="summary-card highlight">
+          <h3>🤖 AIチャット相談と安心の監査ログ</h3>
+          <p>
+            「どうやって予定入れるの？」と質問するだけでAIが手順を即答。さらに誰がいつどの物件を変更したかを完全追跡できる安心の監査ログを完備しています。
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- セクション2: 改善点10選 (Before / After) -->
+    <section id="improvements" class="section-block">
+      <div class="section-title-wrap">
+        <span class="section-number">SECTION 02</span>
+        <h2 class="section-title">現状からの劇的改善点 10選（Before ➔ After）</h2>
+        <p class="section-desc">従来の運用と比べ、現場の業務負荷がどこまで削減されるかを比較しました</p>
+      </div>
+
+      <div class="comparison-list">
+
+        <!-- 改善点 1 -->
+        <div class="comparison-card">
+          <div class="comparison-header">
+            <h3>01. 複数予定の選択と一括操作（確定・仮・キャンセル）</h3>
+            <span class="feature-badge">効率化度：★★★★★</span>
+          </div>
+          <div class="comparison-body">
+            <div class="before-box">
+              <span class="box-label before-label">従来（BEFORE）</span>
+              <div class="box-content">
+                <h4>1件ずつ手作業で変更</h4>
+                <ul>
+                  <li>雨天順延や急な日程変更時、予定を1行ずつ開いてステータスを書き換える必要があり、多大な時間とクリック数がかかっていた。</li>
+                  <li>変更漏れやステータス付け間違いのリスクがあった。</li>
+                </ul>
+              </div>
+            </div>
+            <div class="after-box">
+              <span class="box-label after-label">新システム（AFTER）</span>
+              <div class="box-content">
+                <h4>Ctrl / Shiftキーでまとめて一括反映</h4>
+                <ul>
+                  <li>カレンダー上で複数行をCtrl+クリックやShift+クリックで選択可能。</li>
+                  <li>画面下に現れるバーから<strong>【一括確定（赤）】【一括仮（黄）】【一括キャンセル（グレー）】</strong>を1クリックで一発適用！</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+          <div class="benefit-banner">
+            ✨ 効果：10件の予定ステータス変更にかかる作業時間を約3分 ➔ わずか3秒に短縮！
+          </div>
+        </div>
+
+        <!-- 改善点 2 -->
+        <div class="comparison-card">
+          <div class="comparison-header">
+            <h3>02. キャンセル時の「別日へ移動」（振替・履歴保持）</h3>
+            <span class="feature-badge">ミス防止度：★★★★★</span>
+          </div>
+          <div class="comparison-body">
+            <div class="before-box">
+              <span class="box-label before-label">従来（BEFORE）</span>
+              <div class="box-content">
+                <h4>コピペの手間と元の予定の消失</h4>
+                <ul>
+                  <li>キャンセルになった予定を別の日付に移す際、物件名や号機、作業内容を手動で再入力・コピペしていた。</li>
+                  <li>元の予定を上書き移動してしまうと、「元々いつ入っていたか」の履歴が消えてしまっていた。</li>
+                </ul>
+              </div>
+            </div>
+            <div class="after-box">
+              <span class="box-label after-label">新システム（AFTER）</span>
+              <div class="box-content">
+                <h4>「別日へ移動」ダイアログで振替を自動作成</h4>
+                <ul>
+                  <li>右クリックまたはツールバーから<strong>「別日へ移動」</strong>を選択するだけ。</li>
+                  <li>元の予定を【キャンセル】として安全に残したまま、指定した別日に同一内容（物件名、号機、種別、時間、作業内容等）のフリー予定を自動生成！</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+          <div class="benefit-banner">
+            ✨ 効果：手入力の転記ミスゼロ。過去のキャンセル経緯と新規振替日程の両方を自動管理！
+          </div>
+        </div>
+
+        <!-- 改善点 3 -->
+        <div class="comparison-card">
+          <div class="comparison-header">
+            <h3>03. スプレッドシート直貼りインポート＆自動名寄せ</h3>
+            <span class="feature-badge">手入力削減：★★★★★</span>
+          </div>
+          <div class="comparison-body">
+            <div class="before-box">
+              <span class="box-label before-label">従来（BEFORE）</span>
+              <div class="box-content">
+                <h4>対応者のコース・区分を手動で確認・入力</h4>
+                <ul>
+                  <li>社内スプレッドシートから予定を転記する際、スタッフのコース番号や所属区分（FTS/委託）をスタッフ表で確認して手動入力していた。</li>
+                </ul>
+              </div>
+            </div>
+            <div class="after-box">
+              <span class="box-label after-label">新システム（AFTER）</span>
+              <div class="box-content">
+                <h4>貼り付けるだけでコース・区分を完全自動補完</h4>
+                <ul>
+                  <li>スプレッドシートの表をコピーして「インポート」にペーストするだけ。</li>
+                  <li>スタッフ名（苗字でもフルネームでも）からマスタを自動検索し、<strong>デフォルトコース番号・区分を自動割り振り</strong>して一括登録！</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+          <div class="benefit-banner">
+            ✨ 効果：1ヶ月分（数百件）の予定インポートも数秒で完了。コース付け間違いがゼロに！
+          </div>
+        </div>
+
+        <!-- 改善点 4 -->
+        <div class="comparison-card">
+          <div class="comparison-header">
+            <h3>04. 同一担当者の複数予定（同日）の保護</h3>
+            <span class="feature-badge">安定性：★★★★★</span>
+          </div>
+          <div class="comparison-body">
+            <div class="before-box">
+              <span class="box-label before-label">従来（BEFORE）</span>
+              <div class="box-content">
+                <h4>後から入れた予定で上書きされて潰れる</h4>
+                <ul>
+                  <li>同じ日に同じ担当者の現場が2件以上ある場合、後から読み込んだデータで前のが上書きされ、予定が消えてしまう不具合があった。</li>
+                </ul>
+              </div>
+            </div>
+            <div class="after-box">
+              <span class="box-label after-label">新システム（AFTER）</span>
+              <div class="box-content">
+                <h4>号機番号・物件単位で識別し確実に全件保持</h4>
+                <ul>
+                  <li>同一担当者であっても号機番号や物件名で重複を厳密に判定し、同日複数件の予定をそれぞれ独立した行として確実に保持します。</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+          <div class="benefit-banner">
+            ✨ 効果：1日2件〜3件の掛け持ち現場も安心して同時管理可能！
+          </div>
+        </div>
+
+        <!-- 改善点 5 -->
+        <div class="comparison-card">
+          <div class="comparison-header">
+            <h3>05. 個人用印刷プレビューと使い捨て手書きメモ機能</h3>
+            <span class="feature-badge">現場配慮：★★★★★</span>
+          </div>
+          <div class="comparison-body">
+            <div class="before-box">
+              <span class="box-label before-label">従来（BEFORE）</span>
+              <div class="box-content">
+                <h4>全体ファイルを汚すかExcelダウンロードの二度手間</h4>
+                <ul>
+                  <li>自分の担当分だけ印刷したい場合、共有シートにメモを書き込んで印刷するか、Excelをダウンロードしてから編集する面倒な手順だった。</li>
+                  <li>共有ファイルに勝手な個人メモが残りトラブルの原因に。</li>
+                </ul>
+              </div>
+            </div>
+            <div class="after-box">
+              <span class="box-label after-label">新システム（AFTER）</span>
+              <div class="box-content">
+                <h4>共有データを一切汚さずに担当者別A4印刷</h4>
+                <ul>
+                  <li>予定表グリッドの<strong>「印刷プレビュー」</strong>を開き、自分の名前を選択。</li>
+                  <li>「持参工具の確認」「鍵の受取場所」などの<strong>一時メモをその場で追記してワンクリック印刷</strong>（共有データベースには保存されないため安全）！</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+          <div class="benefit-banner">
+            ✨ 効果：Excelダウンロード作業を全廃。現場持参用の紙印刷が30秒で完了！
+          </div>
+        </div>
+
+        <!-- 改善点 6 -->
+        <div class="comparison-card">
+          <div class="comparison-header">
+            <h3>06. Excel出力・印刷時の苗字統一（視認性向上）</h3>
+            <span class="feature-badge">視認性：★★★★☆</span>
+          </div>
+          <div class="comparison-body">
+            <div class="before-box">
+              <span class="box-label before-label">従来（BEFORE）</span>
+              <div class="box-content">
+                <h4>フルネームでセルが横に伸びて文字切れ</h4>
+                <ul>
+                  <li>マスタ同期によりフルネーム表記になった際、Excel出力時に対応者列や同行者列の文字が溢れ、印刷プレビューが崩れていた。</li>
+                </ul>
+              </div>
+            </div>
+            <div class="after-box">
+              <span class="box-label after-label">新システム（AFTER）</span>
+              <div class="box-content">
+                <h4>賢い苗字切り出しルール（getShortName）</h4>
+                <ul>
+                  <li>システム内部では正確な本名マスタを保持しつつ、Excel出力や画面表示時は<strong>「平本」「河部」等の苗字のみ</strong>に自動整形！</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+          <div class="benefit-banner">
+            ✨ 効果：印刷時・Excel閲覧時もコンパクトで見やすいレイアウトを完全保証！
+          </div>
+        </div>
+
+        <!-- 改善点 7 -->
+        <div class="comparison-card">
+          <div class="comparison-header">
+            <h3>07. 操作変更履歴（監査ログ）の完全可読化</h3>
+            <span class="feature-badge">管理性：★★★★★</span>
+          </div>
+          <div class="comparison-body">
+            <div class="before-box">
+              <span class="box-label before-label">従来（BEFORE）</span>
+              <div class="box-content">
+                <h4>生JSONとUTC英数字の羅列で解読不能</h4>
+                <ul>
+                  <li>「誰がいつ変更したか」の画面を開いても、<code>{"unit_number":"60316", "property_name":"...", null}</code> のようなプログラミングコードが並び、現場管理者が読めなかった。</li>
+                </ul>
+              </div>
+            </div>
+            <div class="after-box">
+              <span class="box-label after-label">新システム（AFTER）</span>
+              <div class="box-content">
+                <h4>日本時間（JST）・日本語タグ・見出しに自動変換</h4>
+                <ul>
+                  <li>「2026/09/10 11:14 (5分前)」のように日本時間で表示。</li>
+                  <li><strong>「【クレストフォルム】の予定を更新しました」</strong>という明瞭な見出しと、日付・担当者・種別・作業内容の見やすいバッジで誰でも即座に追跡可能！</li>
+                  <li>フリーワード検索や操作種別（登録/変更/削除）フィルターも完備。</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+          <div class="benefit-banner">
+            ✨ 効果：「予定がいつの間にか変わっていた」「誰がキャンセルしたか」の調査が10秒で完了！
+          </div>
+        </div>
+
+        <!-- 改善点 8 -->
+        <div class="comparison-card">
+          <div class="comparison-header">
+            <h3>08. 操作ガイド・AI対話チャット相談機能</h3>
+            <span class="feature-badge">サポート：★★★★★</span>
+          </div>
+          <div class="comparison-body">
+            <div class="before-box">
+              <span class="box-label before-label">従来（BEFORE）</span>
+              <div class="box-content">
+                <h4>操作がわからないと管理者に質問が集中</h4>
+                <ul>
+                  <li>システム導入直後は「どうやるの？」の電話や問い合わせが管理者に殺到し、業務がパンクしがちだった。</li>
+                </ul>
+              </div>
+            </div>
+            <div class="after-box">
+              <span class="box-label after-label">新システム（AFTER）</span>
+              <div class="box-content">
+                <h4>「どうやって予定入れるの？」と聞くだけでAIが即答</h4>
+                <ul>
+                  <li>画面右上の<strong>「？ 操作ガイド」</strong>ボタン（またはキーボードの<code>?</code>キー）を押すだけ。</li>
+                  <li>「まとめてキャンセルしたい」「印刷はどうやる？」など普段の話し言葉で質問すると、AIが親切な手順ステップ（Step 1, 2, 3...）を0.1秒で回答！</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+          <div class="benefit-banner">
+            ✨ 効果：マニュアルを読む必要なし。各スタッフが自己解決でき、管理者の問い合わせ負担ゼロ！
+          </div>
+        </div>
+
+        <!-- 改善点 9 -->
+        <div class="comparison-card">
+          <div class="comparison-header">
+            <h3>09. ステータスカラーとボタン配色の完全統一</h3>
+            <span class="feature-badge">UX改善：★★★★☆</span>
+          </div>
+          <div class="comparison-body">
+            <div class="before-box">
+              <span class="box-label before-label">従来（BEFORE）</span>
+              <div class="box-content">
+                <h4>画面ごとにボタン色や表示がバラバラ</h4>
+                <ul>
+                  <li>予定表の色塗りと操作ボタンの色が一致しておらず、どのボタンを押せばどうなるのか直感的に迷いやすかった。</li>
+                </ul>
+              </div>
+            </div>
+            <div class="after-box">
+              <span class="box-label after-label">新システム（AFTER）</span>
+              <div class="box-content">
+                <h4>赤・黄・グレーで直感的に理解</h4>
+                <ul>
+                  <li><strong>確定 ＝ 赤（#ef4444）</strong></li>
+                  <li><strong>仮 ＝ 黄（#eab308）</strong></li>
+                  <li><strong>キャンセル ＝ グレー（#64748b・打消線）</strong></li>
+                  <li><strong>フリー ＝ 青</strong></li>
+                  <li>カレンダーの行色、操作ボタン、監査ログのバッジすべてが完全一致！</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+          <div class="benefit-banner">
+            ✨ 効果：色を見ただけで「確定か仮かキャンセルか」が全画面で瞬時に判断可能！
+          </div>
+        </div>
+
+        <!-- 改善点 10 -->
+        <div class="comparison-card">
+          <div class="comparison-header">
+            <h3>10. 休職・外注スタッフの安全な表示制御（is_active）</h3>
+            <span class="feature-badge">データ保全：★★★★★</span>
+          </div>
+          <div class="comparison-body">
+            <div class="before-box">
+              <span class="box-label before-label">従来（BEFORE）</span>
+              <div class="box-content">
+                <h4>スタッフを削除すると過去データが壊れる</h4>
+                <ul>
+                  <li>休職者や退職者をマスタから消すと過去の予定表の担当者名が消滅し、残しておくと新規登録の選択肢にずっと出てきて邪魔だった。</li>
+                </ul>
+              </div>
+            </div>
+            <div class="after-box">
+              <span class="box-label after-label">新システム（AFTER）</span>
+              <div class="box-content">
+                <h4>過去データを完全に保護しつつ新規選択肢から除外</h4>
+                <ul>
+                  <li>マスタ管理画面で有効/無効をワンクリック切り替え。</li>
+                  <li>無効にするとカレンダーの空行や新規入力プルダウンからは綺麗に消え、<strong>過去の登録済みデータにはそのまま残る</strong>安全設計！</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+          <div class="benefit-banner">
+            ✨ 効果：過去の現場実績データを1件も失うことなく、最新の現場体制へスムーズに追従！
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- セクション3: 主要画面と機能 -->
+    <section id="screens" class="section-block">
+      <div class="section-title-wrap">
+        <span class="section-number">SECTION 03</span>
+        <h2 class="section-title">主要画面と日常の使い方</h2>
+        <p class="section-desc">業務に合わせて使い分ける3つのメイン画面＋管理画面</p>
+      </div>
+
+      <div class="screen-grid">
+
+        <!-- 画面 1 -->
+        <div class="screen-card">
+          <div class="screen-card-header">
+            <h3>① 月間予定表 (CalendarView)</h3>
+            <span class="screen-subtitle">全体の配車・現場アサインを行うメイン画面</span>
+          </div>
+          <div class="screen-card-body">
+            <p>1ヶ月分の全現場スケジュールが日付・コース順に一覧表示されます。</p>
+            <ul class="screen-features-list">
+              <li><strong>インライン編集</strong>: セルをダブルクリックしてその場で物件名や対応者を編集</li>
+              <li><strong>複数選択</strong>: CtrlまたはShiftを押しながらクリックで複数予定をまとめて選択</li>
+              <li><strong>一括確定・仮・キャンセル</strong>: 画面下のバーから1発でステータス一括更新</li>
+              <li><strong>別日へ移動</strong>: 右クリックで翌日や別の日へスムーズに振替作成</li>
+              <li><strong>セル直接コピペ</strong>: スプレッドシートからセルへの直接貼り付け対応</li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- 画面 2 -->
+        <div class="screen-card">
+          <div class="screen-card-header">
+            <h3>② 当日行動予定表 (TimelineView)</h3>
+            <span class="screen-subtitle">当日の現場稼働とスタッフ動態を把握する画面</span>
+          </div>
+          <div class="screen-card-body">
+            <p>指定した日のスタッフ別スケジュールがコース番号昇順で並びます。</p>
+            <ul class="screen-features-list">
+              <li><strong>コース順ボード</strong>: コース1〜26（FTS）、90番台（委託）が左から整然と並ぶ</li>
+              <li><strong>現場結果の更新</strong>: 各スタッフの現場完了・未完了状況をワンクリック更新</li>
+              <li><strong>アバター表示</strong>: スタッフの顔写真またはイニシャルバッジで直感識別</li>
+              <li><strong>前日・翌日ナビゲーション</strong>: 日付切替ボタンで素早く当日前後の動きを確認</li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- 画面 3 -->
+        <div class="screen-card">
+          <div class="screen-card-header">
+            <h3>③ 予定表グリッド (GridView)</h3>
+            <span class="screen-subtitle">Excelライクな一覧・高度な検索と個人用印刷</span>
+          </div>
+          <div class="screen-card-body">
+            <p>全件データをスプレッドシート形式で高速表示・ソート・絞り込みできます。</p>
+            <ul class="screen-features-list">
+              <li><strong>詳細フィルター</strong>: 物件名、担当者、日付範囲、ステータスで複合絞り込み</li>
+              <li><strong>個人用印刷プレビュー</strong>: 自分の担当予定だけを抽出してA4印刷プレビュー</li>
+              <li><strong>一時メモ付き印刷</strong>: 共有データを汚さずにその場で手書き風メモを追記印刷</li>
+              <li><strong>Excelエクスポート</strong>: 苗字統一されたクリーンなExcelファイルをダウンロード</li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- 画面 4 -->
+        <div class="screen-card">
+          <div class="screen-card-header">
+            <h3>④ 操作ガイド・AI相談 (HelpGuideModal)</h3>
+            <span class="screen-subtitle">困ったときにいつでも呼べるAIアシスタント</span>
+          </div>
+          <div class="screen-card-body">
+            <p>画面右上の「？ 操作ガイド」ボタンまたはキーボードの「？」キーで開きます。</p>
+            <ul class="screen-features-list">
+              <li><strong>AIチャットで相談</strong>: 「予定の入れ方は？」「別日に動かすには？」と質問するだけ</li>
+              <li><strong>クイック質問チップ</strong>: よくある質問をタップするだけで即座に回答表示</li>
+              <li><strong>マニュアル一覧</strong>: カテゴリ別の手順書（Step 1, 2, 3...）とTipsを完備</li>
+            </ul>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- セクション4: 操作チートシート -->
+    <section id="cheatsheet" class="section-block">
+      <div class="section-title-wrap">
+        <span class="section-number">SECTION 04</span>
+        <h2 class="section-title">クイック操作チートシート</h2>
+        <p class="section-desc">覚えておくと業務スピードが2倍になるショートカットと色ルール</p>
+      </div>
+
+      <div class="table-card">
+        <table class="custom-table">
+          <thead>
+            <tr>
+              <th style="width: 25%;">ステータス / 表示色</th>
+              <th style="width: 35%;">画面での見た目</th>
+              <th>意味と運用ルール</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><span class="status-pill status-confirmed">確定 (confirmed)</span></td>
+              <td>赤色背景 / 赤色文字</td>
+              <td>日程・担当者が正式決定した本予定。現場へ出動する確定案件です。</td>
+            </tr>
+            <tr>
+              <td><span class="status-pill status-draft">仮 (draft)</span></td>
+              <td>黄色背景 / 濃い黄文字</td>
+              <td>日程調整中、または仮押さえの予定。日程変更の可能性があります。</td>
+            </tr>
+            <tr>
+              <td><span class="status-pill status-cancelled">キャンセル (cancelled)</span></td>
+              <td>グレー背景 / 打ち消し線</td>
+              <td>中止・延期になった予定。フリー枠へ退避され履歴として保持されます。</td>
+            </tr>
+            <tr>
+              <td><span class="status-pill status-free">フリー (free)</span></td>
+              <td>青色・白色背景</td>
+              <td>担当者未定または空き枠の予定。カレンダー上からいつでもアサイン可能。</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="table-card">
+        <table class="custom-table">
+          <thead>
+            <tr>
+              <th style="width: 30%;">操作・ショートカット</th>
+              <th style="width: 30%;">キーボード / マウス</th>
+              <th>動作内容</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>ヘルプ・操作ガイド起動</strong></td>
+              <td><span class="shortcut-key">?</span> （Shift + /）</td>
+              <td>画面どこからでもAI操作ガイドモーダルを即座に開閉します。</td>
+            </tr>
+            <tr>
+              <td><strong>複数予定の個別選択</strong></td>
+              <td><span class="shortcut-key">Ctrl</span> + クリック</td>
+              <td>クリックした行を選択に追加 / 解除します（トグル選択）。</td>
+            </tr>
+            <tr>
+              <td><strong>複数予定の範囲選択</strong></td>
+              <td><span class="shortcut-key">Shift</span> + クリック</td>
+              <td>前回選択した行から今回クリックした行までの範囲を一括選択します。</td>
+            </tr>
+            <tr>
+              <td><strong>右クリックメニュー</strong></td>
+              <td>予定行の上で <strong>右クリック</strong></td>
+              <td>確定・仮・キャンセル・別日へ移動・削除のコンテキストメニューを表示。</td>
+            </tr>
+            <tr>
+              <td><strong>モーダルを閉じる</strong></td>
+              <td><span class="shortcut-key">Esc</span></td>
+              <td>開いているモーダルやポップアップを即座に閉じます。</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- セクション5: よくある質問 (FAQ) -->
+    <section id="faq" class="section-block">
+      <div class="section-title-wrap">
+        <span class="section-number">SECTION 05</span>
+        <h2 class="section-title">よくある質問 (FAQ)</h2>
+        <p class="section-desc">リリース時によく寄せられる疑問と回答</p>
+      </div>
+
+      <div class="faq-list">
+        <div class="faq-item">
+          <div class="faq-q">Q. スプレッドシートから予定を一括で取り込むにはどうすればいいですか？</div>
+          <div class="faq-a">
+            画面上部の「コピペインポート」ボタンをクリックし、スプレッドシートの予定表データをそのままコピーして貼り付けるだけです。スタッフ名から自動でコース番号や所属区分（FTS/委託）が補完されて登録されます。
+          </div>
+        </div>
+
+        <div class="faq-item">
+          <div class="faq-q">Q. 予定をキャンセルして翌日にスライドしたいのですが？</div>
+          <div class="faq-a">
+            対象の予定行を右クリックして「別日へ移動」を選択します。移動先に翌日の日付を選び、「元の予定をキャンセルとして残す」にチェックを入れたまま実行すると、元の日付には履歴が残り、翌日に同じ内容の新しい予定が作成されます。
+          </div>
+        </div>
+
+        <div class="faq-item">
+          <div class="faq-q">Q. 自分の担当分だけを印刷して現場に持っていきたいです。</div>
+          <div class="faq-a">
+            「予定表 (グリッド)」画面を開き、右上の「印刷プレビュー」をクリックしてください。担当者プルダウンでご自身の名前を選択すると、自分の予定だけがA4に最適化されてプレビューされます。「一時メモ」欄に現場の注意事項などを書き添えてそのまま印刷できます。
+          </div>
+        </div>
+
+        <div class="faq-item">
+          <div class="faq-q">Q. 誰がいつ予定を変更したか確認したいです。</div>
+          <div class="faq-a">
+            画面右上の歯車アイコン（管理者設定）から「操作変更履歴（監査ログ）」を開いてください。いつ・誰が・どの物件を確定・仮・キャンセル・編集したかが日本時間で時系列に表示されます。物件名や操作者名で検索することも可能です。
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <footer class="doc-footer">
+    <p>現場対応予定・行動管理システム (Field Schedule Manager) リリース説明資料</p>
+    <p style="margin-top: 4px;">&copy; 2026 株式会社FTS. All Rights Reserved.</p>
+  </footer>
+
+</body>
+</html>

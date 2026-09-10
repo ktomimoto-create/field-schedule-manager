@@ -1,5 +1,48 @@
 # 変更履歴 (walkthrough.md)
 
+## [2026-09-10] リリース説明資料（Web/印刷・PDF対応HTML）の作成と操作ガイドからの導線追加
+
+### 変更の目的
+1. **リリース周知・社内説明用資料の提供**:
+   本番リリースにあたり、従来の手動Excel運用と比べて何がどう改善されたのか（Before ➔ After）、どんな新機能があるのかを社内関係者や現場スタッフへ分かりやすく説明・プレゼンテーションできる完成度の高い資料を提供します。
+2. **Web閲覧・A4印刷（PDF保存）のデュアル対応**:
+   ブラウザでインタラクティブに開けるだけでなく、ワンクリックでA4用紙に最適化された綺麗な印刷／PDF出力ができる形式（HTML/CSS）で作成しました。
+3. **システム内からのダイレクトアクセス**:
+   操作ガイドモーダル（`HelpGuideModal`）のヘッダーに「リリース説明資料」ボタンを追加し、システム利用中いつでも別タブで全体資料を開けるようにしました。
+
+### 変更内容
+
+#### 1. リリース説明資料（HTML/CSS）の作成
+* **[release_guide.html](file:///C:/Users/000644/.gemini/antigravity/scratch/field-schedule-manager/release_guide.html) [NEW]**:
+  - `frontend/public/release_guide.html` およびプロジェクトルートに配置。
+  - **エグゼクティブサマリー**: クラウド化の背景と解決される課題。
+  - **現状からの劇的改善点 10選（Before / After 比較）**:
+    1. 複数予定の一括操作（確定・仮・キャンセル）
+    2. キャンセル時の「別日へ移動」（振替作成・履歴保持）
+    3. スプレッドシート直貼りインポート＆自動名寄せ
+    4. 同一担当者の複数予定（同日）の保護
+    5. 個人用印刷プレビューと使い捨て手書きメモ機能
+    6. Excel出力・印刷時の苗字統一（視認性向上）
+    7. 操作変更履歴（監査ログ）の完全可読化
+    8. 操作ガイド・AI対話チャット相談機能
+    9. ステータスカラーとボタン配色の完全統一
+    10. 休職・外注スタッフの安全な表示制御（is_active）
+  - **主要画面紹介**: 月間予定表、当日行動予定表、予定表グリッド、操作ガイドの役割とポイント。
+  - **操作チートシート**: ステータス色（赤=確定、黄=仮、グレー=キャンセル、青=フリー）と主要ショートカット一覧。
+  - **よくある質問（FAQ）**: 現場で頻出する質問と回答。
+  - **印刷（PDF）最適化スタイル**: `@media print` により、A4用紙に余白崩れなく美しく収まる印刷スタイルを完備。
+
+#### 2. フロントエンドUIへの導線追加
+* **[HelpGuideModal.tsx](file:///C:/Users/000644/.gemini/antigravity/scratch/field-schedule-manager/frontend/src/components/HelpGuideModal.tsx)**:
+  - ヘッダー右側のアクションエリアに「リリース説明資料」ボタン（外部リンクアイコン付き）を配置。
+* **[HelpGuideModal.css](file:///C:/Users/000644/.gemini/antigravity/scratch/field-schedule-manager/frontend/src/components/HelpGuideModal.css)**:
+  - `.help-release-doc-btn` スタイルを追加。
+
+#### 3. 仕様書の更新
+* [specification.md](file:///C:/Users/000644/.gemini/antigravity/scratch/field-schedule-manager/specification.md): 第13章（リリース説明資料および機能改善ガイドの提供仕様）を追記しました。
+
+---
+
 ## [2026-09-10] 操作変更履歴（監査ログ）の表示改善・可読化および検索フィルター実装
 
 ### 変更の目的

@@ -10,7 +10,8 @@ import {
   MessageSquare,
   Sparkles,
   Send,
-  BookOpen
+  BookOpen,
+  ExternalLink
 } from 'lucide-react';
 import './HelpGuideModal.css';
 
@@ -738,6 +739,17 @@ export const HelpGuideModal: React.FC<HelpGuideModalProps> = ({ isOpen, onClose 
                 <span>操作マニュアル一覧</span>
               </button>
             </div>
+
+            <a
+              href="/release_guide.html"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="help-release-doc-btn"
+              title="改善点や新機能の説明資料（全体ガイド）を別タブで開きます"
+            >
+              <ExternalLink size={13} />
+              <span>リリース説明資料</span>
+            </a>
 
             <button type="button" className="help-modal-close-btn" onClick={onClose} title="閉じる (Esc)">
               <X size={20} />

@@ -139,6 +139,27 @@
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
 }
 
+.help-release-doc-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: var(--primary, #4f46e5);
+  background: rgba(79, 70, 229, 0.08);
+  border: 1px solid rgba(79, 70, 229, 0.2);
+  border-radius: 6px;
+  text-decoration: none;
+  transition: all 0.15s ease;
+}
+
+.help-release-doc-btn:hover {
+  background: rgba(79, 70, 229, 0.15);
+  border-color: var(--primary, #4f46e5);
+  transform: translateY(-1px);
+}
+
 .help-modal-close-btn {
   background: none;
   border: none;
