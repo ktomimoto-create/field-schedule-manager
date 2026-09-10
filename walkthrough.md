@@ -19,9 +19,13 @@
 #### 1. フロントエンドUI・ロジックの修正
 
 ##### [CalendarView.tsx](file:///C:/Users/000644/.gemini/antigravity/scratch/field-schedule-manager/frontend/src/components/CalendarView.tsx)
-* **複数行選択ロジック**:
+* **複数行選択ロジックと二重発火バグの解消**:
   - `selectedScheduleIds` ステートと `lastSelectedScheduleIdRef` を追加。
   - 通常クリック（単一選択）、Ctrl/Cmd+クリック（追加/解除トグル）、Shift+クリック（同日内の範囲選択）に対応した `handleSelectRow` を実装しました。
+  - **[不具合修正] Ctrlクリック時に一瞬選択されて即外れてしまう問題の解消**:
+    - `handleCellMouseDown`（マウスダウン時）と `tr.onClick`（クリック時）の双方で `handleSelectRow` が実行されていたため、Ctrlクリック時に1回の操作で「追加 ➔ 即解除」と2重トグルされて選択が外れてしまっていた競合を特定。
+    - `handleCellMouseDown` からの重複呼び出しを撤廃し、`tr.onClick` に一元化することで安定したトグル選択を実現しました。
+    - また、セル範囲ドラッグ選択時は行選択をスキップするガード、および空行クリック時の選択解除を追加しました。
 * **一括操作ハンドラ**:
   - `handleBulkStatusChange`: 選択した全予定のステータスをまとめて「確定」「仮」「キャンセル」に更新。キャンセル時は区分「未定」および担当者・コースのクリアを自動実行します。
   - `handleBulkDelete`: 選択した全予定の確認ダイアログ付き一括削除を実装しました。
@@ -34,6 +38,7 @@
 
 ##### [CalendarView.css](file:///C:/Users/000644/.gemini/antigravity/scratch/field-schedule-manager/frontend/src/components/CalendarView.css)
 * 複数選択行のハイライト（`.selected-row td`）を追加。
+* カレンダー行（`.parallel-calendar-row`）に `user-select: none;` を追加し、Ctrl/Shift操作時のブラウザテキスト範囲選択との干渉を防止。
 * 画面下部フローティング操作バー（`.bulk-action-floating-bar`）のスタイルとスライドアニメーションを追加。
 * 「別日へ移動」モーダル（`.move-modal-overlay`, `.move-modal-content`）のスタイルを追加。
 

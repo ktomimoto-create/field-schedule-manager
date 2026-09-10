@@ -229,6 +229,7 @@
 /* テーブル行 */
 .parallel-calendar-row {
   border-bottom: 1px solid var(--border-cell);
+  user-select: none;
 }
 
 .parallel-calendar-row:hover {

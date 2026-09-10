@@ -604,18 +604,6 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
 
     setSelectedCell({ id: scheduleId, field });
     setSelectedEmptyCell(null);
-
-    // 行の複数選択（Ctrl / Shift）との連動
-    if (typeof scheduleId === 'number') {
-      const sched = schedules.find(s => s.id === scheduleId);
-      if (sched) {
-        handleSelectRow(e, sched);
-      }
-    } else {
-      setSelectedScheduleId(scheduleId);
-      setSelectedScheduleIds([]);
-      lastSelectedScheduleIdRef.current = null;
-    }
   };
 
   const handleCellMouseEnter = (dateStr: string, rowIndex: number, field: keyof Schedule) => {
@@ -2413,6 +2401,13 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                                   key={rowIndex} 
                                   className={`parallel-calendar-row ${isSelected ? 'selected-row' : ''} ${searchClass}`}
                                   onClick={(e) => {
+                                    // セル範囲ドラッグ選択が行われていた場合は行選択をスキップ
+                                    if (selectionStart && selectionEnd && 
+                                        (selectionStart.dateStr !== selectionEnd.dateStr || 
+                                         selectionStart.rowIndex !== selectionEnd.rowIndex || 
+                                         selectionStart.field !== selectionEnd.field)) {
+                                      return;
+                                    }
                                     handleSelectRow(e, schedule);
                                     setSelectedEmptyCell(null);
                                   }}
@@ -2594,7 +2589,15 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                               );
                             } else {
                               return (
-                                <tr key={rowIndex} className="parallel-calendar-row">
+                                <tr 
+                                  key={rowIndex} 
+                                  className="parallel-calendar-row"
+                                  onClick={() => {
+                                    setSelectedScheduleIds([]);
+                                    setSelectedScheduleId(null);
+                                    setSelectedEmptyCell(null);
+                                  }}
+                                >
                                   <td className={`empty-cell ${isToday ? 'today-td' : ''}`}></td>
                                   <td className={`empty-cell ${isToday ? 'today-td' : ''}`}></td>
                                   <td className={`empty-cell ${isToday ? 'today-td' : ''}`}></td>
