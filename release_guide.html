@@ -684,16 +684,16 @@
         <div class="comparison-card">
           <div class="comparison-header">
             <h3>01. 複数予定の選択と一括操作（確定・仮・キャンセル）</h3>
-            <span class="feature-badge">効率化</span>
+            <span class="feature-badge">操作効率化</span>
           </div>
           <div class="comparison-body">
             <div class="before-box">
-              <span class="box-label before-label">従来（BEFORE）</span>
+              <span class="box-label before-label">従来（スプレッドシート運用）</span>
               <div class="box-content">
-                <h4>1件ずつ手作業で変更</h4>
+                <h4>セルごとの手動色塗り・書式変更</h4>
                 <ul>
-                  <li>雨天順延や急な日程変更時、予定を1行ずつ開いてステータスを書き換える必要があり、作業時間やクリック数がかかっていた。</li>
-                  <li>変更漏れやステータス付け間違いのリスクがあった。</li>
+                  <li>雨天順延や急な日程変更時、スプレッドシート上の対象セルを1件ずつ選択し、塗りつぶし色や文字色、取消線を手作業で変更していた。</li>
+                  <li>変更件数が多いと作業に時間がかかり、色の塗り間違いや設定漏れが発生しやすかった。</li>
                 </ul>
               </div>
             </div>
@@ -702,14 +702,14 @@
               <div class="box-content">
                 <h4>Ctrl / Shiftキーでまとめて一括反映</h4>
                 <ul>
-                  <li>カレンダー上で複数行をCtrl+クリックやShift+クリックで選択可能。</li>
+                  <li>カレンダー上で複数行をCtrl+クリックやShift+クリックでまとめて選択可能。</li>
                   <li>画面下に現れる操作バーから<strong>【一括確定（赤）】【一括仮（黄）】【一括キャンセル（グレー）】</strong>をワンクリックで一括反映。</li>
                 </ul>
               </div>
             </div>
           </div>
           <div class="benefit-banner">
-            効果：複数件の予定ステータス変更をまとめて行えるため、更新作業の手間を大幅に削減します。
+            効果：複数件のステータス変更をまとめて処理でき、手作業による塗り間違いや変更漏れを防止します。
           </div>
         </div>
 
@@ -717,16 +717,16 @@
         <div class="comparison-card">
           <div class="comparison-header">
             <h3>02. キャンセル時の「別日へ移動」（振替・履歴保持）</h3>
-            <span class="feature-badge">ミス防止</span>
+            <span class="feature-badge">履歴保全</span>
           </div>
           <div class="comparison-body">
             <div class="before-box">
-              <span class="box-label before-label">従来（BEFORE）</span>
+              <span class="box-label before-label">従来（スプレッドシート運用）</span>
               <div class="box-content">
-                <h4>手動転記の手間と元の予定の消失</h4>
+                <h4>セルの切り取り移動による過去履歴の消失</h4>
                 <ul>
-                  <li>キャンセルになった予定を別の日付に移す際、物件名や号機、作業内容を手動で再入力・コピーしていた。</li>
-                  <li>元の予定を上書き移動してしまうと、「元々いつ入っていたか」の履歴が消えてしまっていた。</li>
+                  <li>現場が延期・キャンセルになった際、セルを切り取って別の日付セルへ移動するか、メモ欄に手作業で延期先を書き留めていた。</li>
+                  <li>セルを移動してしまうと「元々いつ入っていたか」の履歴が失われ、過去の経緯を追跡するのが困難だった。</li>
                 </ul>
               </div>
             </div>
@@ -735,30 +735,31 @@
               <div class="box-content">
                 <h4>「別日へ移動」で振替予定を自動作成</h4>
                 <ul>
-                  <li>右クリックまたはツールバーから<strong>「別日へ移動」</strong>を選択。</li>
-                  <li>元の予定を【キャンセル】として履歴に残した状態で、指定した別日に同一内容（物件名、号機、種別、時間、作業内容等）の予定を自動生成。</li>
+                  <li>右クリックメニューから<strong>「別日へ移動」</strong>を選択するだけ。</li>
+                  <li>元の予定を【キャンセル】として履歴に残した状態で、指定した別日に同一内容（物件名、号機、種別、時間、作業内容等）の振替予定を自動生成。</li>
                 </ul>
               </div>
             </div>
           </div>
           <div class="benefit-banner">
-            効果：転記ミスを防ぎ、過去のキャンセル履歴と新規振替日程の両方を正確に管理できます。
+            効果：転記ミスを防ぎ、過去のキャンセル経緯と新規振替日程の両方を正確に管理できます。
           </div>
         </div>
 
         <!-- 改善点 3 -->
         <div class="comparison-card">
           <div class="comparison-header">
-            <h3>03. スプレッドシート直貼りインポート＆自動名寄せ</h3>
+            <h3>03. 予定の一括取り込み＆担当者・コースの自動照合（インポート）</h3>
             <span class="feature-badge">入力負荷軽減</span>
           </div>
           <div class="comparison-body">
             <div class="before-box">
-              <span class="box-label before-label">従来（BEFORE）</span>
+              <span class="box-label before-label">従来（スプレッドシート運用）</span>
               <div class="box-content">
-                <h4>対応者のコース・区分を手動で確認・入力</h4>
+                <h4>スタッフ表を見比べながらの手動転記</h4>
                 <ul>
-                  <li>社内スプレッドシートから予定を転記する際、スタッフのコース番号や所属区分（FTS/委託）をスタッフ表で確認して手動入力していた。</li>
+                  <li>案件依頼リストから予定を転記する際、スタッフ表と照らし合わせながら「担当者のコース番号（1〜26/90番台）」や「所属区分（FTS/委託）」を1件ずつ手作業で確認・入力していた。</li>
+                  <li>転記作業に手間がかかり、コース割り振りの入力ミスが起きやすかった。</li>
                 </ul>
               </div>
             </div>
@@ -767,8 +768,8 @@
               <div class="box-content">
                 <h4>貼り付けるだけでコース・区分を自動補完</h4>
                 <ul>
-                  <li>スプレッドシートの表をコピーして「インポート」に貼り付け。</li>
-                  <li>スタッフ名（苗字・フルネーム問わず）からマスタを照合し、<strong>デフォルトコース番号・区分を自動割り振り</strong>して一括登録。</li>
+                  <li>表データをコピーして「インポート」欄に貼り付けるだけ。</li>
+                  <li>スタッフ名から社員マスタを自動照合し、<strong>デフォルトコース番号や所属区分を自動割り振り</strong>して一括登録。</li>
                 </ul>
               </div>
             </div>
@@ -781,48 +782,50 @@
         <!-- 改善点 4 -->
         <div class="comparison-card">
           <div class="comparison-header">
-            <h3>04. 同一担当者の複数予定（同日）の保護</h3>
-            <span class="feature-badge">安定性向上</span>
+            <h3>04. 同一担当者の複数予定（同日複数現場）の管理</h3>
+            <span class="feature-badge">視認性向上</span>
           </div>
           <div class="comparison-body">
             <div class="before-box">
-              <span class="box-label before-label">従来（BEFORE）</span>
+              <span class="box-label before-label">従来（スプレッドシート運用）</span>
               <div class="box-content">
-                <h4>同日複数件の取り込み時の上書き懸念</h4>
+                <h4>セル内改行や行挿入によるレイアウト崩れ</h4>
                 <ul>
-                  <li>同じ日に同じ担当者の現場が複数ある場合、データの取り込み方によって既存の予定が上書きされる懸念があった。</li>
+                  <li>1人のスタッフが同じ日に午前・午後など複数現場を担当する場合、1つのセル内に改行で無理やり書き込むか、行を追加して対応していた。</li>
+                  <li>行の高さが不揃いになって他の人の予定が見づらくなったり、表全体のレイアウトが崩れる原因になっていた。</li>
                 </ul>
               </div>
             </div>
             <div class="after-box">
               <span class="box-label after-label">新システム（AFTER）</span>
               <div class="box-content">
-                <h4>号機番号・物件単位で識別し確実に全件保持</h4>
+                <h4>物件・号機単位で独立した行として管理</h4>
                 <ul>
-                  <li>同一担当者であっても号機番号や物件名で重複を厳密に判定し、同日複数件の予定をそれぞれ独立した行として保持。</li>
+                  <li>同一担当者の同日案件であっても、物件・号機ごとに独立した予定行としてきれいに並んで管理。</li>
+                  <li>カレンダーのレイアウトを崩すことなく、1日2〜3件の掛け持ち現場も視認性高く管理可能。</li>
                 </ul>
               </div>
             </div>
           </div>
           <div class="benefit-banner">
-            効果：同日に複数件を担当する場合でも、それぞれの案件を独立して管理できます。
+            効果：表のレイアウトを崩さず、同日に複数件を担当する場合でも整然とスケジュールを管理できます。
           </div>
         </div>
 
         <!-- 改善点 5 -->
         <div class="comparison-card">
           <div class="comparison-header">
-            <h3>05. 個人用印刷プレビューと使い捨て手書きメモ機能</h3>
-            <span class="feature-badge">実務配慮</span>
+            <h3>05. 個人用の現場持参印刷と一時メモ機能</h3>
+            <span class="feature-badge">現場配慮</span>
           </div>
           <div class="comparison-body">
             <div class="before-box">
-              <span class="box-label before-label">従来（BEFORE）</span>
+              <span class="box-label before-label">従来（スプレッドシート運用）</span>
               <div class="box-content">
-                <h4>共有シートの編集やExcelダウンロードの手間</h4>
+                <h4>共有シートの編集や印刷範囲の個別加工</h4>
                 <ul>
-                  <li>自分の担当分だけ印刷したい場合、共有シートにメモを書き込んで印刷するか、個別にExcelをダウンロードして編集する必要があった。</li>
-                  <li>共有データに個人のメモ書きが残る懸念があった。</li>
+                  <li>現場スタッフが自分の当日の予定だけを紙で持参したい場合、共有シートから自分の行を探して印刷範囲を指定するか、個人でExcelを保存して不要行を削除していた。</li>
+                  <li>「鍵の受取場所」などの個人的な現場メモを共有シートに書き込むと、他の人の画面にも残ってしまうため扱いづらかった。</li>
                 </ul>
               </div>
             </div>
@@ -831,78 +834,80 @@
               <div class="box-content">
                 <h4>共有データに影響を与えずに担当者別A4印刷</h4>
                 <ul>
-                  <li>予定表グリッドの<strong>「印刷プレビュー」</strong>から該当担当者を選択。</li>
-                  <li>注意事項などの<strong>一時メモをその場で追記して印刷</strong>可能（共有データには保存されないため安全）。</li>
+                  <li>予定表グリッドの<strong>「印刷プレビュー」</strong>から該当担当者を選択するだけで専用レイアウトを即時生成。</li>
+                  <li>「持参工具」「鍵情報」などの<strong>一時メモをその場で追記して印刷</strong>可能（共有データには保存されないため安全）。</li>
                 </ul>
               </div>
             </div>
           </div>
           <div class="benefit-banner">
-            効果：個別のExcel編集を行うことなく、現場携帯用の印刷物を迅速に出力できます。
+            効果：個別のファイル加工を行わずに、現場携帯用の印刷物をスムーズに出力できます。
           </div>
         </div>
 
         <!-- 改善点 6 -->
         <div class="comparison-card">
           <div class="comparison-header">
-            <h3>06. Excel出力・印刷時の苗字統一（視認性向上）</h3>
+            <h3>06. 現場が見やすい表示レイアウト（苗字統一・視認性の確保）</h3>
             <span class="feature-badge">視認性向上</span>
           </div>
           <div class="comparison-body">
             <div class="before-box">
-              <span class="box-label before-label">従来（BEFORE）</span>
+              <span class="box-label before-label">従来（スプレッドシート運用）</span>
               <div class="box-content">
-                <h4>文字数によるセル幅不足・文字切れ</h4>
+                <h4>表記ゆれ（フルネーム・苗字）による文字切れ・レイアウト乱れ</h4>
                 <ul>
-                  <li>氏名の文字数によってセル幅が不足し、Excel出力や印刷プレビュー時に文字切れが発生することがあった。</li>
+                  <li>入力者によって「フルネーム」「苗字のみ」「スペースの有無」など表記がバラバラだった。</li>
+                  <li>文字数が多い行でセル幅が足りず文字切れが発生したり、印刷時に列がはみ出して読みにくくなっていた。</li>
                 </ul>
               </div>
             </div>
             <div class="after-box">
               <span class="box-label after-label">新システム（AFTER）</span>
               <div class="box-content">
-                <h4>苗字表示への最適化（getShortName）</h4>
+                <h4>苗字表示への自動最適化</h4>
                 <ul>
-                  <li>システム内部では正確な本名マスタを保持しつつ、Excel出力や一覧画面では<strong>苗字のみ</strong>を自動抽出して表示。</li>
+                  <li>システム内部では正確な社員マスタ情報を保持しつつ、予定表の画面表示やExcel出力、印刷時には<strong>苗字のみ</strong>を自動抽出して統一表示。</li>
+                  <li>セル幅にすっきり収まり、一覧画面や印刷物全体の視認性を常に整った状態に維持。</li>
                 </ul>
               </div>
             </div>
           </div>
           <div class="benefit-banner">
-            効果：印刷時やExcel出力時にもレイアウト崩れを防ぎ、一覧の視認性を向上させます。
+            効果：表記ゆれによるレイアウト崩れを防ぎ、常に視認性の高い予定表を提供します。
           </div>
         </div>
 
         <!-- 改善点 7 -->
         <div class="comparison-card">
           <div class="comparison-header">
-            <h3>07. 操作変更履歴（監査ログ）の可読化・検索機能</h3>
+            <h3>07. 操作変更履歴（監査ログ）による変更経緯の追跡</h3>
             <span class="feature-badge">管理性向上</span>
           </div>
           <div class="comparison-body">
             <div class="before-box">
-              <span class="box-label before-label">従来（BEFORE）</span>
+              <span class="box-label before-label">従来（スプレッドシート運用）</span>
               <div class="box-content">
-                <h4>生データ（JSON形式）による確認負荷</h4>
+                <h4>変更箇所の特定困難・意図しない上書きのリスク</h4>
                 <ul>
-                  <li>更新履歴の内容が生データ（JSON形式）のまま記録されており、変更内容の把握に専門的な確認が必要だった。</li>
+                  <li>「予定がいつの間にか変わっている」「誰がいつキャンセルしたか分からない」といったトラブル時、スプレッドシートのバージョン履歴を手作業で遡る必要があり、原因の特定が非常に困難だった。</li>
+                  <li>複数人が同時編集する際、セルの意図しない上書きや競合が発生する懸念があった。</li>
                 </ul>
               </div>
             </div>
             <div class="after-box">
               <span class="box-label after-label">新システム（AFTER）</span>
               <div class="box-content">
-                <h4>日本時間（JST）・日本語表記・タグ表示</h4>
+                <h4>操作変更ログの自動記録と高速検索</h4>
                 <ul>
-                  <li>「2026/09/10 11:14 (5分前)」のように日本時間で表示。</li>
-                  <li><strong>「【物件名】の予定を更新しました」</strong>といった明確なメッセージと、担当者・作業内容などのバッジ表示により、変更内容を直感的に把握可能。</li>
-                  <li>物件名・担当者・操作種別（登録/変更/削除）による絞り込み検索にも対応。</li>
+                  <li>「いつ・誰が・どの物件をどう変更したか（登録・編集・確定・仮・キャンセル等）」を日本時間で自動記録。</li>
+                  <li><strong>「【物件名】の予定を更新しました」</strong>といった明確なメッセージとバッジで表示され、物件名や担当者名で素早く追跡可能。</li>
                 </ul>
               </div>
             </div>
           </div>
           <div class="benefit-banner">
-            効果：予定の変更経緯やキャンセル理由などを迅速に確認・追跡できます。
+            効果：変更の経緯が明確になり、トラブル時の原因調査や状況把握がスムーズに行えます。
           </div>
         </div>
 
@@ -914,127 +919,130 @@
           </div>
           <div class="comparison-body">
             <div class="before-box">
-              <span class="box-label before-label">従来（BEFORE）</span>
+              <span class="box-label before-label">従来（スプレッドシート運用）</span>
               <div class="box-content">
-                <h4>操作確認時のマニュアル検索・問い合わせ負荷</h4>
+                <h4>運用ルールの属人化と問い合わせ対応の負荷</h4>
                 <ul>
-                  <li>操作方法に迷った際、マニュアルを探すか管理担当者へ個別に問い合わせる必要があった。</li>
+                  <li>入力ルールや運用の変更が担当者の記憶や口頭伝達に依存しがちで、「どこに何を入力すればいいか」の質問が管理者に集中していた。</li>
+                  <li>マニュアルを用意しても現場では見つけにくく、十分に活用されない課題があった。</li>
                 </ul>
               </div>
             </div>
             <div class="after-box">
               <span class="box-label after-label">新システム（AFTER）</span>
               <div class="box-content">
-                <h4>自然文での質問に対応したAIガイド機能</h4>
+                <h4>自然な言葉でいつでも質問できるAIガイド</h4>
                 <ul>
-                  <li>画面右上の<strong>「？ 操作ガイド」</strong>ボタン（またはキーボードの<code>?</code>キー）から起動。</li>
-                  <li>「まとめてキャンセルしたい」「印刷はどうやる？」など日常の言葉で入力すると、該当する操作手順（Step 1, 2, 3...）が即座に案内されます。</li>
+                  <li>画面右上の<strong>「？ 操作ガイド」</strong>ボタンから起動。</li>
+                  <li>「予定を入れるには？」「まとめてキャンセルしたい」など日常の言葉で入力すると、AIが操作手順（Step 1, 2, 3...）を即座に案内。</li>
                 </ul>
               </div>
             </div>
           </div>
           <div class="benefit-banner">
-            効果：画面上で操作方法をスムーズに確認でき、利用者の自己解決をサポートします。
+            効果：管理者への問い合わせ負担を減らし、各スタッフがスムーズに操作を習得できます。
           </div>
         </div>
 
         <!-- 改善点 9 -->
         <div class="comparison-card">
           <div class="comparison-header">
-            <h3>09. ステータスカラーとボタン配色の統一</h3>
+            <h3>09. ステータスカラー（確定・仮・キャンセル・フリー）のルール統一</h3>
             <span class="feature-badge">視認性向上</span>
           </div>
           <div class="comparison-body">
             <div class="before-box">
-              <span class="box-label before-label">従来（BEFORE）</span>
+              <span class="box-label before-label">従来（スプレッドシート運用）</span>
               <div class="box-content">
-                <h4>表示色と操作ボタンの対応関係のばらつき</h4>
+                <h4>手動の色塗りによる配色のばらつき・設定漏れ</h4>
                 <ul>
-                  <li>予定表の色分けと操作ボタンの色合いが一部異なっており、操作時の視覚的な対応関係が分かりにくい場合があった。</li>
+                  <li>「確定は赤、仮は黄色」などの運用ルールがあっても、各自がカラーパレットから手動でセルを塗りつぶしていたため、微妙に異なる色が使われたり塗り忘れが発生していた。</li>
+                  <li>キャンセル案件の扱い（行削除か打消線か）も人によってばらつきがあった。</li>
                 </ul>
               </div>
             </div>
             <div class="after-box">
               <span class="box-label after-label">新システム（AFTER）</span>
               <div class="box-content">
-                <h4>統一されたステータス配色</h4>
+                <h4>システムによる配色ルールの自動徹底</h4>
                 <ul>
                   <li><strong>確定 ＝ 赤（#ef4444）</strong></li>
                   <li><strong>仮 ＝ 黄（#eab308）</strong></li>
                   <li><strong>キャンセル ＝ グレー（#64748b・打消線）</strong></li>
                   <li><strong>フリー ＝ 青</strong></li>
-                  <li>カレンダーの行色、操作ボタン、監査ログのバッジで色定義を統一。</li>
+                  <li>ステータスを選択するだけで行全体やバッジに正しい配色が自動適用され、手動の色塗りが一切不要。</li>
                 </ul>
               </div>
             </div>
           </div>
           <div class="benefit-banner">
-            効果：画面上の配色ルールが共通化され、現在のステータスを迷わず把握できます。
+            効果：誰が見ても一目で現場の状況（確定／仮／キャンセル）が正しく伝わります。
           </div>
         </div>
 
         <!-- 改善点 10 -->
         <div class="comparison-card">
           <div class="comparison-header">
-            <h3>10. 休職・外注スタッフの安全な表示制御（is_active）</h3>
+            <h3>10. 休職・退職スタッフの表示制御（稼働メンバーの管理）</h3>
             <span class="feature-badge">データ保全</span>
           </div>
           <div class="comparison-body">
             <div class="before-box">
-              <span class="box-label before-label">従来（BEFORE）</span>
+              <span class="box-label before-label">従来（スプレッドシート運用）</span>
               <div class="box-content">
-                <h4>マスタ変更による過去データへの影響</h4>
+                <h4>スタッフ増減時の手動メンテナンスと過去データへの影響</h4>
                 <ul>
-                  <li>休職者や退職者のマスタを削除すると過去の履歴に影響し、残したままでは新規アサイン時の選択肢が多くなる課題があった。</li>
+                  <li>スタッフの休職や退職があった際、スプレッドシート上の行を削除すると過去月の集計や実績データが崩れてしまうため、非表示にしたり別シートへ移すなど手動のメンテナンスが必要だった。</li>
+                  <li>名簿に残したままだと、新しい予定を入れる際に候補が多くなり選択ミスが起きやすかった。</li>
                 </ul>
               </div>
             </div>
             <div class="after-box">
               <span class="box-label after-label">新システム（AFTER）</span>
               <div class="box-content">
-                <h4>過去実績を保持したまま新規選択肢から除外</h4>
+                <h4>ワンクリックでの稼働状態切り替えと過去実績保護</h4>
                 <ul>
-                  <li>マスタ管理画面で「有効 / 無効」を切り替え可能。</li>
-                  <li>無効に設定した場合、空き枠や新規選択プルダウンには表示されず、<strong>過去の登録済みデータには担当者名がそのまま保持</strong>されます。</li>
+                  <li>マスタ管理画面で「有効 / 無効」を切り替えるだけで、過去の予定表データや実績記録はそのまま保護。</li>
+                  <li>現在の予定表の空き枠や新規選択プルダウンからは自動で非表示となり、常に現在の稼働メンバーのみで運用可能。</li>
                 </ul>
               </div>
             </div>
           </div>
           <div class="benefit-banner">
-            効果：過去の業務実績データを正確に維持しながら、現在の稼働メンバーに応じた表示に保てます。
+            効果：過去の現場実績データを正確に維持しながら、最新の稼働体制に合わせてスムーズに運用できます。
           </div>
         </div>
 
         <!-- 改善点 11 -->
         <div class="comparison-card">
           <div class="comparison-header">
-            <h3>11. スタッフ連携元の対象部署を「エンジニアリング事業部」に限定</h3>
+            <h3>11. 社員マスタ（エンジニアリング事業部）との連携・登録支援</h3>
             <span class="feature-badge">連携精度向上</span>
           </div>
           <div class="comparison-body">
             <div class="before-box">
-              <span class="box-label before-label">従来（BEFORE）</span>
+              <span class="box-label before-label">従来（スプレッドシート運用）</span>
               <div class="box-content">
-                <h4>全社プロフィール混在と手動登録の負担</h4>
+                <h4>社員名簿を見ながらの手動入力・転記作業</h4>
                 <ul>
-                  <li>他部署（営業部、FRESHROOM、総務人事など）の社員データが同期対象に含まれると、同姓異人の誤マッチやノイズが発生する懸念があった。</li>
-                  <li>新しいスタッフを登録する際も、社員番号やメールアドレスを手動で調べて入力する必要があった。</li>
+                  <li>新しいスタッフが現場に加わった際、会社の社員名簿から氏名、メールアドレス、社員番号を調べてスプレッドシートへ1項目ずつ手入力していた。</li>
+                  <li>手入力による入力ミスや名簿との不一致が発生しやすく、顔写真（アバター）などの視覚情報も扱えなかった。</li>
                 </ul>
               </div>
             </div>
             <div class="after-box">
               <span class="box-label after-label">新システム（AFTER）</span>
               <div class="box-content">
-                <h4>エンジニアリング事業部マスタからの自動入力</h4>
+                <h4>エンジニアリング事業部マスタからの自動補完</h4>
                 <ul>
-                  <li>引っ張り元の部署を<strong>「エンジニアリング事業部（Employee Master）」</strong>に限定。他部署のデータ混入を防止。</li>
-                  <li>マスタ管理画面の新規登録フォームに<strong>「エンジニアリング事業部の社員から自動入力」</strong>プルダウンを新設。社員を選ぶだけで氏名・メール・社員番号が自動セット。</li>
+                  <li>社員マスタから「エンジニアリング事業部」の在籍者を自動連携。</li>
+                  <li>マスタ管理画面の新規登録フォームで社員を選ぶだけで、氏名・メールアドレス・社員番号が自動セット。アバター画像も自動で同期。</li>
                 </ul>
               </div>
             </div>
           </div>
           <div class="benefit-banner">
-            効果：エンジニアリング事業部の在籍データと整合性を保ち、入力作業の負担と誤入力を低減します。
+            効果：スタッフ登録の入力負担とミスをなくし、事業部メンバーの最新情報と常に整合します。
           </div>
         </div>
 
