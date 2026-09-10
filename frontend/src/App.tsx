@@ -7,7 +7,8 @@ import { MasterManagementView } from './components/MasterManagementView';
 import { AnalyticsView } from './components/AnalyticsView';
 import { ScheduleModal } from './components/ScheduleModal';
 import { PasteImportModal } from './components/PasteImportModal';
-import { Calendar, Layers, RefreshCw, AlertCircle, List, Sliders, Sun, Moon, BarChart3 } from 'lucide-react';
+import { HelpGuideModal } from './components/HelpGuideModal';
+import { Calendar, Layers, RefreshCw, AlertCircle, List, Sliders, Sun, Moon, BarChart3, HelpCircle } from 'lucide-react';
 import { supabase, talkScriptSupabase } from './supabaseClient';
 import { resolveAddress } from './utils/addressResolver';
 import { findStaffByName } from './types';
@@ -42,6 +43,27 @@ function App() {
   const [user, setUser] = useState<any>(null);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [currentUserRole, setCurrentUserRole] = useState<'admin' | 'user'>('user');
+  const [isHelpGuideOpen, setIsHelpGuideOpen] = useState(false);
+
+  // グローバルショートカットキー: 「?」キーで操作ガイド・ヘルプを開閉
+  useEffect(() => {
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      // 入力フォームにフォーカス中はスキップ
+      if (
+        e.target instanceof HTMLInputElement ||
+        e.target instanceof HTMLSelectElement ||
+        e.target instanceof HTMLTextAreaElement
+      ) {
+        return;
+      }
+      if (e.key === '?' || (e.shiftKey && e.key === '/')) {
+        e.preventDefault();
+        setIsHelpGuideOpen(prev => !prev);
+      }
+    };
+    window.addEventListener('keydown', handleGlobalKeyDown);
+    return () => window.removeEventListener('keydown', handleGlobalKeyDown);
+  }, []);
   const [currentStaffId, setCurrentStaffId] = useState<number | null>(null);
 
   // ユーザーとスタッフマスタの突合でロール・IDを自動決定
@@ -761,6 +783,15 @@ function App() {
               <button className="btn btn-secondary" onClick={() => fetchData(false)} title="データを更新">
                 <RefreshCw size={16} />
               </button>
+              <button 
+                className="btn btn-secondary header-help-btn" 
+                onClick={() => setIsHelpGuideOpen(true)} 
+                title="操作ガイド・よくある質問（ショートカット: ?）"
+              >
+                <HelpCircle size={16} />
+                <span>操作ガイド</span>
+                <span className="help-shortcut-badge">?</span>
+              </button>
 
 
               {/* アカウント表示エリア */}
@@ -892,6 +923,11 @@ function App() {
             onImportSuccess={() => fetchData(false)}
             staff={staff}
             userEmail={user?.email || 'system'}
+          />
+
+          <HelpGuideModal
+            isOpen={isHelpGuideOpen}
+            onClose={() => setIsHelpGuideOpen(false)}
           />
 
 

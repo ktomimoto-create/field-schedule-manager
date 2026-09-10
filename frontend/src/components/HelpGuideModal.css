@@ -1,0 +1,511 @@
+/* 操作ガイド・ヘルプモーダルスタイル */
+
+.help-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(15, 23, 42, 0.65);
+  backdrop-filter: blur(5px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 12000;
+  animation: helpFadeIn 0.15s ease;
+}
+
+@keyframes helpFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.help-modal-content {
+  background-color: var(--bg-card, #ffffff);
+  border-radius: 14px;
+  width: 820px;
+  max-width: 94vw;
+  height: 85vh;
+  max-height: 850px;
+  box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.4);
+  border: 1px solid var(--border-color, #e2e8f0);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: helpScaleUp 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes helpScaleUp {
+  from {
+    transform: scale(0.96);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+/* ヘッダー */
+.help-modal-header {
+  padding: 16px 24px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid var(--border-color, #e2e8f0);
+  background: var(--bg-header, #f8fafc);
+  flex-shrink: 0;
+}
+
+.help-header-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.help-header-icon {
+  color: var(--primary, #4f46e5);
+  flex-shrink: 0;
+}
+
+.help-header-title h3 {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--text-primary, #0f172a);
+}
+
+.help-header-sub {
+  margin: 2px 0 0 0;
+  font-size: 0.78rem;
+  color: var(--text-secondary, #64748b);
+}
+
+.help-modal-close-btn {
+  background: none;
+  border: none;
+  color: var(--text-secondary, #64748b);
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.help-modal-close-btn:hover {
+  background-color: rgba(0, 0, 0, 0.06);
+  color: var(--text-primary, #0f172a);
+}
+
+/* 検索＆カテゴリセクション */
+.help-search-section {
+  padding: 14px 24px 10px 24px;
+  border-bottom: 1px solid var(--border-color, #e2e8f0);
+  background-color: var(--bg-card, #ffffff);
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.help-search-box {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.help-search-icon {
+  position: absolute;
+  left: 12px;
+  color: var(--text-secondary, #94a3b8);
+  pointer-events: none;
+}
+
+.help-search-input {
+  width: 100%;
+  padding: 10px 38px 10px 38px;
+  font-size: 0.92rem;
+  border-radius: 8px;
+  border: 1px solid var(--border-color, #cbd5e1);
+  background-color: var(--bg-input, #f8fafc);
+  color: var(--text-primary, #0f172a);
+  outline: none;
+  transition: all 0.15s ease;
+}
+
+.help-search-input:focus {
+  border-color: var(--primary, #4f46e5);
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15);
+  background-color: var(--bg-card, #ffffff);
+}
+
+.help-search-clear {
+  position: absolute;
+  right: 10px;
+  background: none;
+  border: none;
+  color: var(--text-secondary, #94a3b8);
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+}
+.help-search-clear:hover {
+  background-color: rgba(0, 0, 0, 0.08);
+  color: var(--text-primary, #0f172a);
+}
+
+/* カテゴリタブ */
+.help-category-tabs {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+
+.help-cat-btn {
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 0.76rem;
+  font-weight: 600;
+  border: 1px solid var(--border-color, #e2e8f0);
+  background-color: var(--bg-secondary, #f1f5f9);
+  color: var(--text-secondary, #64748b);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.12s ease;
+}
+
+.help-cat-btn:hover {
+  background-color: rgba(79, 70, 229, 0.08);
+  color: var(--primary, #4f46e5);
+  border-color: rgba(79, 70, 229, 0.3);
+}
+
+.help-cat-btn.active {
+  background-color: var(--primary, #4f46e5);
+  color: #ffffff;
+  border-color: var(--primary, #4f46e5);
+  box-shadow: 0 2px 4px rgba(79, 70, 229, 0.25);
+}
+
+/* ボディ（スクロールエリア） */
+.help-modal-body {
+  padding: 16px 24px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.help-results-info {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  font-size: 0.8rem;
+  color: var(--text-secondary, #64748b);
+}
+
+.help-search-query-tag {
+  background-color: rgba(234, 179, 8, 0.15);
+  color: #b45309;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-weight: 600;
+}
+
+/* 検索結果ゼロ */
+.help-no-results {
+  text-align: center;
+  padding: 48px 20px;
+}
+.help-no-results-icon {
+  color: var(--text-muted, #94a3b8);
+  margin-bottom: 12px;
+}
+.help-no-results-text {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text-primary, #0f172a);
+  margin: 0 0 6px 0;
+}
+.help-no-results-sub {
+  font-size: 0.82rem;
+  color: var(--text-secondary, #64748b);
+  margin: 0;
+}
+
+/* アコーディオンリスト */
+.help-accordion-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.help-accordion-item {
+  border: 1px solid var(--border-color, #e2e8f0);
+  border-radius: 10px;
+  background-color: var(--bg-card, #ffffff);
+  overflow: hidden;
+  transition: all 0.15s ease;
+}
+
+.help-accordion-item:hover {
+  border-color: rgba(79, 70, 229, 0.35);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.help-accordion-item.is-open {
+  border-color: var(--primary, #4f46e5);
+  box-shadow: 0 4px 14px rgba(79, 70, 229, 0.08);
+}
+
+.help-item-header {
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  user-select: none;
+  background-color: var(--bg-card, #ffffff);
+}
+
+.help-item-header:hover {
+  background-color: var(--bg-card-hover, #f8fafc);
+}
+
+.help-item-title-col {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+}
+
+.help-item-badges {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.help-badge-category {
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 1px 7px;
+  border-radius: 10px;
+  background-color: rgba(79, 70, 229, 0.1);
+  color: var(--primary, #4f46e5);
+}
+
+.help-badge-screen {
+  font-size: 0.68rem;
+  font-weight: 600;
+  padding: 1px 7px;
+  border-radius: 10px;
+  background-color: var(--bg-secondary, #f1f5f9);
+  color: var(--text-secondary, #64748b);
+}
+
+.help-item-title {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text-primary, #0f172a);
+  line-height: 1.4;
+}
+
+.help-item-arrow {
+  color: var(--text-secondary, #94a3b8);
+  margin-left: 12px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+}
+
+/* アコーディオン展開コンテンツ */
+.help-item-content {
+  padding: 0 16px 16px 16px;
+  border-top: 1px solid var(--border-color, #f1f5f9);
+  background-color: var(--bg-card, #ffffff);
+  animation: helpSlideDown 0.15s ease;
+}
+
+@keyframes helpSlideDown {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.help-item-summary {
+  margin: 12px 0;
+  font-size: 0.85rem;
+  color: var(--text-primary, #334155);
+  line-height: 1.5;
+  background-color: var(--bg-secondary, #f8fafc);
+  padding: 8px 12px;
+  border-radius: 6px;
+  border-left: 3px solid var(--primary, #4f46e5);
+}
+
+/* 操作ステップ */
+.help-steps-container {
+  margin-top: 12px;
+}
+
+.help-steps-heading {
+  margin: 0 0 8px 0;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--text-primary, #0f172a);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.help-steps-icon {
+  color: #16a34a;
+}
+
+.help-steps-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.help-steps-list li {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 0.82rem;
+  color: var(--text-primary, #1e293b);
+  line-height: 1.5;
+}
+
+.help-step-number {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background-color: var(--primary, #4f46e5);
+  color: #ffffff;
+  font-size: 0.72rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.help-step-text {
+  flex: 1;
+}
+
+/* Tipsボックス */
+.help-tips-box {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background-color: rgba(234, 179, 8, 0.08);
+  border: 1px solid rgba(234, 179, 8, 0.25);
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.help-tips-icon {
+  color: #d97706;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.help-tips-text {
+  font-size: 0.78rem;
+  color: #92400e;
+  line-height: 1.4;
+}
+
+.help-tips-text strong {
+  display: block;
+  margin-bottom: 2px;
+}
+
+.help-tips-text p {
+  margin: 0;
+}
+
+/* 関連キーワード */
+.help-keywords-box {
+  margin-top: 12px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  font-size: 0.72rem;
+}
+
+.help-keywords-label {
+  color: var(--text-secondary, #94a3b8);
+  font-weight: 600;
+}
+
+.help-kw-tag {
+  color: var(--primary, #4f46e5);
+  background-color: rgba(79, 70, 229, 0.06);
+  padding: 2px 6px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.12s ease;
+}
+
+.help-kw-tag:hover {
+  background-color: var(--primary, #4f46e5);
+  color: #ffffff;
+}
+
+/* フッター */
+.help-modal-footer {
+  padding: 12px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-top: 1px solid var(--border-color, #e2e8f0);
+  background: var(--bg-header, #f8fafc);
+  flex-shrink: 0;
+}
+
+.help-footer-hint {
+  font-size: 0.74rem;
+  color: var(--text-secondary, #64748b);
+}
+
+.help-footer-hint strong {
+  background-color: var(--bg-secondary, #e2e8f0);
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-family: monospace;
+}
+
+/* ヘッダー操作ボタンのスタイル */
+.header-help-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-weight: 600;
+  font-size: 0.8rem;
+  padding: 6px 12px;
+  border-radius: 6px;
+}
+
+.header-help-btn .help-shortcut-badge {
+  background: rgba(0, 0, 0, 0.1);
+  font-size: 0.68rem;
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-family: monospace;
+}
