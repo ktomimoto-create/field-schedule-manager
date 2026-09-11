@@ -797,19 +797,38 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
     try {
       const targetSchedules = schedules.filter(s => targetMoveScheduleIds.includes(Number(s.id)));
       
+      const [destY, destM, destD] = destinationDate.split('-').map(Number);
+      
       for (const sched of targetSchedules) {
         if (keepAsCancelled) {
-          // 1. 元の予定をキャンセルとして更新
+          // 移動先の日付表記 (例: 9/15へ移動、年が異なる場合は 2027/1/15へ移動)
+          const schedY = sched.date ? Number(sched.date.split('-')[0]) : destY;
+          const formattedDestDate = destY !== schedY
+            ? `${destY}/${destM}/${destD}へ移動`
+            : `${destM}/${destD}へ移動`;
+
+          const originalNotes = (sched.notes || '').trim();
+          // 既存の「〇/〇へ移動」表記を除去してクリーンな備考を抽出
+          const cleanNotes = originalNotes
+            .replace(/^(\d{4}\/)?\d{1,2}\/\d{1,2}へ移動(?:\s*\/\s*|\s+)?/, '')
+            .trim();
+
+          const updatedCancelledNotes = cleanNotes
+            ? `${formattedDestDate} / ${cleanNotes}`
+            : formattedDestDate;
+
+          // 1. 元の予定をキャンセルとして更新（備考に移動先を明記）
           await onSave({
             id: sched.id,
             status: 'cancelled',
             division: '未定',
             staff_id: null,
             staff_name: '',
-            course: ''
+            course: '',
+            notes: updatedCancelledNotes
           });
 
-          // 2. 新しい日付に同じ内容で新規作成
+          // 2. 新しい日付に同じ内容で新規作成（備考は元の内容を引き継ぎ）
           await onSave({
             status: 'free',
             date: destinationDate,
@@ -829,6 +848,10 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
             request_number: sched.request_number,
             course: sched.course,
             division: sched.division,
+            notes: cleanNotes || null,
+            disorder_type: sched.disorder_type,
+            level: sched.level,
+            level_3: sched.level_3,
             is_transferred: 0
           });
         } else {
@@ -2989,7 +3012,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                     </span>
                     <p style={{ margin: '4px 0 0 0', fontSize: '0.78rem', color: 'var(--text-secondary)', lineHeight: '1.4' }}>
                       {keepAsCancelled
-                        ? '※ 元の予定はステータス「キャンセル」となり履歴が残ります。移動先の日付に同一内容の新しい予定（フリー状態）が作成されます。'
+                        ? '※ 元の予定はステータス「キャンセル」となり、備考欄に「〇/〇へ移動」が自動記録されます。移動先の日付に同一内容の新しい予定（フリー状態）が作成されます。'
                         : '※ 元の予定の日付が直接変更されます（履歴は残りません）。'}
                     </p>
                   </div>
