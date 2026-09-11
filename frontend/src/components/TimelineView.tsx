@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import type { Schedule, Staff } from '../types';
-import { getShortName } from '../types';
+import type { Schedule, Staff, UserRole } from '../types';
+import { getShortName, canManageSchedules } from '../types';
 
 import { Calendar, Clock, MapPin, ChevronLeft, ChevronRight, GripVertical, ChevronUp, ChevronDown, Check } from 'lucide-react';
 import { ReportModal } from './ReportModal';
@@ -10,7 +10,7 @@ interface TimelineViewProps {
   schedules: Schedule[];
   staff: Staff[];
   onOpenEditModal: (schedule: Schedule) => void;
-  currentUserRole: 'admin' | 'user';
+  currentUserRole: UserRole;
   currentStaffId: number | null;
   onUpdateResult: (
     scheduleId: number | string, 
@@ -259,7 +259,7 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
                   memberSchedules.map((schedule, idx) => {
                     const isCompleted = schedule.result === '完了';
                     const isMySchedule = schedule.staff_id === currentStaffId;
-                    const canEdit = currentUserRole === 'admin' || isMySchedule;
+                    const canEdit = canManageSchedules(currentUserRole) || isMySchedule;
 
                     return (
                       <div
@@ -306,7 +306,7 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
                         <div 
                           className="card-main-info" 
                           onClick={() => {
-                            if (currentUserRole === 'admin') {
+                            if (canManageSchedules(currentUserRole)) {
                               onOpenEditModal(schedule);
                             } else if (isMySchedule) {
                               setReportSchedule(schedule);

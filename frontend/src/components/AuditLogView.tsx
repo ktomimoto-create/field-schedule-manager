@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import type { AuditLog, Staff } from '../types';
+import type { AuditLog, Staff, UserRole } from '../types';
 import { 
   Clock, 
   PlusCircle, 
@@ -28,7 +28,7 @@ import { supabase } from '../supabaseClient';
 import './AuditLogView.css';
 
 interface AuditLogViewProps {
-  currentUserRole: 'admin' | 'user';
+  currentUserRole: UserRole;
   staff?: Staff[];
 }
 
@@ -555,7 +555,7 @@ export const AuditLogView: React.FC<AuditLogViewProps> = ({ currentUserRole, sta
       <div className="audit-restricted-card card">
         <ShieldAlert size={48} className="restricted-icon" />
         <h3>アクセス権限がありません</h3>
-        <p>変更履歴の閲覧は管理者ユーザーに制限されています。</p>
+        <p>変更履歴の閲覧は開発者に制限されています。</p>
       </div>
     );
   }
