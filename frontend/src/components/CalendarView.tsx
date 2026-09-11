@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
 import type { Schedule, Staff, WorkType } from '../types';
 import { getShortName, findStaffByName, toHalfWidth, splitCoWorkers } from '../types';
+import { buildFcAutofillPatch } from '../utils/fcAutofill';
 
 import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Edit2, Plus, Search } from 'lucide-react';
 import './CalendarView.css';
@@ -905,7 +906,13 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
         is_transferred: 0,
         [field]: value
       };
-      
+
+      // 依頼番号セルへの入力は FC 同期データから未入力項目を補完する
+      if (field === 'request_number') {
+        const patch = await buildFcAutofillPatch(value, payload);
+        if (patch) Object.assign(payload, patch);
+      }
+
       try {
         await onSave(payload);
       } catch (err) {
@@ -976,7 +983,14 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
         [field]: finalValue,
         ...extraFields
       };
-      
+
+      // 依頼番号セルへの入力は FC 同期データから未入力項目を補完する
+      if (field === 'request_number') {
+        const original = schedules.find(s => s.id === Number(scheduleId));
+        const patch = await buildFcAutofillPatch(finalValue, original || {});
+        if (patch) Object.assign(payload, patch);
+      }
+
       try {
         await onSave(payload);
       } catch (err) {
