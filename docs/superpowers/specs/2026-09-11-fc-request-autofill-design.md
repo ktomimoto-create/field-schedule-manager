@@ -72,7 +72,11 @@ CREATE TABLE fc_requests (
 
 ### 同期スクリプト `scripts/sync_fc_requests.py`
 
-- ユーザーPC（社内ネット）で動く Python 標準ライブラリのみのスクリプト。
+- 社内ネットの PC で動く Python 標準ライブラリのみのスクリプト。
+  **k_ueda と富本さんの2台に設置**し、どちらか一方が起動していれば同期が続く冗長構成とする
+  （upsert は refno キーで冪等のため、2台同時実行しても衝突しない）。
+  各自の PC に各自の FC 資格情報を設定する。富本さん向けのセットアップ手順を
+  `scripts/SETUP_SYNC.md` としてリポジトリに含める。
 - ログイン: `POST /fc/main/login.php`（`txt_LoginID` / `txt_PassWord`、cp932、CookieJar）。
   `Daily exclusive possession/tools/fc_taio_plan.py` の実績方式を踏襲。
   資格情報は環境変数 `FC_USER` / `FC_PASS`（リポジトリには置かない）。
@@ -121,6 +125,7 @@ CREATE TABLE fc_requests (
 
 - 同期間隔（5分）の隙間に起票された依頼は引けない → 号機手入力フォールバックで対応。
   必要なら `sync_fc_requests.bat` を叩けば即反映。
-- 同期スクリプトが動くのは k_ueda の PC のみ（FC 資格情報を持つ PC）。PC が落ちている間は同期が止まる。
+- 同期スクリプトは k_ueda・富本さんの2台で運用。両方の PC が落ちている間は同期が止まる
+  （その間の起票分も、次にどちらかが起動して同期が走れば直近3日レンジで拾われる）。
 - addressResolver は関東近郊の県のみ対応。関西等の物件はエリア・県別が空欄になる（現行仕様どおり）。
 - 依頼番号の桁ゆれ（10桁デモ値など）は完全一致のみで照合し、正規化はしない。
