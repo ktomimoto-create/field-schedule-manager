@@ -1,9 +1,16 @@
-// アクセス権限の3段階: user=現地対応者(閲覧+自分の予定の結果報告) / manager=予定管理者(配車・予定編集) / admin=開発者(全機能)
-export type UserRole = 'user' | 'manager' | 'admin';
+// アクセス権限の3段階: staff=現地対応者(閲覧+自分の予定の結果報告) / manager=予定管理者(配車・予定編集) / developer=開発者(全機能)
+export type UserRole = 'staff' | 'manager' | 'developer';
+
+// DB の role 文字列を UserRole に正規化（旧値 admin/user もマッピング）
+export const normalizeRole = (role: string | null | undefined): UserRole => {
+  if (role === 'developer' || role === 'admin') return 'developer';
+  if (role === 'manager') return 'manager';
+  return 'staff';
+};
 
 // 予定の追加・編集・配車操作が可能か（予定管理者以上）
 export const canManageSchedules = (role: UserRole): boolean =>
-  role === 'admin' || role === 'manager';
+  role === 'developer' || role === 'manager';
 
 export interface Staff {
   id: number;

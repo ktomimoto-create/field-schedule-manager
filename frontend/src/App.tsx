@@ -11,7 +11,7 @@ import { HelpGuideModal } from './components/HelpGuideModal';
 import { Calendar, Layers, RefreshCw, AlertCircle, List, Sliders, Sun, Moon, BarChart3, HelpCircle } from 'lucide-react';
 import { supabase, talkScriptSupabase } from './supabaseClient';
 import { resolveAddress } from './utils/addressResolver';
-import { findStaffByName, canManageSchedules } from './types';
+import { findStaffByName, canManageSchedules, normalizeRole } from './types';
 import './App.css';
 
 
@@ -45,7 +45,7 @@ function App() {
 
   const [user, setUser] = useState<any>(null);
   const [showUserMenu, setShowUserMenu] = useState(false);
-  const [currentUserRole, setCurrentUserRole] = useState<UserRole>('user');
+  const [currentUserRole, setCurrentUserRole] = useState<UserRole>('staff');
   const [isHelpGuideOpen, setIsHelpGuideOpen] = useState(false);
 
   // グローバルショートカットキー: 「?」キーで操作ガイド・ヘルプを開閉
@@ -73,7 +73,7 @@ function App() {
   useEffect(() => {
     if (user && staff.length > 0) {
       if (user.id === 'demo-admin-id') {
-        setCurrentUserRole('admin');
+        setCurrentUserRole('developer');
         setCurrentStaffId(8); // 佐藤さん (管理者)
         return;
       }
@@ -83,30 +83,28 @@ function App() {
         return;
       }
       if (user.id === 'demo-user-id') {
-        setCurrentUserRole('user');
+        setCurrentUserRole('staff');
         setCurrentStaffId(4); // 神崎さん (一般ユーザー)
         return;
       }
 
       const matched = staff.find(s => s.email === user.email);
       if (matched) {
-        setCurrentUserRole(
-          matched.role === 'admin' ? 'admin' : matched.role === 'manager' ? 'manager' : 'user'
-        );
+        setCurrentUserRole(normalizeRole(matched.role));
         setCurrentStaffId(matched.id);
       } else {
-        setCurrentUserRole('user');
+        setCurrentUserRole('staff');
         setCurrentStaffId(null);
       }
     } else {
-      setCurrentUserRole('user');
+      setCurrentUserRole('staff');
       setCurrentStaffId(null);
     }
   }, [user, staff]);
 
   useEffect(() => {
     if (
-      (currentUserRole !== 'admin' && activeTab === 'master_management') ||
+      (currentUserRole !== 'developer' && activeTab === 'master_management') ||
       (!canManageSchedules(currentUserRole) && (activeTab === 'calendar' || activeTab === 'analytics'))
     ) {
       setActiveTab('grid');
@@ -754,7 +752,7 @@ function App() {
             <div className="logo-section">
               <h1>現地対応予定・行動管理システム</h1>
               <span className="badge badge-dev">
-                {currentUserRole === 'admin' ? '開発者環境' : currentUserRole === 'manager' ? '予定管理者環境' : '一般作業者環境'}
+                {currentUserRole === 'developer' ? '開発者環境' : currentUserRole === 'manager' ? '予定管理者環境' : '一般作業者環境'}
               </span>
             </div>
 
@@ -794,7 +792,7 @@ function App() {
                   <BarChart3 size={16} />
                 </button>
               )}
-              {currentUserRole === 'admin' && (
+              {currentUserRole === 'developer' && (
                 <button
                   className={`btn ${activeTab === 'master_management' ? 'btn-primary' : 'btn-secondary'}`}
                   onClick={() => setActiveTab('master_management')}
@@ -854,7 +852,7 @@ function App() {
                       <div className="user-menu-info">
                         <p className="user-menu-name">{user.user_metadata?.full_name || 'ユーザー'}</p>
                         <p className="user-menu-email">{user.email}</p>
-                        <p className="user-menu-role">権限: {currentUserRole === 'admin' ? '開発者' : currentUserRole === 'manager' ? '予定管理者' : '一般作業者'}</p>
+                        <p className="user-menu-role">権限: {currentUserRole === 'developer' ? '開発者' : currentUserRole === 'manager' ? '予定管理者' : '一般作業者'}</p>
                       </div>
                       <div className="user-menu-divider"></div>
                       <button className="user-menu-item logout-btn" onClick={handleLogout}>
@@ -925,7 +923,7 @@ function App() {
                     onOpenPasteImportModal={() => setIsImportOpen(true)}
                   />
                 )}
-                {currentUserRole === 'admin' && activeTab === 'master_management' && (
+                {currentUserRole === 'developer' && activeTab === 'master_management' && (
                   <MasterManagementView
                     currentUserRole={currentUserRole}
                     staff={staff}
