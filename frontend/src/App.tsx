@@ -23,6 +23,9 @@ function App() {
   });
   const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [staff, setStaff] = useState<Staff[]>([]);
+  // ログインユーザーのアバター表示用: talkscript-flow profiles のメール→avatar_url 対応表
+  // （Azure ログインの user_metadata には写真URLが入らず、staff 未登録の管理側ユーザーもいるため）
+  const [profileAvatarByEmail, setProfileAvatarByEmail] = useState<Record<string, string>>({});
   const [workTypes, setWorkTypes] = useState<WorkType[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -323,6 +326,7 @@ function App() {
           }
         });
       }
+      setProfileAvatarByEmail(Object.fromEntries(profilesMapByEmail));
 
       // PostgreSQLの予定データを型変換して格納
       const schedulesData: Schedule[] = (schedulesRes.data || []).map((s: any) => ({
@@ -798,19 +802,29 @@ function App() {
 
 
               {/* アカウント表示エリア */}
+              {/* Azure (Entra ID) ログインは user_metadata に写真URLを返さないため、
+                  スタッフ一覧と同じく talkscript-flow profiles 由来の avatar_url にメールで突合する */}
               <div className="user-profile-section">
                 <div className="user-profile-trigger" onClick={() => setShowUserMenu(!showUserMenu)}>
-                  {user.user_metadata?.avatar_url || user.user_metadata?.picture ? (
-                    <img 
-                      src={user.user_metadata.avatar_url || user.user_metadata.picture} 
-                      alt={user.user_metadata?.full_name || 'User'} 
+                  {(() => {
+                    const loginEmail = (user.email || '').toLowerCase().trim();
+                    const matchedProfileAvatar = loginEmail
+                      ? profileAvatarByEmail[loginEmail] ||
+                        staff.find(s => s.email && s.email.toLowerCase().trim() === loginEmail)?.avatar_url
+                      : undefined;
+                    const avatarUrl = user.user_metadata?.avatar_url || user.user_metadata?.picture || matchedProfileAvatar;
+                    return avatarUrl ? (
+                    <img
+                      src={avatarUrl}
+                      alt={user.user_metadata?.full_name || 'User'}
                       className="user-avatar"
                     />
                   ) : (
                     <div className="user-avatar-fallback">
                       {user.user_metadata?.full_name ? user.user_metadata.full_name.substring(0, 1) : 'U'}
                     </div>
-                  )}
+                  );
+                  })()}
                   <span className="user-name">{user.user_metadata?.full_name || user.email}</span>
                   {showUserMenu && (
                     <div className="user-menu-dropdown">
