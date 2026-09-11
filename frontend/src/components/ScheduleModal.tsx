@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import type { Schedule, Staff, ScheduleStatus, WorkType } from '../types';
-import { X, Mail } from 'lucide-react';
+import type { Schedule, Staff, ScheduleStatus, WorkType, UserRole } from '../types';
+import { X, Mail, Lock } from 'lucide-react';
 import { resolveAddress } from '../utils/addressResolver';
 import { supabase } from '../supabaseClient';
-import { findStaffByName, getShortName, toHalfWidth, splitCoWorkers } from '../types';
+import { findStaffByName, getShortName, toHalfWidth, splitCoWorkers, canManageSchedules } from '../types';
 
 interface ScheduleModalProps {
   isOpen: boolean;
@@ -16,9 +16,9 @@ interface ScheduleModalProps {
   workTypes: WorkType[];
   currentUserEmail?: string;
   defaultTransferred?: number;
+  lockedBy?: { userName: string; userEmail: string; startedAt: number } | null;
+  currentUserRole?: UserRole;
 }
-
-
 
 export const ScheduleModal: React.FC<ScheduleModalProps> = ({
   isOpen,
@@ -31,6 +31,8 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
   workTypes,
   currentUserEmail,
   defaultTransferred,
+  lockedBy,
+  currentUserRole,
 }) => {
   // 現場作業用の種別リスト（不要な「保守」「依頼有/非認可」を除外し、フリーを含める）
   const fieldWorkTypeList = useMemo(() => {
@@ -80,6 +82,16 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
   const [isCustomStaff, setIsCustomStaff] = useState(false);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [forceUnlocked, setForceUnlocked] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen) {
+      setForceUnlocked(false);
+    }
+  }, [isOpen]);
+
+  const isEffectiveLocked = Boolean(lockedBy) && !forceUnlocked;
+  const isInputDisabled = isSubmitting || isEffectiveLocked;
 
   // 物件マスタ自動補完用の状態
   const [propertySuggestions, setPropertySuggestions] = useState<any[]>([]);
@@ -281,7 +293,7 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
       }
 
       setDescription(selectedSchedule.description || '');
-      setTargetTime(selectedSchedule.target_time || '');
+      setTargetTime(toHalfWidth(selectedSchedule.target_time || ''));
       setDate(selectedSchedule.date || selectedDate || '');
       
       const sId = selectedSchedule.staff_id;
@@ -306,7 +318,7 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
       setCoWorker(selectedSchedule.co_worker || '');
       setRequestNumber(selectedSchedule.request_number || '');
       setRequestNumberHint('');
-      setTimeLimit(selectedSchedule.time_limit || '');
+      setTimeLimit(toHalfWidth(selectedSchedule.time_limit || ''));
       setCourse(selectedSchedule.course || '');
       setResult(selectedSchedule.result || '');
       const rawNotes = selectedSchedule.notes || '';
@@ -411,6 +423,10 @@ ${notes || 'なし'}
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isEffectiveLocked) {
+      alert(`現在、${lockedBy?.userName} さんがこの予定を編集中です。同時編集による競合を防ぐため保存できません。`);
+      return;
+    }
     if (!propertyName.trim() || !date) {
       alert('物件名と対応日は必須です。');
       return;
@@ -442,7 +458,7 @@ ${notes || 'なし'}
         transport: transport.trim() || null,
         co_worker: coWorker.trim() || null,
         request_number: requestNumber.trim() || null,
-        time_limit: timeLimit.trim() || null,
+        time_limit: toHalfWidth(timeLimit.trim()) || null,
         course: isCancelled ? '' : (course.trim() || null),
         result: result.trim() || null,
         notes: (() => {
@@ -472,7 +488,7 @@ ${notes || 'なし'}
   };
 
   const handleDeleteClick = async () => {
-    if (!selectedSchedule) return;
+    if (!selectedSchedule || isEffectiveLocked) return;
     if (window.confirm('この予定を削除してもよろしいですか？')) {
       setIsSubmitting(true);
       try {
@@ -502,29 +518,81 @@ ${notes || 'なし'}
 
         <form onSubmit={handleSubmit} style={{ flex: 1, display: 'flex', flexDirection: 'column', height: 'calc(100vh - 110px)', overflow: 'hidden' }}>
           <div style={{ flex: 1, overflowY: 'auto', paddingRight: '8px', marginBottom: '1rem' }}>
+          {/* 同時編集ロック警告バナー */}
+          {isEffectiveLocked && (
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              backgroundColor: 'rgba(239, 68, 68, 0.08)',
+              borderLeft: '4px solid var(--danger, #ef4444)',
+              borderTop: '1px solid rgba(239, 68, 68, 0.2)',
+              borderRight: '1px solid rgba(239, 68, 68, 0.2)',
+              borderBottom: '1px solid rgba(239, 68, 68, 0.2)',
+              padding: '10px 14px',
+              borderRadius: '6px',
+              marginBottom: '1.25rem',
+              color: '#b91c1c',
+              fontSize: '0.84rem',
+              lineHeight: '1.4'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Lock size={18} style={{ color: 'var(--danger, #ef4444)', flexShrink: 0 }} />
+                <div>
+                  現在、<strong>{lockedBy?.userName}</strong> さんがこの予定を編集中です。<br />
+                  <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary, #64748b)' }}>
+                    データ競合を防ぐため保存・変更はロックされています（閲覧専用モード）。
+                  </span>
+                </div>
+              </div>
+              {canManageSchedules(currentUserRole) && (
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => {
+                    if (window.confirm(`${lockedBy?.userName} さんの編集ロックを強制解除しますか？\n（内容が重複保存される可能性があります）`)) {
+                      setForceUnlocked(true);
+                    }
+                  }}
+                  style={{
+                    fontSize: '0.72rem',
+                    padding: '4px 10px',
+                    height: '28px',
+                    whiteSpace: 'nowrap',
+                    color: 'var(--danger, #ef4444)',
+                    borderColor: 'rgba(239, 68, 68, 0.3)',
+                    backgroundColor: '#ffffff'
+                  }}
+                >
+                  強制ロック解除
+                </button>
+              )}
+            </div>
+          )}
+
           {/* ステータストグル */}
-          <div className="status-toggle" style={{ marginBottom: '1.5rem' }}>
+          <div className="status-toggle" style={{ marginBottom: '1.5rem', opacity: isEffectiveLocked ? 0.6 : 1, pointerEvents: isEffectiveLocked ? 'none' : 'auto' }}>
             <div 
               className={`status-toggle-btn free ${status === 'free' ? 'active' : ''}`}
-              onClick={() => setStatus('free')}
+              onClick={() => !isEffectiveLocked && setStatus('free')}
             >
               通常 (フリー)
             </div>
             <div 
               className={`status-toggle-btn draft ${status === 'draft' ? 'active' : ''}`}
-              onClick={() => setStatus('draft')}
+              onClick={() => !isEffectiveLocked && setStatus('draft')}
             >
               仮予定
             </div>
             <div 
               className={`status-toggle-btn confirmed ${status === 'confirmed' ? 'active' : ''}`}
-              onClick={() => setStatus('confirmed')}
+              onClick={() => !isEffectiveLocked && setStatus('confirmed')}
             >
               確定予定
             </div>
             <div 
               className={`status-toggle-btn cancelled ${status === 'cancelled' ? 'active' : ''}`}
-              onClick={() => setStatus('cancelled')}
+              onClick={() => !isEffectiveLocked && setStatus('cancelled')}
               style={{ color: status === 'cancelled' ? 'var(--danger)' : 'var(--text-secondary)', backgroundColor: status === 'cancelled' ? 'rgba(239, 68, 68, 0.15)' : 'transparent', border: status === 'cancelled' ? '1px solid rgba(239, 68, 68, 0.3)' : 'none' }}
             >
               キャンセル
@@ -542,7 +610,7 @@ ${notes || 'なし'}
                 value={date}
                 onChange={(e) => setDate(e.target.value)}
                 required
-                disabled={isSubmitting}
+                disabled={isInputDisabled}
               />
             </div>
             <div className="form-group">
@@ -553,8 +621,9 @@ ${notes || 'なし'}
                 className="form-control"
                 value={targetTime}
                 onChange={(e) => setTargetTime(e.target.value)}
+                onBlur={() => setTargetTime(toHalfWidth(targetTime))}
                 placeholder="時間入力 または 下の定型ボタンから選択"
-                disabled={isSubmitting}
+                disabled={isInputDisabled}
               />
               <div style={{ marginTop: '6px', display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
                 {['必ず', 'AM', 'PM', '12:00', '14:00迄', '17:00まで'].map((timeOpt) => (
@@ -596,7 +665,7 @@ ${notes || 'なし'}
                 }}
                 onBlur={handleUnitNumberBlur}
                 autoComplete="off"
-                disabled={isSubmitting}
+                disabled={isInputDisabled}
               />
               {showSuggestions && (
                 <ul className="property-suggestions-list" style={{
@@ -653,7 +722,7 @@ ${notes || 'なし'}
                 value={propertyName}
                 onChange={(e) => setPropertyName(e.target.value)}
                 required
-                disabled={isSubmitting}
+                disabled={isInputDisabled}
               />
             </div>
             <div className="form-group">
@@ -664,7 +733,7 @@ ${notes || 'なし'}
                 className="form-control"
                 value={box}
                 onChange={(e) => setBox(e.target.value)}
-                disabled={isSubmitting}
+                disabled={isInputDisabled}
               />
             </div>
           </div>
@@ -687,7 +756,7 @@ ${notes || 'なし'}
                     setWorkType(val);
                   }
                 }}
-                disabled={isSubmitting}
+                disabled={isInputDisabled}
               >
                 <option value="">-- 種別を選択 --</option>
                 {fieldWorkTypeList.map(name => (
@@ -704,7 +773,7 @@ ${notes || 'なし'}
                   value={workType}
                   onChange={(e) => setWorkType(e.target.value)}
                   autoFocus
-                  disabled={isSubmitting}
+                  disabled={isInputDisabled}
                 />
               )}
             </div>
@@ -716,7 +785,7 @@ ${notes || 'なし'}
                 className="form-control"
                 value={type}
                 onChange={(e) => setType(e.target.value)}
-                disabled={isSubmitting}
+                disabled={isInputDisabled}
               />
             </div>
           </div>
@@ -743,7 +812,7 @@ ${notes || 'なし'}
                     }
                   }
                 }}
-                disabled={isSubmitting}
+                disabled={isInputDisabled}
               >
                 <option value="">-- 未設定（フリー） --</option>
                 {staff
@@ -771,7 +840,7 @@ ${notes || 'なし'}
                     }
                   }}
                   autoFocus
-                  disabled={isSubmitting}
+                  disabled={isInputDisabled}
                 />
               )}
             </div>
@@ -783,7 +852,7 @@ ${notes || 'なし'}
                 className="form-control"
                 value={coWorker}
                 onChange={(e) => setCoWorker(e.target.value)}
-                disabled={isSubmitting}
+                disabled={isInputDisabled}
                 placeholder="佐藤, 鈴木 (カンマ区切りで手動入力も可)"
               />
               <div className="co-worker-quick-select" style={{ marginTop: '8px', display: 'flex', flexWrap: 'wrap', gap: '6px', maxHeight: '100px', overflowY: 'auto', padding: '2px' }}>
@@ -827,7 +896,7 @@ ${notes || 'なし'}
                   id="sync_co_worker"
                   checked={isSyncCoWorker}
                   onChange={(e) => setIsSyncCoWorker(e.target.checked)}
-                  disabled={isSubmitting}
+                  disabled={isInputDisabled}
                   style={{ width: '16px', height: '16px', cursor: 'pointer', margin: 0 }}
                 />
                 <label htmlFor="sync_co_worker" style={{ fontSize: '0.82rem', cursor: 'pointer', userSelect: 'none', margin: 0, fontWeight: 'normal', color: 'var(--text-secondary, #475569)' }}>
@@ -846,7 +915,7 @@ ${notes || 'なし'}
               rows={3}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              disabled={isSubmitting}
+              disabled={isInputDisabled}
             ></textarea>
           </div>
 
@@ -858,7 +927,7 @@ ${notes || 'なし'}
               className="form-control"
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              disabled={isSubmitting}
+              disabled={isInputDisabled}
             />
           </div>
 
@@ -884,7 +953,7 @@ ${notes || 'なし'}
                   className="form-control"
                   value={area}
                   onChange={(e) => setArea(e.target.value)}
-                  disabled={isSubmitting}
+                  disabled={isInputDisabled}
                 />
               </div>
               <div className="form-group">
@@ -895,7 +964,7 @@ ${notes || 'なし'}
                   className="form-control"
                   value={prefecture}
                   onChange={(e) => setPrefecture(e.target.value)}
-                  disabled={isSubmitting}
+                  disabled={isInputDisabled}
                 />
               </div>
               <div className="form-group">
@@ -906,7 +975,7 @@ ${notes || 'なし'}
                   className="form-control"
                   value={transport}
                   onChange={(e) => setTransport(e.target.value)}
-                  disabled={isSubmitting}
+                  disabled={isInputDisabled}
                 />
               </div>
             </div>
@@ -923,7 +992,7 @@ ${notes || 'なし'}
                   onChange={(e) => { setRequestNumber(e.target.value); setRequestNumberHint(''); }}
                   onBlur={handleRequestNumberBlur}
                   autoComplete="off"
-                  disabled={isSubmitting}
+                  disabled={isInputDisabled}
                 />
                 {requestNumberHint && (
                   <div style={{ fontSize: '0.72rem', color: 'var(--text-muted, #64748b)', marginTop: '4px' }}>
@@ -939,7 +1008,8 @@ ${notes || 'なし'}
                   className="form-control"
                   value={timeLimit}
                   onChange={(e) => setTimeLimit(e.target.value)}
-                  disabled={isSubmitting}
+                  onBlur={() => setTimeLimit(toHalfWidth(timeLimit))}
+                  disabled={isInputDisabled}
                 />
               </div>
               <div className="form-group">
@@ -950,7 +1020,7 @@ ${notes || 'なし'}
                   className="form-control"
                   value={course}
                   onChange={(e) => setCourse(e.target.value)}
-                  disabled={isSubmitting}
+                  disabled={isInputDisabled}
                 />
               </div>
             </div>
@@ -976,7 +1046,7 @@ ${notes || 'なし'}
                   className="form-control"
                   value={disorderType}
                   onChange={(e) => setDisorderType(e.target.value)}
-                  disabled={isSubmitting}
+                  disabled={isInputDisabled}
                 />
               </div>
               <div className="form-group">
@@ -987,7 +1057,7 @@ ${notes || 'なし'}
                   className="form-control"
                   value={level}
                   onChange={(e) => setLevel(e.target.value)}
-                  disabled={isSubmitting}
+                  disabled={isInputDisabled}
                 />
               </div>
               <div className="form-group">
@@ -998,7 +1068,7 @@ ${notes || 'なし'}
                   className="form-control"
                   value={level3}
                   onChange={(e) => setLevel3(e.target.value)}
-                  disabled={isSubmitting}
+                  disabled={isInputDisabled}
                 />
               </div>
             </div>
@@ -1037,7 +1107,7 @@ ${notes || 'なし'}
                   type="button"
                   className="btn btn-danger"
                   onClick={handleDeleteClick}
-                  disabled={isSubmitting}
+                  disabled={isInputDisabled}
                 >
                   この予定を削除
                 </button>
@@ -1081,9 +1151,10 @@ ${notes || 'なし'}
               <button
                 type="submit"
                 className="btn btn-primary"
-                disabled={isSubmitting}
+                disabled={isInputDisabled}
+                title={isEffectiveLocked ? `${lockedBy?.userName} さんが編集中です` : undefined}
               >
-                予定を保存
+                {isEffectiveLocked ? `🔒 編集中 (${lockedBy?.userName})` : (isSubmitting ? '保存中...' : '予定を保存')}
               </button>
             </div>
           </div>

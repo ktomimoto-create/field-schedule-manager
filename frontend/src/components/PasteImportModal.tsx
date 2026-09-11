@@ -245,7 +245,7 @@ export const PasteImportModal: React.FC<PasteImportModalProps> = ({
       const item: any = {};
       FIXED_MAPPINGS.forEach((field, colIdx) => {
         let val = row[colIdx] ? row[colIdx].trim() : '';
-        if (field === 'target_time') {
+        if (field === 'target_time' || field === 'time_limit') {
           val = toHalfWidth(val);
         }
         item[field] = val;
@@ -551,7 +551,7 @@ export const PasteImportModal: React.FC<PasteImportModalProps> = ({
             unit_number: unit_number || null,
             work_type: work_type || null,
             description: description || null,
-            target_time: target_time || null,
+            target_time: toHalfWidth(target_time) || null,
             staff_id: finalStaffId,
             staff_name: finalStaffName || null,
             area: area || null,
@@ -559,7 +559,7 @@ export const PasteImportModal: React.FC<PasteImportModalProps> = ({
             transport: transport || null,
             co_worker: co_worker || null,
             request_number: request_number || null,
-            time_limit: time_limit || null,
+            time_limit: toHalfWidth(time_limit) || null,
             course: finalCourse,
             result: result || null,
             completed_at: finalCompletedAt,
@@ -591,7 +591,7 @@ export const PasteImportModal: React.FC<PasteImportModalProps> = ({
             property_name: property_name,
             work_type: work_type || null,
             description: description || null,
-            target_time: target_time || null,
+            target_time: toHalfWidth(target_time) || null,
             date: date,
             staff_id: finalStaffId,
             staff_name: finalStaffName || null,
@@ -600,7 +600,7 @@ export const PasteImportModal: React.FC<PasteImportModalProps> = ({
             transport: transport || null,
             co_worker: co_worker || null,
             request_number: request_number || null,
-            time_limit: time_limit || null,
+            time_limit: toHalfWidth(time_limit) || null,
             course: finalCourse,
             result: result || null,
             completed_at: finalCompletedAt,

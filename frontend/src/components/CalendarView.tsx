@@ -3,7 +3,7 @@ import type { Schedule, Staff, WorkType } from '../types';
 import { getShortName, findStaffByName, toHalfWidth, splitCoWorkers } from '../types';
 import { buildFcAutofillPatch } from '../utils/fcAutofill';
 
-import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Edit2, Plus, Search } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Edit2, Plus, Search, Lock } from 'lucide-react';
 import './CalendarView.css';
 
 // ローカルタイムゾーン基準で YYYY-MM-DD 形式の日付文字列を生成する
@@ -247,6 +247,7 @@ interface CalendarViewProps {
   workTypes: WorkType[];
   onTransferSchedules?: (date: string) => Promise<void>;
   onOpenPasteImportModal: () => void;
+  activeLocks?: Record<number, { userEmail: string; userName: string; startedAt: number }>;
 }
 
 export const CalendarView: React.FC<CalendarViewProps> = ({
@@ -259,6 +260,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
   workTypes,
   onTransferSchedules,
   onOpenPasteImportModal,
+  activeLocks = {},
 }) => {
   const [currentDate, setCurrentDate] = useState(new Date());
   const dateInputRef = useRef<HTMLInputElement>(null);
@@ -904,7 +906,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
         work_type: 'フリー',
         property_name: finalPropertyName,
         is_transferred: 0,
-        [field]: value
+        [field]: (field === 'target_time' || field === 'time_limit') ? toHalfWidth(value) : value
       };
 
       // 依頼番号セルへの入力は FC 同期データから未入力項目を補完する
@@ -923,7 +925,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
       let finalValue = value;
       const extraFields: Partial<Schedule> = {};
 
-      if (field === 'target_time') {
+      if (field === 'target_time' || field === 'time_limit') {
         finalValue = toHalfWidth(value);
       }
 
@@ -1295,7 +1297,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
 
               const rowData = rowUpdates[key];
               let finalVal = val;
-              if (targetField === 'target_time') {
+              if (targetField === 'target_time' || targetField === 'time_limit') {
                 finalVal = toHalfWidth(val);
               }
               rowData.updateFields[targetField] = finalVal;
@@ -1498,12 +1500,14 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
     const searchMatchClass = isCellSearchMatch ? 'cell-search-match' : '';
 
     const cellId = `cell-${schedule.date}-${rowIndex}-${field}`;
+    const isLockedByOther = typeof schedId === 'number' && Boolean(activeLocks[schedId]);
+    const lockInfo = typeof schedId === 'number' ? activeLocks[schedId] : undefined;
 
     if (isEditing) {
       return (
         <td id={cellId} className={className} style={style}>
           <InlineInput
-            initialValue={cleanMetadata(schedule[field])}
+            initialValue={(field === 'target_time' || field === 'time_limit') ? toHalfWidth(cleanMetadata(schedule[field])) : cleanMetadata(schedule[field])}
             field={field}
             workTypes={workTypes}
             onSave={(val) => handleInlineSave(schedId, field, val)}
@@ -1531,6 +1535,10 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
           onMouseDown={(e) => handleCellMouseDown(e, schedule.date, rowIndex, field, schedId)}
           onMouseEnter={() => handleCellMouseEnter(schedule.date, rowIndex, field)}
           onDoubleClick={() => {
+            if (isLockedByOther) {
+              alert(`現在、${lockInfo?.userName} さんがこの予定を編集中です。\n同時に変更することはできません。`);
+              return;
+            }
             setEditingCell({ id: schedId, field });
           }}
         >
@@ -1579,6 +1587,10 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
           onMouseDown={(e) => handleCellMouseDown(e, schedule.date, rowIndex, field, schedId)}
           onMouseEnter={() => handleCellMouseEnter(schedule.date, rowIndex, field)}
           onDoubleClick={() => {
+            if (isLockedByOther) {
+              alert(`現在、${lockInfo?.userName} さんがこの予定を編集中です。\n同時に変更することはできません。`);
+              return;
+            }
             setEditingCell({ id: schedId, field });
           }}
         >
@@ -1597,6 +1609,12 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                   flexShrink: 0
                 }}>
                   同行
+                </span>
+              )}
+              {isLockedByOther && (
+                <span className="editing-lock-badge" title={`${lockInfo?.userName} さんが編集中`}>
+                  <Lock size={10} style={{ marginRight: '2px', verticalAlign: 'middle' }} />
+                  {getShortName(lockInfo?.userName || '')}編集中
                 </span>
               )}
               <span className="property-cell-text" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
@@ -1634,6 +1652,10 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
           onMouseDown={(e) => handleCellMouseDown(e, schedule.date, rowIndex, field, schedId)}
           onMouseEnter={() => handleCellMouseEnter(schedule.date, rowIndex, field)}
           onDoubleClick={() => {
+            if (isLockedByOther) {
+              alert(`現在、${lockInfo?.userName} さんがこの予定を編集中です。\n同時に変更することはできません。`);
+              return;
+            }
             setEditingCell({ id: schedId, field });
           }}
         >
@@ -1691,10 +1713,14 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
           if (field === 'staff_id' || field === 'division') {
             return;
           }
+          if (isLockedByOther) {
+            alert(`現在、${lockInfo?.userName} さんがこの予定を編集中です。\n同時に変更することはできません。`);
+            return;
+          }
           setEditingCell({ id: schedId, field });
         }}
       >
-        {cleanMetadata(value)}
+        {(field === 'target_time' || field === 'time_limit') ? toHalfWidth(cleanMetadata(value)) : cleanMetadata(value)}
       </td>
     );
   };
@@ -1728,7 +1754,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
           work_type: workTypeVal,
           staff_id: matchedStaff.id,
           staff_name: matchedStaff.name,
-          target_time: quickTargetTime.trim() || (isHoliday ? '終日' : '指定なし'),
+          target_time: toHalfWidth(quickTargetTime.trim()) || (isHoliday ? '終日' : '指定なし'),
           property_name: propertyName,
           course: matchedStaff.default_course || null,
           division: matchedStaff.default_course && Number(matchedStaff.default_course) >= 90 ? '委託' : 'FTS'

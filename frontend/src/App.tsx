@@ -8,7 +8,7 @@ import { AnalyticsView } from './components/AnalyticsView';
 import { ScheduleModal } from './components/ScheduleModal';
 import { PasteImportModal } from './components/PasteImportModal';
 import { HelpGuideModal } from './components/HelpGuideModal';
-import { Calendar, Layers, RefreshCw, AlertCircle, List, Sliders, Sun, Moon, BarChart3, HelpCircle } from 'lucide-react';
+import { Calendar, Layers, RefreshCw, AlertCircle, List, Sliders, Sun, Moon, BarChart3, HelpCircle, ZoomIn, ZoomOut } from 'lucide-react';
 import { supabase, talkScriptSupabase } from './supabaseClient';
 import { resolveAddress } from './utils/addressResolver';
 import { findStaffByName, canManageSchedules, normalizeRole } from './types';
@@ -308,6 +308,106 @@ function App() {
   const [isImportOpen, setIsImportOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [selectedSchedule, setSelectedSchedule] = useState<Schedule | null>(null);
+
+  // 画面表示サイズ（ズーム倍率: 80%, 90%, 100%, 110%, 125%）
+  const [zoomLevel, setZoomLevel] = useState<number>(() => {
+    const saved = localStorage.getItem('field_app_zoom_level');
+    return saved ? Number(saved) : 100;
+  });
+
+  useEffect(() => {
+    localStorage.setItem('field_app_zoom_level', String(zoomLevel));
+    if (zoomLevel === 100) {
+      document.documentElement.style.zoom = '';
+    } else {
+      document.documentElement.style.zoom = `${zoomLevel}%`;
+    }
+  }, [zoomLevel]);
+
+  const handleZoomIn = () => {
+    const levels = [80, 90, 100, 110, 125];
+    const next = levels.find(lvl => lvl > zoomLevel);
+    if (next) setZoomLevel(next);
+  };
+
+  const handleZoomOut = () => {
+    const levels = [80, 90, 100, 110, 125];
+    const prev = [...levels].reverse().find(lvl => lvl < zoomLevel);
+    if (prev) setZoomLevel(prev);
+  };
+
+  const handleResetZoom = () => {
+    setZoomLevel(100);
+  };
+
+  // 同時編集排他ロック状態（キー: scheduleId, 値: 編集者情報）
+  const [activeLocks, setActiveLocks] = useState<Record<number, { userEmail: string; userName: string; startedAt: number }>>({});
+  const presenceChannelRef = useRef<any>(null);
+
+  useEffect(() => {
+    if (!user) return;
+
+    const channel = supabase.channel('schedules-presence', {
+      config: {
+        presence: {
+          key: user.id || user.email || 'user-' + Math.random().toString(36).substring(2, 9),
+        },
+      },
+    });
+
+    channel
+      .on('presence', { event: 'sync' }, () => {
+        const state = channel.presenceState();
+        const locks: Record<number, { userEmail: string; userName: string; startedAt: number }> = {};
+        const myEmail = (user.email || '').toLowerCase().trim();
+
+        Object.values(state).forEach((presences: any) => {
+          if (Array.isArray(presences)) {
+            presences.forEach((p) => {
+              if (p && p.scheduleId) {
+                const schedIdNum = Number(p.scheduleId);
+                const pEmail = (p.userEmail || '').toLowerCase().trim();
+                if (pEmail !== myEmail) {
+                  locks[schedIdNum] = {
+                    userEmail: p.userEmail,
+                    userName: p.userName || '他ユーザー',
+                    startedAt: p.startedAt || Date.now(),
+                  };
+                }
+              }
+            });
+          }
+        });
+        setActiveLocks(locks);
+      })
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          presenceChannelRef.current = channel;
+        }
+      });
+
+    return () => {
+      channel.unsubscribe();
+      presenceChannelRef.current = null;
+    };
+  }, [user]);
+
+  // モーダル開閉に合わせて編集ロックをブロードキャスト / 解除
+  useEffect(() => {
+    if (!presenceChannelRef.current || !user) return;
+
+    if (isModalOpen && selectedSchedule && typeof selectedSchedule.id === 'number') {
+      const currentUserName = user.user_metadata?.full_name || staff.find(s => s.email && s.email.toLowerCase() === (user.email || '').toLowerCase())?.name || user.email || 'ユーザー';
+      presenceChannelRef.current.track({
+        scheduleId: selectedSchedule.id,
+        userEmail: user.email,
+        userName: currentUserName,
+        startedAt: Date.now(),
+      });
+    } else {
+      presenceChannelRef.current.untrack();
+    }
+  }, [isModalOpen, selectedSchedule, user, staff]);
 
   const fetchData = async (silent = false) => {
     if (!silent) {
@@ -827,6 +927,37 @@ function App() {
               >
                 {theme === 'light' ? <Moon size={16} /> : <Sun size={16} />}
               </button>
+
+              {/* 画面表示サイズ（ズーム）コントロール */}
+              <div className="zoom-controller" title="画面表示サイズ変更（文字・表全体の拡大縮小）">
+                <button
+                  type="button"
+                  className="btn-zoom"
+                  onClick={handleZoomOut}
+                  disabled={zoomLevel <= 80}
+                  title="縮小 (最小80%)"
+                >
+                  <ZoomOut size={14} />
+                </button>
+                <button
+                  type="button"
+                  className="btn-zoom-value"
+                  onClick={handleResetZoom}
+                  title="クリックで標準(100%)にリセット"
+                >
+                  {zoomLevel}%
+                </button>
+                <button
+                  type="button"
+                  className="btn-zoom"
+                  onClick={handleZoomIn}
+                  disabled={zoomLevel >= 125}
+                  title="拡大 (最大125%)"
+                >
+                  <ZoomIn size={14} />
+                </button>
+              </div>
+
               <button className="btn btn-secondary" onClick={() => fetchData(false)} title="データを更新">
                 <RefreshCw size={16} />
               </button>
@@ -916,6 +1047,7 @@ function App() {
                     onSave={handleSaveSchedule}
                     currentUserRole={currentUserRole}
                     currentStaffId={currentStaffId}
+                    activeLocks={activeLocks}
                   />
                 )}
                 {activeTab === 'timeline' && (
@@ -940,6 +1072,7 @@ function App() {
                     workTypes={workTypes}
                     onTransferSchedules={handleTransferSchedules}
                     onOpenPasteImportModal={() => setIsImportOpen(true)}
+                    activeLocks={activeLocks}
                   />
                 )}
                 {currentUserRole === 'developer' && activeTab === 'master_management' && (
@@ -972,6 +1105,8 @@ function App() {
             workTypes={workTypes}
             currentUserEmail={user?.email || 'system'}
             defaultTransferred={activeTab === 'calendar' ? 0 : 1}
+            lockedBy={selectedSchedule && typeof selectedSchedule.id === 'number' ? activeLocks[selectedSchedule.id] : null}
+            currentUserRole={currentUserRole}
           />
 
           <PasteImportModal

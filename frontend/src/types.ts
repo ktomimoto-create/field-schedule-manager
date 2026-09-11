@@ -9,7 +9,7 @@ export const normalizeRole = (role: string | null | undefined): UserRole => {
 };
 
 // 予定の追加・編集・配車操作が可能か（予定管理者以上）
-export const canManageSchedules = (role: UserRole): boolean =>
+export const canManageSchedules = (role?: UserRole | null): boolean =>
   role === 'developer' || role === 'manager';
 
 export interface Staff {
@@ -113,9 +113,14 @@ export const getShortName = (name: string | null | undefined): string => {
 
 export const toHalfWidth = (str: string | null | undefined): string => {
   if (!str) return '';
-  return str.replace(/[Ａ-Ｚａ-ｚ０-９：]/g, (s) => {
-    return String.fromCharCode(s.charCodeAt(0) - 0xFEE0);
-  });
+  return String(str)
+    .replace(/[Ａ-Ｚａ-ｚ０-９：]/g, (s) => {
+      return String.fromCharCode(s.charCodeAt(0) - 0xFEE0);
+    })
+    .replace(/　/g, ' ')
+    .replace(/[〜～]/g, '~')
+    .replace(/[―−]/g, '-')
+    .trim();
 };
 
 export const cleanMetadata = (val: string | null | undefined): string => {

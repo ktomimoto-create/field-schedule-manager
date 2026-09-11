@@ -1,9 +1,9 @@
 import React, { useState, useRef } from 'react';
 import XLSX from 'xlsx-js-style';
 import type { Schedule, Staff, UserRole } from '../types';
-import { getShortName, cleanMetadata, splitCoWorkers, canManageSchedules } from '../types';
+import { getShortName, cleanMetadata, splitCoWorkers, canManageSchedules, toHalfWidth } from '../types';
 
-import { Plus, ChevronLeft, ChevronRight, Calendar as CalendarIcon, Filter, CheckCircle2, Download, Eye, EyeOff, Printer } from 'lucide-react';
+import { Plus, ChevronLeft, ChevronRight, Calendar as CalendarIcon, Filter, CheckCircle2, Download, Eye, EyeOff, Printer, Lock } from 'lucide-react';
 import { PrintPreviewModal } from './PrintPreviewModal';
 import './GridView.css';
 
@@ -15,6 +15,7 @@ interface GridViewProps {
   onSave: (scheduleData: Partial<Schedule>) => Promise<void>;
   currentUserRole: UserRole;
   currentStaffId: number | null;
+  activeLocks?: Record<number, { userEmail: string; userName: string; startedAt: number }>;
 }
 
 export const GridView: React.FC<GridViewProps> = ({
@@ -25,6 +26,7 @@ export const GridView: React.FC<GridViewProps> = ({
   onSave,
   currentUserRole,
   currentStaffId,
+  activeLocks = {},
 }) => {
   const dateInputRef = useRef<HTMLInputElement>(null);
   const [selectedDate, setSelectedDate] = useState<string>(
@@ -467,13 +469,19 @@ export const GridView: React.FC<GridViewProps> = ({
                     <td>{schedule.unit_number}</td>
                     <td className="bold-cell" title={schedule.property_name}>
                       {schedule.property_name}
+                      {typeof schedule.id === 'number' && activeLocks[schedule.id] && (
+                        <span className="editing-lock-badge" title={`${activeLocks[schedule.id].userName} さんが編集中`} style={{ marginLeft: '6px' }}>
+                          <Lock size={10} style={{ marginRight: '2px', verticalAlign: 'middle' }} />
+                          {getShortName(activeLocks[schedule.id].userName)}編集中
+                        </span>
+                      )}
                     </td>
                     <td>{schedule.work_type}</td>
                     <td className="description-cell" title={schedule.description || ''}>
                       {schedule.description}
                     </td>
                     <td className="time-cell">
-                      {schedule.target_time}
+                      {toHalfWidth(schedule.target_time)}
                     </td>
                     <td style={{ verticalAlign: 'middle' }}>
                       {staffMember ? (

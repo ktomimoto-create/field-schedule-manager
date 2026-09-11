@@ -181,6 +181,82 @@ header {
   padding: 0;
 }
 
+/* 画面表示サイズ（ズーム）コントロール */
+.zoom-controller {
+  display: inline-flex;
+  align-items: center;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-glass);
+  border-radius: var(--radius-sm);
+  padding: 2px;
+  gap: 2px;
+  height: 32px;
+}
+
+.btn-zoom {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: var(--transition-fast);
+}
+
+.btn-zoom:hover:not(:disabled) {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+}
+
+.btn-zoom:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.btn-zoom-value {
+  border: none;
+  background: transparent;
+  color: var(--text-primary);
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 0 5px;
+  height: 26px;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: var(--transition-fast);
+  white-space: nowrap;
+}
+
+.btn-zoom-value:hover {
+  background: var(--bg-secondary);
+  color: var(--primary);
+}
+
+/* 他ユーザー編集中ロックバッジ */
+.editing-lock-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  background: rgba(239, 68, 68, 0.12);
+  color: #dc2626;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  font-size: 0.68rem;
+  font-weight: 600;
+  padding: 1px 5px;
+  border-radius: 4px;
+  white-space: nowrap;
+  animation: pulse-lock 2s infinite ease-in-out;
+}
+
+@keyframes pulse-lock {
+  0%, 100% { opacity: 0.95; }
+  50% { opacity: 0.55; }
+}
+
 /* モバイル・タブレットなどの小さい画面でのヘッダーレイアウト調整 */
 @media (max-width: 1200px) {
   header {
