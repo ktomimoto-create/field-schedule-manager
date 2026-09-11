@@ -1,9 +1,16 @@
-// アクセス権限の3段階: user=現地対応者(閲覧+自分の予定の結果報告) / manager=予定管理者(配車・予定編集) / admin=開発者(全機能)
-export type UserRole = 'user' | 'manager' | 'admin';
+// アクセス権限の3段階: staff=現地対応者(閲覧+自分の予定の結果報告) / manager=予定管理者(配車・予定編集) / developer=開発者(全機能)
+export type UserRole = 'staff' | 'manager' | 'developer';
+
+// DB の role 文字列を UserRole に正規化（旧値 admin/user もマッピング）
+export const normalizeRole = (role: string | null | undefined): UserRole => {
+  if (role === 'developer' || role === 'admin') return 'developer';
+  if (role === 'manager') return 'manager';
+  return 'staff';
+};
 
 // 予定の追加・編集・配車操作が可能か（予定管理者以上）
 export const canManageSchedules = (role: UserRole): boolean =>
-  role === 'admin' || role === 'manager';
+  role === 'developer' || role === 'manager';
 
 export interface Staff {
   id: number;
@@ -92,7 +99,7 @@ export const getShortName = (name: string | null | undefined): string => {
   const SURNAMES = [
     '平本', '築地', '藤井', '神崎', '原', '土橋', '藤田', '佐藤', '吉沼', '小山', 
     '高橋', '畦崎', '松下', '淺沼', '山内', '中川', '阿部', '藤崎', '本間', '丸山', 
-    '清水', '塙', '伊比', '石山', '平井', '豊見本', '富本'
+    '清水', '塙', '伊比', '石山', '平井', '豊見本', '富本', '池宮', '高倉'
   ];
   const matchedSurname = SURNAMES.find(s => trimmed.startsWith(s));
   if (matchedSurname) {
@@ -142,6 +149,61 @@ export const findStaffByName = (staff: Staff[], name: string | null | undefined)
   if (matched) return matched;
 
   return undefined;
+};
+
+/**
+ * 同行者文字列をスタッフ名単位に正しく分割するヘルパー
+ * 「阿部 光男」などの姓名間にスペースがある場合でも、1人のスタッフとして認識して不当な分割を防ぐ
+ */
+export const splitCoWorkers = (coWorkersStr: string | null | undefined, staffList?: Staff[]): string[] => {
+  if (!coWorkersStr) return [];
+  const trimmed = coWorkersStr.trim();
+  if (!trimmed) return [];
+
+  // カンマ、読点、スラッシュ、改行、セミコロンでまず分割
+  const primaryTokens = trimmed.split(/[,，、/\n;；]+/).map(s => s.trim()).filter(Boolean);
+
+  const result: string[] = [];
+
+  for (const token of primaryTokens) {
+    if (!staffList || staffList.length === 0) {
+      const subTokens = token.split(/[\s　]+/).filter(Boolean);
+      result.push(...subTokens);
+      continue;
+    }
+
+    // トークン全体が1人のスタッフとしてマッチするか判定（例: "阿部 光男"）
+    if (findStaffByName(staffList, token)) {
+      result.push(token);
+      continue;
+    }
+
+    // 空白で区切られている場合、前から貪欲にスタッフ名とマッチするか判定
+    const parts = token.split(/[\s　]+/).filter(Boolean);
+    if (parts.length <= 1) {
+      result.push(token);
+      continue;
+    }
+
+    let i = 0;
+    while (i < parts.length) {
+      // 2単語結合でスタッフに合致するか判定（例: "阿部" + "光男"）
+      if (i + 1 < parts.length) {
+        const twoWords = `${parts[i]} ${parts[i + 1]}`;
+        const twoWordsNoSpace = `${parts[i]}${parts[i + 1]}`;
+        if (findStaffByName(staffList, twoWords) || findStaffByName(staffList, twoWordsNoSpace)) {
+          result.push(twoWords);
+          i += 2;
+          continue;
+        }
+      }
+
+      result.push(parts[i]);
+      i += 1;
+    }
+  }
+
+  return result;
 };
 
 

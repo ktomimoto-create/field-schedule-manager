@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import XLSX from 'xlsx-js-style';
 import type { Schedule, Staff, UserRole } from '../types';
-import { getShortName, cleanMetadata, canManageSchedules } from '../types';
+import { getShortName, cleanMetadata, splitCoWorkers, canManageSchedules } from '../types';
 
 import { Plus, ChevronLeft, ChevronRight, Calendar as CalendarIcon, Filter, CheckCircle2, Download, Eye, EyeOff, Printer } from 'lucide-react';
 import { PrintPreviewModal } from './PrintPreviewModal';
@@ -520,7 +520,7 @@ export const GridView: React.FC<GridViewProps> = ({
                     <td>
                       {(() => {
                         const coWorkersStr = schedule.co_worker || '';
-                        const coWorkersList = coWorkersStr ? coWorkersStr.split(/[\s,，、]+/).map(s => s.trim()).filter(Boolean) : [];
+                        const coWorkersList = splitCoWorkers(coWorkersStr, staff);
                         return (
                           <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
                             {coWorkersList.map((name, idx) => (

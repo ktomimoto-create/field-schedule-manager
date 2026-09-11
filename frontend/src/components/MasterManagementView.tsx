@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import type { Staff, WorkType, UserRole } from '../types';
+import { normalizeRole } from '../types';
 import { AuditLogView } from './AuditLogView';
 import { Users, Sliders, History, Plus, Trash2, Edit2, Check, X, Shield, ChevronUp, ChevronDown, Database, RefreshCw, Building2 } from 'lucide-react';
 import { supabase, talkScriptSupabase } from '../supabaseClient';
@@ -28,7 +29,7 @@ export const MasterManagementView: React.FC<MasterManagementViewProps> = ({
   const [newStaffEmail, setNewStaffEmail] = useState('');
   const [newStaffCourse, setNewStaffCourse] = useState('');
   const [newStaffEmpCode, setNewStaffEmpCode] = useState('');
-  const [newStaffRole, setNewStaffRole] = useState<UserRole>('user');
+  const [newStaffRole, setNewStaffRole] = useState<UserRole>('staff');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // データメンテナンス用の状態
@@ -41,7 +42,7 @@ export const MasterManagementView: React.FC<MasterManagementViewProps> = ({
   const [editStaffCourse, setEditStaffCourse] = useState('');
   const [editStaffEmpCode, setEditStaffEmpCode] = useState('');
   const [editStaffActive, setEditStaffActive] = useState<number>(1);
-  const [editStaffRole, setEditStaffRole] = useState<UserRole>('user');
+  const [editStaffRole, setEditStaffRole] = useState<UserRole>('staff');
 
   // 予定項目（種別）管理用状態
   const [newTypeName, setNewTypeName] = useState('');
@@ -51,7 +52,7 @@ export const MasterManagementView: React.FC<MasterManagementViewProps> = ({
 
   const [isSyncing, setIsSyncing] = useState(false);
 
-  if (currentUserRole !== 'admin') {
+  if (currentUserRole !== 'developer') {
     return (
       <div className="card text-center" style={{ padding: '3rem' }}>
         <h3>アクセス権限がありません</h3>
@@ -196,7 +197,7 @@ export const MasterManagementView: React.FC<MasterManagementViewProps> = ({
             const SURNAMES = [
               '平本', '築地', '藤井', '神崎', '原', '土橋', '藤田', '佐藤', '吉沼', '小山', 
               '高橋', '畦崎', '松下', '淺沼', '山内', '中川', '阿部', '藤崎', '本間', '丸山', 
-              '清水', '塙', '伊比', '石山', '平井', '豊見本', '富本'
+              '清水', '塙', '伊比', '石山', '平井', '豊見本', '富本', '池宮', '高倉'
             ];
             const matchedSurname = SURNAMES.find(s => profileName.startsWith(s));
             if (matchedSurname && profileName !== matchedSurname) {
@@ -291,7 +292,7 @@ export const MasterManagementView: React.FC<MasterManagementViewProps> = ({
       setNewStaffEmail('');
       setNewStaffCourse('');
       setNewStaffEmpCode('');
-      setNewStaffRole('user');
+      setNewStaffRole('staff');
       onRefresh();
     } catch (err: any) {
       alert(err.message || 'エラーが発生しました。');
@@ -307,7 +308,7 @@ export const MasterManagementView: React.FC<MasterManagementViewProps> = ({
     setEditStaffCourse(st.default_course || '');
     setEditStaffEmpCode(st.employee_code || '');
     setEditStaffActive(st.is_active !== undefined ? st.is_active : 1);
-    setEditStaffRole((st.role || 'user') as UserRole);
+    setEditStaffRole(normalizeRole(st.role));
   };
 
   const handleCancelEditStaff = () => {
@@ -675,9 +676,9 @@ export const MasterManagementView: React.FC<MasterManagementViewProps> = ({
                     onChange={(e) => setNewStaffRole(e.target.value as UserRole)}
                     disabled={isSubmitting}
                   >
-                    <option value="user">一般ユーザー</option>
+                    <option value="staff">一般ユーザー</option>
                     <option value="manager">予定管理者</option>
-                    <option value="admin">開発者</option>
+                    <option value="developer">開発者</option>
                   </select>
                 </div>
               </div>
@@ -791,16 +792,16 @@ export const MasterManagementView: React.FC<MasterManagementViewProps> = ({
                               value={editStaffRole}
                               onChange={(e) => setEditStaffRole(e.target.value as UserRole)}
                             >
-                              <option value="user">一般</option>
+                              <option value="staff">一般</option>
                               <option value="manager">予定管理者</option>
-                              <option value="admin">開発者</option>
+                              <option value="developer">開発者</option>
                             </select>
-                          ) : st.role === 'admin' ? (
+                          ) : normalizeRole(st.role) === 'developer' ? (
                             <span className="badge-admin">
                               <Shield size={10} style={{ marginRight: '2px' }} />
                               開発者
                             </span>
-                          ) : st.role === 'manager' ? (
+                          ) : normalizeRole(st.role) === 'manager' ? (
                             <span className="badge-admin" style={{ opacity: 0.85 }}>
                               <Shield size={10} style={{ marginRight: '2px' }} />
                               予定管理者

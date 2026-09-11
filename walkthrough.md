@@ -1,5 +1,63 @@
 # 変更履歴 (walkthrough.md)
 
+## [2026-09-11] 池宮・高倉スタッフのアクティブ化およびアイコン同期（苗字リスト拡張）対応
+
+### 変更の目的
+1. **池宮秀平さん・高倉大地さんのアイコン（アバター）未同期の解消**:
+   - 外部ポータル（エンジニアリング事業部）にアバター画像が登録されているにもかかわらず、画面上でアイコンが表示されずイニシャルバッジになっていた原因を解消しました。
+   - **原因1（既知苗字リスト未登録）**: 苗字解決エンジン（`SURNAMES`）に「池宮」「高倉」が含まれておらず、予定上の「池宮」「高倉」と本名マスタ（池宮 秀平、高倉 大地）の照合が正確に行われていなかった点。
+   - **原因2（スタッフマスタのアクティブ状態）**: 自システムのスタッフマスタにおいて両名が非アクティブ（`is_active: 0`）となっていた点。
+2. **スタッフマスタのアクティブ化とマッピング更新**:
+   - `SURNAMES` に「池宮」「高倉」を追加し、データベース上の `is_active` を `1`（有効）へ更新しました。
+
+### 変更内容
+
+#### 1. 共通型定義・ユーティリティ
+- **[MODIFY] [types.ts](file:///C:/Users/000644/.gemini/antigravity/scratch/field-schedule-manager/frontend/src/types.ts)**:
+  - `SURNAMES` に「池宮」「高倉」を追加。
+- **[MODIFY] [MasterManagementView.tsx](file:///C:/Users/000644/.gemini/antigravity/scratch/field-schedule-manager/frontend/src/components/MasterManagementView.tsx)**:
+  - マスタ同期内の `SURNAMES` に「池宮」「高倉」を追加。
+
+#### 2. データベース
+- **`staff` テーブル**:
+  - 池宮 秀平（id: 44）および 高倉 大地（id: 45）の `is_active` を `1` に更新。
+
+#### 3. 仕様書
+- **[MODIFY] [specification.md](file:///C:/Users/000644/.gemini/antigravity/scratch/field-schedule-manager/specification.md)**:
+  - 第1.3章を同期更新。
+
+---
+
+## [2026-09-11] 同行者フルネーム（姓名スペース）における分離バグの解消（阿部 光男 ➔ 1名統合）
+
+### 変更の目的
+1. **姓名間スペースによる同行者の別人分離バグの解消**:
+   - 同行者欄（`co_worker`）に「阿部 光男」のように姓名の間にスペースを含むフルネームが登録されていた場合、これまでの単純な正規表現分割（`/[\s,，、]+/`）によって「阿部」と「光男」の2人に引き裂かれ、画面上で「[顔写真] 阿部」と「[紫丸] 光男」の2つのバッジが表示されてしまう現象が発生していました。
+   - スタッフマスタ（`staff`）と照合しながらトークナイズを行う共通関数（`splitCoWorkers`）を導入し、「阿部 光男」が1人のスタッフ（阿部光男さん）として正しく識別され、単一の「[顔写真] 阿部」バッジとして表示されるよう全面改修しました。
+
+### 変更内容
+
+#### 1. 共通ユーティリティ（types.ts）
+- **[MODIFY] [types.ts](file:///C:/Users/000644/.gemini/antigravity/scratch/field-schedule-manager/frontend/src/types.ts)**:
+  - `splitCoWorkers(coWorkersStr, staffList)` ヘルパー関数を新設。
+  - カンマや読点での分割を優先しつつ、スペースを含む文字列がスタッフマスタに合致する場合は姓名を分断せず1名として抽出。
+
+#### 2. 各ビュー・モーダル
+- **[MODIFY] [CalendarView.tsx](file:///C:/Users/000644/.gemini/antigravity/scratch/field-schedule-manager/frontend/src/components/CalendarView.tsx)**:
+  - 同行者セル描画および同日フリー枠非表示判定で `splitCoWorkers` を適用。
+- **[MODIFY] [GridView.tsx](file:///C:/Users/000644/.gemini/antigravity/scratch/field-schedule-manager/frontend/src/components/GridView.tsx)**:
+  - 予定表グリッドの同行者セル描画で `splitCoWorkers` を適用。
+- **[MODIFY] [ScheduleModal.tsx](file:///C:/Users/000644/.gemini/antigravity/scratch/field-schedule-manager/frontend/src/components/ScheduleModal.tsx)**:
+  - 同行者選択バッジ判定およびトグル操作で `splitCoWorkers` を適用。
+- **[MODIFY] [PrintPreviewModal.tsx](file:///C:/Users/000644/.gemini/antigravity/scratch/field-schedule-manager/frontend/src/components/PrintPreviewModal.tsx)**:
+  - 印刷プレビューの同行者列で `splitCoWorkers` を適用。
+
+#### 3. 仕様書
+- **[MODIFY] [specification.md](file:///C:/Users/000644/.gemini/antigravity/scratch/field-schedule-manager/specification.md)**:
+  - 第1.5章「同行者（co_worker）における姓名分離防止とトークナイズ仕様」を新設。
+
+---
+
 ## [2026-09-11] 予定を「別日へ移動」した際の元予定備考への移動先自動記録および備考引き継ぎ
 
 ### 変更の目的
