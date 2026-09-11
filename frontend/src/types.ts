@@ -1,3 +1,10 @@
+// アクセス権限の3段階: user=現地対応者(閲覧+自分の予定の結果報告) / manager=予定管理者(配車・予定編集) / admin=開発者(全機能)
+export type UserRole = 'user' | 'manager' | 'admin';
+
+// 予定の追加・編集・配車操作が可能か（予定管理者以上）
+export const canManageSchedules = (role: UserRole): boolean =>
+  role === 'admin' || role === 'manager';
+
 export interface Staff {
   id: number;
   name: string;

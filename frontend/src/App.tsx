@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import type { Schedule, Staff, WorkType } from './types';
+import type { Schedule, Staff, WorkType, UserRole } from './types';
 import { GridView } from './components/GridView';
 import { CalendarView } from './components/CalendarView';
 import { TimelineView } from './components/TimelineView';
@@ -11,7 +11,7 @@ import { HelpGuideModal } from './components/HelpGuideModal';
 import { Calendar, Layers, RefreshCw, AlertCircle, List, Sliders, Sun, Moon, BarChart3, HelpCircle } from 'lucide-react';
 import { supabase, talkScriptSupabase } from './supabaseClient';
 import { resolveAddress } from './utils/addressResolver';
-import { findStaffByName } from './types';
+import { findStaffByName, canManageSchedules } from './types';
 import './App.css';
 
 
@@ -45,7 +45,7 @@ function App() {
 
   const [user, setUser] = useState<any>(null);
   const [showUserMenu, setShowUserMenu] = useState(false);
-  const [currentUserRole, setCurrentUserRole] = useState<'admin' | 'user'>('user');
+  const [currentUserRole, setCurrentUserRole] = useState<UserRole>('user');
   const [isHelpGuideOpen, setIsHelpGuideOpen] = useState(false);
 
   // グローバルショートカットキー: 「?」キーで操作ガイド・ヘルプを開閉
@@ -77,15 +77,22 @@ function App() {
         setCurrentStaffId(8); // 佐藤さん (管理者)
         return;
       }
+      if (user.id === 'demo-manager-id') {
+        setCurrentUserRole('manager');
+        setCurrentStaffId(null); // 配車担当（スタッフ行なし）
+        return;
+      }
       if (user.id === 'demo-user-id') {
         setCurrentUserRole('user');
         setCurrentStaffId(4); // 神崎さん (一般ユーザー)
         return;
       }
-      
+
       const matched = staff.find(s => s.email === user.email);
       if (matched) {
-        setCurrentUserRole((matched.role === 'admin' ? 'admin' : 'user') as 'admin' | 'user');
+        setCurrentUserRole(
+          matched.role === 'admin' ? 'admin' : matched.role === 'manager' ? 'manager' : 'user'
+        );
         setCurrentStaffId(matched.id);
       } else {
         setCurrentUserRole('user');
@@ -98,7 +105,10 @@ function App() {
   }, [user, staff]);
 
   useEffect(() => {
-    if (currentUserRole !== 'admin' && (activeTab === 'calendar' || activeTab === 'master_management' || activeTab === 'analytics')) {
+    if (
+      (currentUserRole !== 'admin' && activeTab === 'master_management') ||
+      (!canManageSchedules(currentUserRole) && (activeTab === 'calendar' || activeTab === 'analytics'))
+    ) {
       setActiveTab('grid');
     }
   }, [currentUserRole, activeTab]);
@@ -149,8 +159,18 @@ function App() {
       id: 'demo-admin-id',
       email: 'sato@example.com',
       user_metadata: {
-        full_name: '佐藤（管理者デモ）',
+        full_name: '佐藤（開発者デモ）',
         avatar_url: 'https://bvhfmwrjrrqrpqvlzkyd.supabase.co/storage/v1/object/public/avatars/000644_1771487704318.png'
+      }
+    });
+  };
+
+  const handleDemoManagerLogin = () => {
+    setUser({
+      id: 'demo-manager-id',
+      email: 'haishablock@example.com',
+      user_metadata: {
+        full_name: '配車担当（予定管理者デモ）'
       }
     });
   };
@@ -168,7 +188,7 @@ function App() {
 
   const handleLogout = async () => {
     try {
-      if (user && (user.id === 'demo-user-id' || user.id === 'demo-admin-id')) {
+      if (user && (user.id === 'demo-user-id' || user.id === 'demo-admin-id' || user.id === 'demo-manager-id')) {
         setUser(null);
         setShowUserMenu(false);
         return;
@@ -717,7 +737,10 @@ function App() {
 
             <div className="demo-login-buttons">
               <button className="btn btn-secondary" onClick={handleDemoAdminLogin}>
-                管理者権限でデモログイン
+                開発者権限でデモログイン
+              </button>
+              <button className="btn btn-secondary" onClick={handleDemoManagerLogin}>
+                予定管理者でデモログイン
               </button>
               <button className="btn btn-secondary" onClick={handleDemoUserLogin}>
                 一般作業者でデモログイン
@@ -731,7 +754,7 @@ function App() {
             <div className="logo-section">
               <h1>現地対応予定・行動管理システム</h1>
               <span className="badge badge-dev">
-                {currentUserRole === 'admin' ? '管理者環境' : '一般作業者環境'}
+                {currentUserRole === 'admin' ? '開発者環境' : currentUserRole === 'manager' ? '予定管理者環境' : '一般作業者環境'}
               </span>
             </div>
 
@@ -750,7 +773,7 @@ function App() {
                 <Layers size={16} />
                 当日行動予定表
               </button>
-              {currentUserRole === 'admin' && (
+              {canManageSchedules(currentUserRole) && (
                 <button
                   className={`tab-btn ${activeTab === 'calendar' ? 'active' : ''}`}
                   onClick={() => setActiveTab('calendar')}
@@ -762,23 +785,23 @@ function App() {
             </div>
 
             <div className="header-actions">
+              {canManageSchedules(currentUserRole) && (
+                <button
+                  className={`btn ${activeTab === 'analytics' ? 'btn-primary' : 'btn-secondary'}`}
+                  onClick={() => setActiveTab('analytics')}
+                  title="集計分析を開く"
+                >
+                  <BarChart3 size={16} />
+                </button>
+              )}
               {currentUserRole === 'admin' && (
-                <>
-                  <button 
-                    className={`btn ${activeTab === 'analytics' ? 'btn-primary' : 'btn-secondary'}`}
-                    onClick={() => setActiveTab('analytics')}
-                    title="集計分析を開く"
-                  >
-                    <BarChart3 size={16} />
-                  </button>
-                  <button 
-                    className={`btn ${activeTab === 'master_management' ? 'btn-primary' : 'btn-secondary'}`}
-                    onClick={() => setActiveTab('master_management')}
-                    title="マスタ管理を開く"
-                  >
-                    <Sliders size={16} />
-                  </button>
-                </>
+                <button
+                  className={`btn ${activeTab === 'master_management' ? 'btn-primary' : 'btn-secondary'}`}
+                  onClick={() => setActiveTab('master_management')}
+                  title="マスタ管理を開く"
+                >
+                  <Sliders size={16} />
+                </button>
               )}
               <button 
                 className="btn btn-secondary" 
@@ -831,7 +854,7 @@ function App() {
                       <div className="user-menu-info">
                         <p className="user-menu-name">{user.user_metadata?.full_name || 'ユーザー'}</p>
                         <p className="user-menu-email">{user.email}</p>
-                        <p className="user-menu-role">権限: {currentUserRole === 'admin' ? '管理者' : '一般作業者'}</p>
+                        <p className="user-menu-role">権限: {currentUserRole === 'admin' ? '開発者' : currentUserRole === 'manager' ? '予定管理者' : '一般作業者'}</p>
                       </div>
                       <div className="user-menu-divider"></div>
                       <button className="user-menu-item logout-btn" onClick={handleLogout}>
@@ -889,7 +912,7 @@ function App() {
                     onReorder={handleReorderSchedules}
                   />
                 )}
-                {currentUserRole === 'admin' && activeTab === 'calendar' && (
+                {canManageSchedules(currentUserRole) && activeTab === 'calendar' && (
                   <CalendarView
                     schedules={schedules}
                     staff={staff}
@@ -911,7 +934,7 @@ function App() {
                     onClearSchedules={handleClearAllSchedules}
                   />
                 )}
-                {currentUserRole === 'admin' && activeTab === 'analytics' && (
+                {canManageSchedules(currentUserRole) && activeTab === 'analytics' && (
                   <AnalyticsView
                     schedules={schedules}
                     staff={staff}

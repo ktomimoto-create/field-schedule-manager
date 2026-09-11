@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import type { Staff, WorkType } from '../types';
+import type { Staff, WorkType, UserRole } from '../types';
 import { AuditLogView } from './AuditLogView';
 import { Users, Sliders, History, Plus, Trash2, Edit2, Check, X, Shield, ChevronUp, ChevronDown, Database, RefreshCw, Building2 } from 'lucide-react';
 import { supabase, talkScriptSupabase } from '../supabaseClient';
@@ -7,7 +7,7 @@ import { supabase, talkScriptSupabase } from '../supabaseClient';
 import './MasterManagementView.css';
 
 interface MasterManagementViewProps {
-  currentUserRole: 'admin' | 'user';
+  currentUserRole: UserRole;
   staff: Staff[];
   workTypes: WorkType[];
   onRefresh: () => void;
@@ -28,7 +28,7 @@ export const MasterManagementView: React.FC<MasterManagementViewProps> = ({
   const [newStaffEmail, setNewStaffEmail] = useState('');
   const [newStaffCourse, setNewStaffCourse] = useState('');
   const [newStaffEmpCode, setNewStaffEmpCode] = useState('');
-  const [newStaffRole, setNewStaffRole] = useState<'admin' | 'user'>('user');
+  const [newStaffRole, setNewStaffRole] = useState<UserRole>('user');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // データメンテナンス用の状態
@@ -41,7 +41,7 @@ export const MasterManagementView: React.FC<MasterManagementViewProps> = ({
   const [editStaffCourse, setEditStaffCourse] = useState('');
   const [editStaffEmpCode, setEditStaffEmpCode] = useState('');
   const [editStaffActive, setEditStaffActive] = useState<number>(1);
-  const [editStaffRole, setEditStaffRole] = useState<'admin' | 'user'>('user');
+  const [editStaffRole, setEditStaffRole] = useState<UserRole>('user');
 
   // 予定項目（種別）管理用状態
   const [newTypeName, setNewTypeName] = useState('');
@@ -55,7 +55,7 @@ export const MasterManagementView: React.FC<MasterManagementViewProps> = ({
     return (
       <div className="card text-center" style={{ padding: '3rem' }}>
         <h3>アクセス権限がありません</h3>
-        <p>この画面は管理者専用です。</p>
+        <p>この画面は開発者専用です。</p>
       </div>
     );
   }
@@ -307,7 +307,7 @@ export const MasterManagementView: React.FC<MasterManagementViewProps> = ({
     setEditStaffCourse(st.default_course || '');
     setEditStaffEmpCode(st.employee_code || '');
     setEditStaffActive(st.is_active !== undefined ? st.is_active : 1);
-    setEditStaffRole((st.role || 'user') as 'admin' | 'user');
+    setEditStaffRole((st.role || 'user') as UserRole);
   };
 
   const handleCancelEditStaff = () => {
@@ -672,11 +672,12 @@ export const MasterManagementView: React.FC<MasterManagementViewProps> = ({
                   <select
                     className="form-control"
                     value={newStaffRole}
-                    onChange={(e) => setNewStaffRole(e.target.value as 'admin' | 'user')}
+                    onChange={(e) => setNewStaffRole(e.target.value as UserRole)}
                     disabled={isSubmitting}
                   >
                     <option value="user">一般ユーザー</option>
-                    <option value="admin">管理者</option>
+                    <option value="manager">予定管理者</option>
+                    <option value="admin">開発者</option>
                   </select>
                 </div>
               </div>
@@ -788,15 +789,21 @@ export const MasterManagementView: React.FC<MasterManagementViewProps> = ({
                             <select
                               className="form-control form-control-sm"
                               value={editStaffRole}
-                              onChange={(e) => setEditStaffRole(e.target.value as 'admin' | 'user')}
+                              onChange={(e) => setEditStaffRole(e.target.value as UserRole)}
                             >
                               <option value="user">一般</option>
-                              <option value="admin">管理者</option>
+                              <option value="manager">予定管理者</option>
+                              <option value="admin">開発者</option>
                             </select>
                           ) : st.role === 'admin' ? (
                             <span className="badge-admin">
                               <Shield size={10} style={{ marginRight: '2px' }} />
-                              管理者
+                              開発者
+                            </span>
+                          ) : st.role === 'manager' ? (
+                            <span className="badge-admin" style={{ opacity: 0.85 }}>
+                              <Shield size={10} style={{ marginRight: '2px' }} />
+                              予定管理者
                             </span>
                           ) : (
                             <span className="text-muted">一般</span>

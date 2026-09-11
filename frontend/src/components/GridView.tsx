@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import XLSX from 'xlsx-js-style';
-import type { Schedule, Staff } from '../types';
-import { getShortName, cleanMetadata, splitCoWorkers } from '../types';
+import type { Schedule, Staff, UserRole } from '../types';
+import { getShortName, cleanMetadata, splitCoWorkers, canManageSchedules } from '../types';
 
 import { Plus, ChevronLeft, ChevronRight, Calendar as CalendarIcon, Filter, CheckCircle2, Download, Eye, EyeOff, Printer } from 'lucide-react';
 import { PrintPreviewModal } from './PrintPreviewModal';
@@ -13,7 +13,7 @@ interface GridViewProps {
   onOpenAddModal: (date: string) => void;
   onOpenEditModal: (schedule: Schedule) => void;
   onSave: (scheduleData: Partial<Schedule>) => Promise<void>;
-  currentUserRole: 'admin' | 'user';
+  currentUserRole: UserRole;
   currentStaffId: number | null;
 }
 
@@ -280,7 +280,7 @@ export const GridView: React.FC<GridViewProps> = ({
     return `${d.getFullYear()}年 ${d.getMonth() + 1}月${d.getDate()}日 (${weekDays[d.getDay()]})`;
   };
 
-  const isAdmin = currentUserRole === 'admin';
+  const isAdmin = canManageSchedules(currentUserRole);
 
   return (
     <div className="grid-view-container card">
@@ -451,7 +451,7 @@ export const GridView: React.FC<GridViewProps> = ({
                 const staffMember = staff.find(st => st.id === schedule.staff_id);
                 const isCompleted = schedule.result === '完了';
 
-                const isAdmin = currentUserRole === 'admin';
+                const isAdmin = canManageSchedules(currentUserRole);
 
                 return (
                   <tr 
