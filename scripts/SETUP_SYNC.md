@@ -9,12 +9,12 @@ FC の依頼一覧を Supabase (fc_requests) へ写すことで動きます。
 - このリポジトリを clone 済み / `frontend/.env.local` を `.env.example` からコピー済み
 
 ## 1. FC 資格情報を環境変数に設定（各自のIDで）
-PowerShell（自分のユーザー環境変数に保存。リポジトリには絶対に書かない）:
+PowerShell で対話式スクリプトを実行（自分のユーザー環境変数に保存。リポジトリには絶対に書かない）:
 
-    [Environment]::SetEnvironmentVariable('FC_USER', '<社員番号>', 'User')
-    [Environment]::SetEnvironmentVariable('FC_PASS', '<FCパスワード>', 'User')
+    cd <リポジトリ>\scripts
+    powershell -ExecutionPolicy Bypass -File .\setup_fc_env.ps1
 
-※ 値は必ずコピペで入れる（目視手打ちは q/g 等の見間違い事故のもと）。
+ID とパスワードを聞かれるので入力する（パスワードは画面に表示されない）。
 
 ## 2. 動作確認（新しいターミナルを開き直して）
 
