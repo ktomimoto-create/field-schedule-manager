@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import type { Schedule, Staff, WorkType } from '../types';
-import { getShortName, findStaffByName, toHalfWidth, splitCoWorkers } from '../types';
+import { getShortName, findStaffByName, toHalfWidth, normalizeTargetTime, splitCoWorkers } from '../types';
 import { buildFcAutofillPatch } from '../utils/fcAutofill';
 
 import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Edit2, Plus, Search, Lock } from 'lucide-react';
@@ -906,7 +906,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
         work_type: 'フリー',
         property_name: finalPropertyName,
         is_transferred: 0,
-        [field]: (field === 'target_time' || field === 'time_limit') ? toHalfWidth(value) : value
+        [field]: field === 'target_time' ? normalizeTargetTime(value) : (field === 'time_limit' ? toHalfWidth(value) : value)
       };
 
       // 依頼番号セルへの入力は FC 同期データから未入力項目を補完する
@@ -925,7 +925,9 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
       let finalValue = value;
       const extraFields: Partial<Schedule> = {};
 
-      if (field === 'target_time' || field === 'time_limit') {
+      if (field === 'target_time') {
+        finalValue = normalizeTargetTime(value);
+      } else if (field === 'time_limit') {
         finalValue = toHalfWidth(value);
       }
 
@@ -1297,7 +1299,9 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
 
               const rowData = rowUpdates[key];
               let finalVal = val;
-              if (targetField === 'target_time' || targetField === 'time_limit') {
+              if (targetField === 'target_time') {
+                finalVal = normalizeTargetTime(val);
+              } else if (targetField === 'time_limit') {
                 finalVal = toHalfWidth(val);
               }
               rowData.updateFields[targetField] = finalVal;
@@ -1507,7 +1511,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
       return (
         <td id={cellId} className={className} style={style}>
           <InlineInput
-            initialValue={(field === 'target_time' || field === 'time_limit') ? toHalfWidth(cleanMetadata(schedule[field])) : cleanMetadata(schedule[field])}
+            initialValue={field === 'target_time' ? normalizeTargetTime(cleanMetadata(schedule[field])) : (field === 'time_limit' ? toHalfWidth(cleanMetadata(schedule[field])) : cleanMetadata(schedule[field]))}
             field={field}
             workTypes={workTypes}
             onSave={(val) => handleInlineSave(schedId, field, val)}
@@ -1720,7 +1724,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
           setEditingCell({ id: schedId, field });
         }}
       >
-        {(field === 'target_time' || field === 'time_limit') ? toHalfWidth(cleanMetadata(value)) : cleanMetadata(value)}
+        {field === 'target_time' ? normalizeTargetTime(cleanMetadata(value)) : ((field === 'time_limit') ? toHalfWidth(cleanMetadata(value)) : cleanMetadata(value))}
       </td>
     );
   };
@@ -1754,7 +1758,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
           work_type: workTypeVal,
           staff_id: matchedStaff.id,
           staff_name: matchedStaff.name,
-          target_time: toHalfWidth(quickTargetTime.trim()) || (isHoliday ? '終日' : '指定なし'),
+          target_time: normalizeTargetTime(quickTargetTime.trim()) || (isHoliday ? '終日' : '指定なし'),
           property_name: propertyName,
           course: matchedStaff.default_course || null,
           division: matchedStaff.default_course && Number(matchedStaff.default_course) >= 90 ? '委託' : 'FTS'
@@ -1837,7 +1841,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
           work_type: group.work_type,
           staff_id: matchedStaff.id,
           staff_name: matchedStaff.name,
-          target_time: popupTargetTime.trim() || (isHoliday ? '終日' : '指定なし'),
+          target_time: normalizeTargetTime(popupTargetTime.trim()) || (isHoliday ? '終日' : '指定なし'),
           property_name: propertyName,
           course: matchedStaff.default_course || null,
           division: matchedStaff.default_course && Number(matchedStaff.default_course) >= 90 ? '委託' : 'FTS'
@@ -1850,7 +1854,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
         for (const item of itemsToUpdate) {
           const payload: Partial<Schedule> = {
             ...item,
-            target_time: popupTargetTime.trim() || (isHoliday ? '終日' : '指定なし'),
+            target_time: normalizeTargetTime(popupTargetTime.trim()) || (isHoliday ? '終日' : '指定なし'),
           };
           await onSave(payload);
         }

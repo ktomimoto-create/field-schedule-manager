@@ -123,6 +123,129 @@ export const toHalfWidth = (str: string | null | undefined): string => {
     .trim();
 };
 
+/**
+ * 時間（target_time）の表記を自動統一・正規化する関数
+ * 正とする表記:
+ *   - 'AM'
+ *   - 'PM'
+ *   - '必ず'
+ *   - 'HH:MM' (例: '13:00', '9:30')
+ *   - 'HH:MM迄' (例: '13:00迄', '17:00迄')
+ * 未知の自由文字列（'終日', '指定なし'など）は半角化の上で保持。
+ */
+export const normalizeTargetTime = (val: string | null | undefined): string => {
+  if (!val) return '';
+  const raw = toHalfWidth(val).trim();
+  if (!raw) return '';
+
+  const lower = raw.toLowerCase();
+
+  // 1. AM 判定
+  if (
+    /^(am|a\.m\.|午前|午前中|ごぜん|朝)$/i.test(raw) ||
+    lower === 'am' ||
+    raw === '午前' ||
+    raw === '午前中'
+  ) {
+    return 'AM';
+  }
+
+  // 2. PM 判定
+  if (
+    /^(pm|p\.m\.|午後|午後中|ごご|夕方|昼から)$/i.test(raw) ||
+    lower === 'pm' ||
+    raw === '午後' ||
+    raw === '午後中'
+  ) {
+    return 'PM';
+  }
+
+  // 3. 必ず 判定
+  if (/^(必ず|かならず|カナルズ|ｶﾅﾗｽﾞ|必|絶対|必着|今日中|当日中)$/i.test(raw)) {
+    return '必ず';
+  }
+
+  // 4. 時刻 + 期限（〜迄）判定
+  let isUntil = false;
+  let s = raw;
+
+  if (/^[~-]/.test(s)) {
+    isUntil = true;
+    s = s.replace(/^[~-]+/, '').trim();
+  }
+  if (/(迄|まで|マデ|ﾏﾃﾞ|前迄|前|着|リミット)$/i.test(s)) {
+    isUntil = true;
+    s = s.replace(/(迄|まで|マデ|ﾏﾃﾞ|前迄|前|着|リミット)$/i, '').trim();
+  }
+
+  // 4-1. 「13時半」等のパターン
+  const matchHalf = s.match(/^(\d{1,2})時半$/);
+  if (matchHalf) {
+    const h = parseInt(matchHalf[1], 10);
+    if (h >= 0 && h <= 23) {
+      const timeStr = `${h}:30`;
+      return isUntil ? `${timeStr}迄` : timeStr;
+    }
+  }
+
+  // 4-2. 「13時」または「13時15分」等のパターン
+  const matchJp = s.match(/^(\d{1,2})時(?:(\d{1,2})分?)?$/);
+  if (matchJp) {
+    const h = parseInt(matchJp[1], 10);
+    const m = matchJp[2] ? parseInt(matchJp[2], 10) : 0;
+    if (h >= 0 && h <= 23 && m >= 0 && m <= 59) {
+      const mStr = String(m).padStart(2, '0');
+      const timeStr = `${h}:${mStr}`;
+      return isUntil ? `${timeStr}迄` : timeStr;
+    }
+  }
+
+  // 4-3. コロン区切り "13:00" または "9:30"
+  const matchColon = s.match(/^(\d{1,2}):(\d{1,2})$/);
+  if (matchColon) {
+    const h = parseInt(matchColon[1], 10);
+    const m = parseInt(matchColon[2], 10);
+    if (h >= 0 && h <= 23 && m >= 0 && m <= 59) {
+      const mStr = String(m).padStart(2, '0');
+      const timeStr = `${h}:${mStr}`;
+      return isUntil ? `${timeStr}迄` : timeStr;
+    }
+  }
+
+  // 4-4. 数字のみ 3〜4桁 (例: "1300" -> 13:00, "900" -> 9:00, "0930" -> 9:30)
+  const matchDigits = s.match(/^(\d{3,4})$/);
+  if (matchDigits) {
+    const digits = matchDigits[1];
+    let h = 0;
+    let m = 0;
+    if (digits.length === 3) {
+      h = parseInt(digits.slice(0, 1), 10);
+      m = parseInt(digits.slice(1), 10);
+    } else {
+      h = parseInt(digits.slice(0, 2), 10);
+      m = parseInt(digits.slice(2), 10);
+    }
+    if (h >= 0 && h <= 23 && m >= 0 && m <= 59) {
+      const mStr = String(m).padStart(2, '0');
+      const timeStr = `${h}:${mStr}`;
+      return isUntil ? `${timeStr}迄` : timeStr;
+    }
+  }
+
+  // 4-5. 数字のみ 1〜2桁 (例: "13迄" -> 13:00迄)
+  if (isUntil) {
+    const matchHourOnly = s.match(/^(\d{1,2})$/);
+    if (matchHourOnly) {
+      const h = parseInt(matchHourOnly[1], 10);
+      if (h >= 0 && h <= 23) {
+        return `${h}:00迄`;
+      }
+    }
+  }
+
+  return raw;
+};
+
 export const cleanMetadata = (val: string | null | undefined): string => {
   if (!val) return '';
   return String(val)

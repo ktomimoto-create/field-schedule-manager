@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import XLSX from 'xlsx-js-style';
 import type { Schedule, Staff, UserRole } from '../types';
-import { getShortName, cleanMetadata, splitCoWorkers, canManageSchedules, toHalfWidth } from '../types';
+import { getShortName, cleanMetadata, splitCoWorkers, canManageSchedules, normalizeTargetTime } from '../types';
 
 import { Plus, ChevronLeft, ChevronRight, Calendar as CalendarIcon, Filter, CheckCircle2, Download, Eye, EyeOff, Printer, Lock } from 'lucide-react';
 import { PrintPreviewModal } from './PrintPreviewModal';
@@ -481,7 +481,7 @@ export const GridView: React.FC<GridViewProps> = ({
                       {schedule.description}
                     </td>
                     <td className="time-cell">
-                      {toHalfWidth(schedule.target_time)}
+                      {normalizeTargetTime(schedule.target_time)}
                     </td>
                     <td style={{ verticalAlign: 'middle' }}>
                       {staffMember ? (

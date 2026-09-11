@@ -3,7 +3,7 @@ import type { Schedule, Staff, ScheduleStatus, WorkType, UserRole } from '../typ
 import { X, Mail, Lock } from 'lucide-react';
 import { resolveAddress } from '../utils/addressResolver';
 import { supabase } from '../supabaseClient';
-import { findStaffByName, getShortName, toHalfWidth, splitCoWorkers, canManageSchedules } from '../types';
+import { findStaffByName, getShortName, toHalfWidth, normalizeTargetTime, splitCoWorkers, canManageSchedules } from '../types';
 
 interface ScheduleModalProps {
   isOpen: boolean;
@@ -293,7 +293,7 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
       }
 
       setDescription(selectedSchedule.description || '');
-      setTargetTime(toHalfWidth(selectedSchedule.target_time || ''));
+      setTargetTime(normalizeTargetTime(selectedSchedule.target_time || ''));
       setDate(selectedSchedule.date || selectedDate || '');
       
       const sId = selectedSchedule.staff_id;
@@ -449,7 +449,7 @@ ${notes || 'なし'}
         property_name: propertyName.trim(),
         work_type: workType.trim() || null,
         description: description.trim() || null,
-        target_time: toHalfWidth(targetTime.trim()) || null,
+        target_time: normalizeTargetTime(targetTime.trim()) || null,
         date,
         staff_id: isCancelled ? null : (matchedStaff ? matchedStaff.id : null),
         staff_name: isCancelled ? '' : (matchedStaff ? matchedStaff.name : (staffName.trim() || undefined)),
@@ -621,12 +621,12 @@ ${notes || 'なし'}
                 className="form-control"
                 value={targetTime}
                 onChange={(e) => setTargetTime(e.target.value)}
-                onBlur={() => setTargetTime(toHalfWidth(targetTime))}
+                onBlur={() => setTargetTime(normalizeTargetTime(targetTime))}
                 placeholder="時間入力 または 下の定型ボタンから選択"
                 disabled={isInputDisabled}
               />
               <div style={{ marginTop: '6px', display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
-                {['必ず', 'AM', 'PM', '12:00', '14:00迄', '17:00まで'].map((timeOpt) => (
+                {['AM', 'PM', '必ず', '10:00', '13:00', '13:00迄', '17:00迄'].map((timeOpt) => (
                   <button
                     key={timeOpt}
                     type="button"
