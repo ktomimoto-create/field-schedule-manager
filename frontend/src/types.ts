@@ -85,7 +85,7 @@ export const getShortName = (name: string | null | undefined): string => {
   const SURNAMES = [
     '平本', '築地', '藤井', '神崎', '原', '土橋', '藤田', '佐藤', '吉沼', '小山', 
     '高橋', '畦崎', '松下', '淺沼', '山内', '中川', '阿部', '藤崎', '本間', '丸山', 
-    '清水', '塙', '伊比', '石山', '平井', '豊見本', '富本'
+    '清水', '塙', '伊比', '石山', '平井', '豊見本', '富本', '池宮', '高倉'
   ];
   const matchedSurname = SURNAMES.find(s => trimmed.startsWith(s));
   if (matchedSurname) {

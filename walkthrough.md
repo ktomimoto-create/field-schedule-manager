@@ -1,5 +1,33 @@
 # 変更履歴 (walkthrough.md)
 
+## [2026-09-11] 池宮・高倉スタッフのアクティブ化およびアイコン同期（苗字リスト拡張）対応
+
+### 変更の目的
+1. **池宮秀平さん・高倉大地さんのアイコン（アバター）未同期の解消**:
+   - 外部ポータル（エンジニアリング事業部）にアバター画像が登録されているにもかかわらず、画面上でアイコンが表示されずイニシャルバッジになっていた原因を解消しました。
+   - **原因1（既知苗字リスト未登録）**: 苗字解決エンジン（`SURNAMES`）に「池宮」「高倉」が含まれておらず、予定上の「池宮」「高倉」と本名マスタ（池宮 秀平、高倉 大地）の照合が正確に行われていなかった点。
+   - **原因2（スタッフマスタのアクティブ状態）**: 自システムのスタッフマスタにおいて両名が非アクティブ（`is_active: 0`）となっていた点。
+2. **スタッフマスタのアクティブ化とマッピング更新**:
+   - `SURNAMES` に「池宮」「高倉」を追加し、データベース上の `is_active` を `1`（有効）へ更新しました。
+
+### 変更内容
+
+#### 1. 共通型定義・ユーティリティ
+- **[MODIFY] [types.ts](file:///C:/Users/000644/.gemini/antigravity/scratch/field-schedule-manager/frontend/src/types.ts)**:
+  - `SURNAMES` に「池宮」「高倉」を追加。
+- **[MODIFY] [MasterManagementView.tsx](file:///C:/Users/000644/.gemini/antigravity/scratch/field-schedule-manager/frontend/src/components/MasterManagementView.tsx)**:
+  - マスタ同期内の `SURNAMES` に「池宮」「高倉」を追加。
+
+#### 2. データベース
+- **`staff` テーブル**:
+  - 池宮 秀平（id: 44）および 高倉 大地（id: 45）の `is_active` を `1` に更新。
+
+#### 3. 仕様書
+- **[MODIFY] [specification.md](file:///C:/Users/000644/.gemini/antigravity/scratch/field-schedule-manager/specification.md)**:
+  - 第1.3章を同期更新。
+
+---
+
 ## [2026-09-11] 同行者フルネーム（姓名スペース）における分離バグの解消（阿部 光男 ➔ 1名統合）
 
 ### 変更の目的
