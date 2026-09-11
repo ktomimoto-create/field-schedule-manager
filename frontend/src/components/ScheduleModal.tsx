@@ -53,7 +53,7 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
 
   // 状態管理
   const [status, setStatus] = useState<ScheduleStatus>('free');
-  const [division, setDivision] = useState('');
+  const [division, setDivision] = useState('FTS');
   const [type, setType] = useState('');
   const [box, setBox] = useState('');
   const [unitNumber, setUnitNumber] = useState('');
@@ -341,7 +341,7 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
       setLevel3(selectedSchedule.level_3 || '');
     } else {
       setStatus('free');
-      setDivision('委託'); // 新規追加時の初期値は「委託」
+      setDivision('FTS'); // 新規追加時の初期値は「FTS」
       setType('');
       setBox('');
       setUnitNumber('');
@@ -370,12 +370,15 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
     }
   }, [selectedSchedule, selectedDate, isOpen, staff, fieldWorkTypeList]);
 
-  // コース番号の変更に連動して、区分を自動判定してセットする
+  // コース番号の変更に連動して、区分を自動判定してセットする（空の場合はデフォルトFTSを維持）
   useEffect(() => {
     if (course !== undefined && course !== null) {
       const courseStr = String(course).trim();
+      if (courseStr === '') {
+        return; // コース未設定時は手動設定またはデフォルトFTSを維持
+      }
       const courseNum = Number(courseStr);
-      if (courseStr !== '' && !isNaN(courseNum) && courseNum >= 1 && courseNum <= 26) {
+      if (!isNaN(courseNum) && courseNum >= 1 && courseNum <= 26) {
         setDivision('FTS');
       } else {
         setDivision('委託');
@@ -610,16 +613,13 @@ ${notes || 'なし'}
             </div>
           </div>
 
-          {/* カード 1: 案件特定・自動補完 (最上部) */}
+          {/* カード 1: 物件情報 */}
           <div className={`schedule-modal-card card-accent-fc ${isAutofillFlashing ? 'autofill-flash' : ''}`}>
             <div className="schedule-card-header">
               <h4 className="schedule-card-title">
                 <span className="card-indicator"></span>
-                1. 案件特定（番号入力で下記が一瞬で自動反映）
+                1. 物件情報
               </h4>
-              <span className="schedule-card-badge">
-                ⚡ FC / 物件マスタ自動連携
-              </span>
             </div>
 
             {/* 依頼番号 & 号機 */}
@@ -635,7 +635,6 @@ ${notes || 'なし'}
                   value={requestNumber}
                   onChange={(e) => { setRequestNumber(e.target.value); setRequestNumberHint(''); }}
                   onBlur={handleRequestNumberBlur}
-                  placeholder="例: 26091100001"
                   autoComplete="off"
                   disabled={isInputDisabled}
                 />
@@ -658,7 +657,6 @@ ${notes || 'なし'}
                     if (propertySuggestions.length > 0) setShowSuggestions(true);
                   }}
                   onBlur={handleUnitNumberBlur}
-                  placeholder="例: 78201"
                   autoComplete="off"
                   disabled={isInputDisabled}
                 />
@@ -719,7 +717,6 @@ ${notes || 'なし'}
                 className="form-control"
                 value={propertyName}
                 onChange={(e) => setPropertyName(e.target.value)}
-                placeholder="物件名を入力（番号入力で自動反映）"
                 required
                 disabled={isInputDisabled}
               />
@@ -735,7 +732,6 @@ ${notes || 'なし'}
                   className="form-control"
                   value={box}
                   onChange={(e) => setBox(e.target.value)}
-                  placeholder="例: 8"
                   disabled={isInputDisabled}
                 />
               </div>
@@ -747,7 +743,6 @@ ${notes || 'なし'}
                   className="form-control"
                   value={type}
                   onChange={(e) => setType(e.target.value)}
-                  placeholder="例: 標準"
                   disabled={isInputDisabled}
                 />
               </div>
@@ -759,7 +754,6 @@ ${notes || 'なし'}
                   className="form-control"
                   value={area}
                   onChange={(e) => setArea(e.target.value)}
-                  placeholder="例: 練馬区"
                   disabled={isInputDisabled}
                 />
               </div>
@@ -771,19 +765,18 @@ ${notes || 'なし'}
                   className="form-control"
                   value={prefecture}
                   onChange={(e) => setPrefecture(e.target.value)}
-                  placeholder="例: 23"
                   disabled={isInputDisabled}
                 />
               </div>
             </div>
           </div>
 
-          {/* カード 2: 配車・日程決定 */}
+          {/* カード 2: 日程・対応者 */}
           <div className="schedule-modal-card">
             <div className="schedule-card-header">
               <h4 className="schedule-card-title">
                 <span className="card-indicator emerald"></span>
-                2. 配車・日程決定
+                2. 日程・対応者
               </h4>
             </div>
 
@@ -810,7 +803,6 @@ ${notes || 'なし'}
                   value={targetTime}
                   onChange={(e) => setTargetTime(e.target.value)}
                   onBlur={() => setTargetTime(normalizeTargetTime(targetTime))}
-                  placeholder="手入力 または 下のボタン"
                   disabled={isInputDisabled}
                 />
                 {/* 定型チップ: 必ず・AM・PM の3つのみ (注釈文字なし) */}
@@ -901,6 +893,7 @@ ${notes || 'なし'}
 
               <div className="form-group" style={{ marginBottom: 0 }}>
                 <label htmlFor="co_worker">同行者</label>
+                {/* フリー手入力欄（マスタ未登録者も自由に入力可能） */}
                 <input
                   type="text"
                   id="co_worker"
@@ -908,8 +901,36 @@ ${notes || 'なし'}
                   value={coWorker}
                   onChange={(e) => setCoWorker(e.target.value)}
                   disabled={isInputDisabled}
-                  placeholder="佐藤, 鈴木 (下のボタンまたは手入力)"
                 />
+                {/* プルダウン選択（複数選択可能・クリックで追加/解除） */}
+                <select
+                  id="co_worker_select"
+                  className="form-control"
+                  style={{ marginTop: '6px', fontSize: '0.8rem' }}
+                  value=""
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (val) {
+                      handleToggleCoWorker(val);
+                    }
+                  }}
+                  disabled={isInputDisabled}
+                >
+                  <option value="">-- 同行者をプルダウン選択 --</option>
+                  {staff
+                    .filter((st) => st.is_active !== 0)
+                    .map((st) => {
+                      const shortName = getShortName(st.name);
+                      const isSelected = splitCoWorkers(coWorker, staff)
+                        .some(val => val === st.name.trim() || val === shortName || getShortName(val) === shortName);
+                      return (
+                        <option key={st.id} value={st.name}>
+                          {isSelected ? '✓ ' : ''}{st.name}{st.default_course ? ` (${st.default_course}コース)` : ''}
+                        </option>
+                      );
+                    })}
+                </select>
+                {/* クイック選択チップ */}
                 <div className="co-worker-quick-select" style={{ marginTop: '6px', display: 'flex', flexWrap: 'wrap', gap: '4px', maxHeight: '72px', overflowY: 'auto', padding: '2px' }}>
                   {staff
                     .filter((st) => {
@@ -971,7 +992,6 @@ ${notes || 'なし'}
                   className="form-control"
                   value={course}
                   onChange={(e) => setCourse(e.target.value)}
-                  placeholder="例: 1"
                   disabled={isInputDisabled}
                 />
               </div>
@@ -984,8 +1004,8 @@ ${notes || 'なし'}
                   onChange={(e) => setDivision(e.target.value)}
                   disabled={isInputDisabled}
                 >
-                  <option value="委託">委託</option>
                   <option value="FTS">FTS</option>
+                  <option value="委託">委託</option>
                   <option value="未定">未定</option>
                   <option value="直行直帰">直行直帰</option>
                 </select>
@@ -998,23 +1018,22 @@ ${notes || 'なし'}
                   className="form-control"
                   value={transport}
                   onChange={(e) => setTransport(e.target.value)}
-                  placeholder="例: 車 / 電車"
                   disabled={isInputDisabled}
                 />
               </div>
             </div>
           </div>
 
-          {/* カード 3: 作業内容・TIME・備考 */}
+          {/* カード 3: 作業内容 */}
           <div className="schedule-modal-card">
             <div className="schedule-card-header">
               <h4 className="schedule-card-title">
                 <span className="card-indicator amber"></span>
-                3. 作業内容・TIME・備考
+                3. 作業内容
               </h4>
             </div>
 
-            {/* 種別 & TIME (目安時間) */}
+            {/* 種別 & TIME */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.85rem', marginBottom: '0.85rem' }}>
               <div className="form-group" style={{ marginBottom: 0 }}>
                 <label htmlFor="work_type">種別</label>
@@ -1055,9 +1074,7 @@ ${notes || 'なし'}
               </div>
 
               <div className="form-group" style={{ marginBottom: 0 }}>
-                <label htmlFor="time_limit" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  TIME <span style={{ fontSize: '0.74rem', color: 'var(--text-muted, #64748b)', fontWeight: 'normal' }}>(作業目安時間)</span>
-                </label>
+                <label htmlFor="time_limit">TIME</label>
                 <input
                   type="text"
                   id="time_limit"
@@ -1065,7 +1082,6 @@ ${notes || 'なし'}
                   value={timeLimit}
                   onChange={(e) => setTimeLimit(e.target.value)}
                   onBlur={() => setTimeLimit(toHalfWidth(timeLimit))}
-                  placeholder="例: 13:00 / 13:00迄"
                   disabled={isInputDisabled}
                 />
               </div>
@@ -1080,7 +1096,6 @@ ${notes || 'なし'}
                 rows={2}
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                placeholder="作業の詳細や指示内容を入力"
                 disabled={isInputDisabled}
               ></textarea>
             </div>
@@ -1094,7 +1109,6 @@ ${notes || 'なし'}
                 className="form-control"
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
-                placeholder="連絡事項・申し送り等"
                 disabled={isInputDisabled}
               />
             </div>
