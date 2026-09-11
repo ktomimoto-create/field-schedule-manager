@@ -107,7 +107,7 @@ export const AuditLogView: React.FC<AuditLogViewProps> = ({ currentUserRole, sta
   };
 
   useEffect(() => {
-    if (currentUserRole === 'admin') {
+    if (currentUserRole === 'developer') {
       fetchLogs(0, false);
     }
   }, [currentUserRole]);
@@ -550,7 +550,7 @@ export const AuditLogView: React.FC<AuditLogViewProps> = ({ currentUserRole, sta
     return { total: logs.length, creates, updates, deletes, imports };
   }, [logs]);
 
-  if (currentUserRole !== 'admin') {
+  if (currentUserRole !== 'developer') {
     return (
       <div className="audit-restricted-card card">
         <ShieldAlert size={48} className="restricted-icon" />

@@ -35,7 +35,7 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
     new Date().toISOString().split('T')[0]
   );
   const [showOnlyMySchedule, setShowOnlyMySchedule] = useState(() => {
-    return currentUserRole === 'user';
+    return currentUserRole === 'staff';
   });
   const [draggedItem, setDraggedItem] = useState<Schedule | null>(null);
   const [reportSchedule, setReportSchedule] = useState<Schedule | null>(null);
