@@ -87,6 +87,16 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
   const [searchTimeout, setSearchTimeout] = useState<any>(null);
   const [activeHoverId, setActiveHoverId] = useState<number | null>(null);
 
+  // 依頼番号→FC同期データ補完用
+  const [requestNumberHint, setRequestNumberHint] = useState('');
+
+  // 読み取りにもタイムアウトを付ける（無限ハング防止）
+  const withTimeout = <T,>(p: PromiseLike<T>, ms = 15000): Promise<T> =>
+    Promise.race([
+      Promise.resolve(p),
+      new Promise<T>((_, rej) => setTimeout(() => rej(new Error('timeout')), ms)),
+    ]);
+
   const handleUnitNumberChange = (val: string) => {
     setUnitNumber(val);
     
@@ -119,48 +129,96 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
     setSearchTimeout(timeout);
   };
 
+  /** 号機をキーに物件マスタを引き、未入力の項目だけ補完する。
+   *  fallback: マスタに号機が無いときに使う FC 同期データ（物件名・住所）。
+   *  戻り値: マスタ or fallback で何かしら補完できたら true */
+  const autofillFromUnitNumber = async (
+    val: string,
+    fallback?: { property_name?: string | null; address?: string | null }
+  ): Promise<boolean> => {
+    // ユーザーの入力物件名が未設定、またはデフォルトの場合に自動補完を試みる
+    const needsNameAutoFill = !propertyName || propertyName.trim() === '' || propertyName === '（物件名未定）';
+    const needsAreaAutoFill = !area || area.trim() === '';
+    const needsPrefAutoFill = !prefecture || prefecture.trim() === '';
+
+    try {
+      // Supabaseから完全一致で検索
+      const { data, error } = await withTimeout(
+        supabase.from('properties').select('*').eq('unit_number', val).limit(1)
+      );
+
+      if (!error && data && data.length > 0) {
+        const matched = data[0];
+        if (needsNameAutoFill) {
+          setPropertyName(matched.property_name || '');
+        }
+        setBox(matched.box_count ? String(matched.box_count) : '');
+        setType(matched.model_type || '');
+
+        if (matched.address) {
+          const { area: determinedArea, prefecture: determinedPref } = resolveAddress(matched.address);
+          if (needsAreaAutoFill && determinedArea) {
+            setArea(determinedArea);
+          }
+          if (needsPrefAutoFill && determinedPref) {
+            setPrefecture(determinedPref);
+          }
+        }
+        return true;
+      }
+    } catch (err) {
+      console.error('Failed to auto-complete property:', err);
+    }
+
+    // マスタ未登録の号機（新設物件等）: FC 同期データの物件名・住所で最低限を埋める
+    if (fallback) {
+      if (needsNameAutoFill && fallback.property_name) setPropertyName(fallback.property_name);
+      if (fallback.address) {
+        const { area: determinedArea, prefecture: determinedPref } = resolveAddress(fallback.address);
+        if (needsAreaAutoFill && determinedArea) setArea(determinedArea);
+        if (needsPrefAutoFill && determinedPref) setPrefecture(determinedPref);
+      }
+      return Boolean(fallback.property_name || fallback.address);
+    }
+    return false;
+  };
+
   const handleUnitNumberBlur = async () => {
     // サジェストを非表示（200msの遅延を設けることでリスト項目のクリックを可能にする）
     setTimeout(() => setShowSuggestions(false), 200);
 
     const val = unitNumber.trim();
     if (val === '') return;
+    await autofillFromUnitNumber(val);
+  };
+
+  /** 依頼番号→FC同期テーブル(fc_requests)→号機→マスタ補完 */
+  const handleRequestNumberBlur = async () => {
+    setRequestNumberHint('');
+    const val = toHalfWidth(requestNumber).trim();
+    if (val === '') return;
+    if (val !== requestNumber) setRequestNumber(val);
 
     try {
-      // ユーザーの入力物件名が未設定、またはデフォルトの場合に自動補完を試みる
-      const needsNameAutoFill = !propertyName || propertyName.trim() === '' || propertyName === '（物件名未定）';
-      const needsAreaAutoFill = !area || area.trim() === '';
-      const needsPrefAutoFill = !prefecture || prefecture.trim() === '';
-
-      if (needsNameAutoFill || needsAreaAutoFill || needsPrefAutoFill) {
-        // Supabaseから完全一致で検索
-        const { data, error } = await supabase
-          .from('properties')
-          .select('*')
-          .eq('unit_number', val)
-          .limit(1);
-
-        if (!error && data && data.length > 0) {
-          const matched = data[0];
-          if (needsNameAutoFill) {
-            setPropertyName(matched.property_name || '');
-          }
-          setBox(matched.box_count ? String(matched.box_count) : '');
-          setType(matched.model_type || '');
-          
-          if (matched.address) {
-            const { area: determinedArea, prefecture: determinedPref } = resolveAddress(matched.address);
-            if (needsAreaAutoFill && determinedArea) {
-              setArea(determinedArea);
-            }
-            if (needsPrefAutoFill && determinedPref) {
-              setPrefecture(determinedPref);
-            }
-          }
-        }
+      const { data, error } = await withTimeout(
+        supabase.from('fc_requests').select('*').eq('refno', val).limit(1)
+      );
+      if (error) throw error;
+      if (!data || data.length === 0) {
+        setRequestNumberHint('FC同期にまだ無い番号です。号機を入力すると残りが補完されます');
+        return;
       }
+      const req = data[0];
+      if (!unitNumber.trim() && req.unit_number) {
+        setUnitNumber(req.unit_number);
+      }
+      await autofillFromUnitNumber(
+        (unitNumber.trim() || req.unit_number || '').trim(),
+        { property_name: req.property_name, address: req.address }
+      );
     } catch (err) {
-      console.error('Failed to auto-complete property on blur:', err);
+      // 補完失敗は入力の妨げにしない（保存動作には無関係）
+      console.error('Failed to look up fc_requests:', err);
     }
   };
 
@@ -247,6 +305,7 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
       setTransport(selectedSchedule.transport || '');
       setCoWorker(selectedSchedule.co_worker || '');
       setRequestNumber(selectedSchedule.request_number || '');
+      setRequestNumberHint('');
       setTimeLimit(selectedSchedule.time_limit || '');
       setCourse(selectedSchedule.course || '');
       setResult(selectedSchedule.result || '');
@@ -276,6 +335,7 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
       setTransport('');
       setCoWorker('');
       setRequestNumber('');
+      setRequestNumberHint('');
       setTimeLimit('');
       setCourse('');
       setResult('');
@@ -862,9 +922,16 @@ ${notes || 'なし'}
                   id="request_number"
                   className="form-control"
                   value={requestNumber}
-                  onChange={(e) => setRequestNumber(e.target.value)}
+                  onChange={(e) => { setRequestNumber(e.target.value); setRequestNumberHint(''); }}
+                  onBlur={handleRequestNumberBlur}
+                  autoComplete="off"
                   disabled={isSubmitting}
                 />
+                {requestNumberHint && (
+                  <div style={{ fontSize: '0.72rem', color: 'var(--text-muted, #64748b)', marginTop: '4px' }}>
+                    {requestNumberHint}
+                  </div>
+                )}
               </div>
               <div className="form-group">
                 <label htmlFor="time_limit">TIME</label>
