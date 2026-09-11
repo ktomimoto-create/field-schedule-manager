@@ -23,13 +23,16 @@ ID とパスワードを聞かれるので入力する（パスワードは画�
 
 「upsert 完了: N 件」が出ればOK。
 
-## 3. タスクスケジューラ登録（5分間隔・8:00〜19:00）
-管理者権限不要。PowerShell:
+## 3. タスクスケジューラ登録（平日 8:00〜19:00 を5分間隔）
+管理者権限不要。`scripts/FSM_FC_Sync.xml` をメモ帳で開き、`<WorkingDirectory>` を
+自分の clone の `scripts` フォルダのパスに書き換えて保存してから:
 
-    schtasks /Create /TN "FSM_FC_Sync" /TR "\"<リポジトリ>\scripts\sync_fc_requests_task.bat\"" /SC MINUTE /MO 5 /ST 08:00 /ET 19:00 /K /F
+    schtasks /Create /TN "FSM_FC_Sync" /XML "<リポジトリ>\scripts\FSM_FC_Sync.xml" /F
+    schtasks /Run /TN "FSM_FC_Sync"
 
-- `sync_fc_requests_task.bat` は pause 無し・ログ付き（`%TEMP%\fsm_fc_sync.log`）
+- 動作結果は `%TEMP%\fsm_fc_sync.log` に出る（`upsert 完了: N 件` ならOK）
 - 手動即時同期したいときはエクスプローラーから `sync_fc_requests.bat` をダブルクリック
+- ※ `schtasks /SC MINUTE /ET 19:00` のワンライナー登録は「当日で失効するトリガー」になるため使わない（2026-09-11 実証）
 
 ## 4. 初回バックフィル（どちらか1台で1回だけ）
 
