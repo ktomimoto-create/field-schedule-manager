@@ -1,5 +1,35 @@
 # 変更履歴 (walkthrough.md)
 
+## [2026-09-11] 同行者フルネーム（姓名スペース）における分離バグの解消（阿部 光男 ➔ 1名統合）
+
+### 変更の目的
+1. **姓名間スペースによる同行者の別人分離バグの解消**:
+   - 同行者欄（`co_worker`）に「阿部 光男」のように姓名の間にスペースを含むフルネームが登録されていた場合、これまでの単純な正規表現分割（`/[\s,，、]+/`）によって「阿部」と「光男」の2人に引き裂かれ、画面上で「[顔写真] 阿部」と「[紫丸] 光男」の2つのバッジが表示されてしまう現象が発生していました。
+   - スタッフマスタ（`staff`）と照合しながらトークナイズを行う共通関数（`splitCoWorkers`）を導入し、「阿部 光男」が1人のスタッフ（阿部光男さん）として正しく識別され、単一の「[顔写真] 阿部」バッジとして表示されるよう全面改修しました。
+
+### 変更内容
+
+#### 1. 共通ユーティリティ（types.ts）
+- **[MODIFY] [types.ts](file:///C:/Users/000644/.gemini/antigravity/scratch/field-schedule-manager/frontend/src/types.ts)**:
+  - `splitCoWorkers(coWorkersStr, staffList)` ヘルパー関数を新設。
+  - カンマや読点での分割を優先しつつ、スペースを含む文字列がスタッフマスタに合致する場合は姓名を分断せず1名として抽出。
+
+#### 2. 各ビュー・モーダル
+- **[MODIFY] [CalendarView.tsx](file:///C:/Users/000644/.gemini/antigravity/scratch/field-schedule-manager/frontend/src/components/CalendarView.tsx)**:
+  - 同行者セル描画および同日フリー枠非表示判定で `splitCoWorkers` を適用。
+- **[MODIFY] [GridView.tsx](file:///C:/Users/000644/.gemini/antigravity/scratch/field-schedule-manager/frontend/src/components/GridView.tsx)**:
+  - 予定表グリッドの同行者セル描画で `splitCoWorkers` を適用。
+- **[MODIFY] [ScheduleModal.tsx](file:///C:/Users/000644/.gemini/antigravity/scratch/field-schedule-manager/frontend/src/components/ScheduleModal.tsx)**:
+  - 同行者選択バッジ判定およびトグル操作で `splitCoWorkers` を適用。
+- **[MODIFY] [PrintPreviewModal.tsx](file:///C:/Users/000644/.gemini/antigravity/scratch/field-schedule-manager/frontend/src/components/PrintPreviewModal.tsx)**:
+  - 印刷プレビューの同行者列で `splitCoWorkers` を適用。
+
+#### 3. 仕様書
+- **[MODIFY] [specification.md](file:///C:/Users/000644/.gemini/antigravity/scratch/field-schedule-manager/specification.md)**:
+  - 第1.5章「同行者（co_worker）における姓名分離防止とトークナイズ仕様」を新設。
+
+---
+
 ## [2026-09-11] 予定を「別日へ移動」した際の元予定備考への移動先自動記録および備考引き継ぎ
 
 ### 変更の目的

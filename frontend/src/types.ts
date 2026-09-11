@@ -137,4 +137,59 @@ export const findStaffByName = (staff: Staff[], name: string | null | undefined)
   return undefined;
 };
 
+/**
+ * 同行者文字列をスタッフ名単位に正しく分割するヘルパー
+ * 「阿部 光男」などの姓名間にスペースがある場合でも、1人のスタッフとして認識して不当な分割を防ぐ
+ */
+export const splitCoWorkers = (coWorkersStr: string | null | undefined, staffList?: Staff[]): string[] => {
+  if (!coWorkersStr) return [];
+  const trimmed = coWorkersStr.trim();
+  if (!trimmed) return [];
+
+  // カンマ、読点、スラッシュ、改行、セミコロンでまず分割
+  const primaryTokens = trimmed.split(/[,，、/\n;；]+/).map(s => s.trim()).filter(Boolean);
+
+  const result: string[] = [];
+
+  for (const token of primaryTokens) {
+    if (!staffList || staffList.length === 0) {
+      const subTokens = token.split(/[\s　]+/).filter(Boolean);
+      result.push(...subTokens);
+      continue;
+    }
+
+    // トークン全体が1人のスタッフとしてマッチするか判定（例: "阿部 光男"）
+    if (findStaffByName(staffList, token)) {
+      result.push(token);
+      continue;
+    }
+
+    // 空白で区切られている場合、前から貪欲にスタッフ名とマッチするか判定
+    const parts = token.split(/[\s　]+/).filter(Boolean);
+    if (parts.length <= 1) {
+      result.push(token);
+      continue;
+    }
+
+    let i = 0;
+    while (i < parts.length) {
+      // 2単語結合でスタッフに合致するか判定（例: "阿部" + "光男"）
+      if (i + 1 < parts.length) {
+        const twoWords = `${parts[i]} ${parts[i + 1]}`;
+        const twoWordsNoSpace = `${parts[i]}${parts[i + 1]}`;
+        if (findStaffByName(staffList, twoWords) || findStaffByName(staffList, twoWordsNoSpace)) {
+          result.push(twoWords);
+          i += 2;
+          continue;
+        }
+      }
+
+      result.push(parts[i]);
+      i += 1;
+    }
+  }
+
+  return result;
+};
+
 

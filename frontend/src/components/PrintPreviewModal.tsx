@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { Schedule, Staff } from '../types';
-import { getShortName } from '../types';
+import { getShortName, splitCoWorkers } from '../types';
 import { Printer, X } from 'lucide-react';
 import './PrintPreviewModal.css';
 
@@ -187,7 +187,7 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({
                       <td>
                         {(() => {
                           const coWorkersStr = schedule.co_worker || '';
-                          const coWorkersList = coWorkersStr ? coWorkersStr.split(/[\s,，、]+/).map(s => s.trim()).filter(Boolean) : [];
+                          const coWorkersList = splitCoWorkers(coWorkersStr, staff);
                           return coWorkersList.map(name => getShortName(name)).join(', ');
                         })()}
                       </td>

@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import type { Schedule, Staff, WorkType } from '../types';
-import { getShortName, findStaffByName, toHalfWidth } from '../types';
+import { getShortName, findStaffByName, toHalfWidth, splitCoWorkers } from '../types';
 
 import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Edit2, Plus, Search } from 'lucide-react';
 import './CalendarView.css';
@@ -420,7 +420,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
         // 同日の他の予定に同行者として名前が入っているかを判定
         const isCoWorkerOnThisDay = displaySchedules.some(s => {
           if (s.status === 'cancelled' || !s.co_worker) return false;
-          const coWorkerNames = s.co_worker.split(/[\s,，、]+/).map(n => n.trim()).filter(Boolean);
+          const coWorkerNames = splitCoWorkers(s.co_worker, staff);
           return coWorkerNames.some(cwName => {
             const matched = findStaffByName(staff, cwName);
             return matched && matched.id === stItem.id;
@@ -1598,7 +1598,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
 
     if (field === 'co_worker') {
       const coWorkersStr = (value as string) || '';
-      const coWorkersList = coWorkersStr ? coWorkersStr.split(/[\s,，、]+/).map(s => s.trim()).filter(Boolean) : [];
+      const coWorkersList = splitCoWorkers(coWorkersStr, staff);
 
       return (
         <td 

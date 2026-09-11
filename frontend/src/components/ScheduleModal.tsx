@@ -3,7 +3,7 @@ import type { Schedule, Staff, ScheduleStatus, WorkType } from '../types';
 import { X, Mail } from 'lucide-react';
 import { resolveAddress } from '../utils/addressResolver';
 import { supabase } from '../supabaseClient';
-import { findStaffByName, getShortName, toHalfWidth } from '../types';
+import { findStaffByName, getShortName, toHalfWidth, splitCoWorkers } from '../types';
 
 interface ScheduleModalProps {
   isOpen: boolean;
@@ -185,12 +185,12 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
   const handleToggleCoWorker = (name: string) => {
     const trimmedName = name.trim();
     const shortName = getShortName(trimmedName);
-    // カンマまたは全角カンマや読点、スペースで分割
-    const currentList = coWorker.split(/[\s,，、]+/).map(n => n.trim()).filter(n => n !== '');
+    // 同行者リストを分解
+    const currentList = splitCoWorkers(coWorker, staff);
     
     let newList: string[];
     // 本名または苗字のいずれかでリストに含まれているか判定
-    const hasItem = currentList.some(n => n === trimmedName || n === shortName);
+    const hasItem = currentList.some(n => n === trimmedName || n === shortName || getShortName(n) === shortName);
     
     if (hasItem) {
       // 削除する（本名・苗字の両方のパターンを除外）
@@ -730,16 +730,14 @@ ${notes || 'なし'}
                 {staff
                   .filter((st) => {
                     const shortName = getShortName(st.name);
-                    const isSelected = coWorker.split(/[\s,，、]+/)
-                      .map(name => name.trim())
-                      .some(val => val === st.name.trim() || val === shortName);
+                    const isSelected = splitCoWorkers(coWorker, staff)
+                      .some(val => val === st.name.trim() || val === shortName || getShortName(val) === shortName);
                     return st.is_active !== 0 || isSelected;
                   })
                   .map((st) => {
                     const shortName = getShortName(st.name);
-                    const isSelected = coWorker.split(/[\s,，、]+/)
-                      .map(name => name.trim())
-                      .some(val => val === st.name.trim() || val === shortName);
+                    const isSelected = splitCoWorkers(coWorker, staff)
+                      .some(val => val === st.name.trim() || val === shortName || getShortName(val) === shortName);
                     
                     return (
                       <button
