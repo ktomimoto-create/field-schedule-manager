@@ -416,6 +416,25 @@ function App() {
     fetchData();
   }, []);
 
+  // 他ユーザーの変更をリアルタイム反映:
+  // schedules の INSERT/UPDATE/DELETE を購読し、静かに再取得する。
+  // 連続イベント（貼り付け一括登録・同行者の子予定生成等）は800msデバウンスで1回にまとめる。
+  useEffect(() => {
+    if (!user) return;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const channel = supabase
+      .channel('schedules-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'schedules' }, () => {
+        if (timer) clearTimeout(timer);
+        timer = setTimeout(() => fetchData(true), 800);
+      })
+      .subscribe();
+    return () => {
+      if (timer) clearTimeout(timer);
+      supabase.removeChannel(channel);
+    };
+  }, [user]);
+
   const handleOpenAddModal = (dateStr: string) => {
     setSelectedSchedule(null);
     setSelectedDate(dateStr);

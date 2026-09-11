@@ -1344,6 +1344,17 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
             }
           }
 
+          // 依頼番号が貼り付けられた行は FC 同期データから未入力項目を補完する
+          for (const key of Object.keys(rowUpdates)) {
+            const rowData = rowUpdates[key];
+            const pastedRefno = rowData.updateFields.request_number;
+            if (typeof pastedRefno === 'string' && pastedRefno.trim() !== '') {
+              const current = { ...rowData.targetSched, ...rowData.updateFields };
+              const patch = await buildFcAutofillPatch(pastedRefno, current);
+              if (patch) Object.assign(rowData.updateFields, patch);
+            }
+          }
+
           // 二重ループ完了後に、行ごとに1回だけ onSave を呼び出す
           for (const key of Object.keys(rowUpdates)) {
             const rowData = rowUpdates[key];
