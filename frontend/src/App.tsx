@@ -1016,7 +1016,7 @@ function App() {
 
           </header>
 
-          <main style={{ maxWidth: '100%', padding: '0 1rem', position: 'relative' }}>
+          <main className="main-content">
             {loading && schedules.length === 0 ? (
               <div className="loading-container">
                 <div className="spinner"></div>

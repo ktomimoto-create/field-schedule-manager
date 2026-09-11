@@ -128,6 +128,17 @@ body {
               radial-gradient(circle at bottom left, rgba(217, 70, 239, 0.1), transparent 40%);
 }
 
+.main-content {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  max-width: 100%;
+  padding: 0 1rem 0.75rem 1rem;
+  position: relative;
+  overflow: hidden;
+}
+
 header {
   display: flex;
   justify-content: space-between;

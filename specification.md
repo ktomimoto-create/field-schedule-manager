@@ -695,6 +695,30 @@
   - `target_time`（時間列 / 指定時間）
   - テーブル表示時（`renderEditableCell`）にも `toHalfWidth` を通して描画することで、過去に保存された既存の全角データも画面上で綺麗な半角で表示されます。
 
+### 14.4 画面表示サイズ変更時の垂直レイアウト自動フィット・下部余白解消仕様
+* **概要・目的**:
+  - 画面表示サイズ（ズーム）を80%や90%等の縮小設定にした際、ビューポート全体の垂直ピクセルが拡大（例: 100vh / 0.8 = 1.25倍）される一方、メインコンテンツ（`<main>`）がコンテンツの成り行き高さ（auto）のままだと、カードやテーブルが途中で終わり、画面下部に広大な余白（アプリ背景の隙間）が発生する課題を解消します。
+  - 画面の倍率（80%〜125%）に関わらず、メインカードおよびグリッド/カレンダーのテーブルコンテナが常に画面下端（下パディング分）まで100%垂直伸長し、余白のない美しく広々とした業務ダッシュボード表示を実現します。
+* **実装仕様**:
+  - `frontend/src/index.css`: `.main-content` クラスを定義。
+    ```css
+    .main-content {
+      flex: 1;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      max-width: 100%;
+      padding: 0 1rem 0.75rem 1rem;
+      position: relative;
+      overflow: hidden;
+    }
+    ```
+  - `frontend/src/App.tsx`: `<main className="main-content">` に適用し、親コンテナ（`app-container` 100vh）からの高さを直下のビューへ確実に伝達。
+  - `frontend/src/components/CalendarView.css`:
+    - `.matrix-board-container`: `flex: 1; min-height: 0;` により画面下端まで伸長。
+    - `.matrix-table-wrapper`: `flex: 1; overflow: auto;` によりカード内の残りの高さいっぱいにテーブルエリアを広げ、80%縮小時にもスクロールなしで多くの行・列を広々一覧可能とする。
+    - `.matrix-table-wrapper` の背景色をテーマ変数 `var(--bg-primary)` に統一し、不自然な黒ずみを防止。
+
 ---
 
 ## 15. FC依頼同期（fc_requests）連携仕様
