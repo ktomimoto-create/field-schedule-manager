@@ -9,3 +9,7 @@ CREATE TABLE IF NOT EXISTS fc_requests (
   synced_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 CREATE INDEX IF NOT EXISTS idx_fc_requests_unit_number ON fc_requests(unit_number);
+
+-- Dashboard 経由の作成では RLS が自動有効になり anon キーの書き込みが弾かれる。
+-- 本プロジェクトの他テーブル（schedules 等）と同様に RLS は使わない運用のため無効化する。
+ALTER TABLE fc_requests DISABLE ROW LEVEL SECURITY;
