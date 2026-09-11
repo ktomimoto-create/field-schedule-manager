@@ -101,6 +101,13 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
 
   // 依頼番号→FC同期データ補完用
   const [requestNumberHint, setRequestNumberHint] = useState('');
+  // 自動補完時のカード強調フラッシュ用
+  const [isAutofillFlashing, setIsAutofillFlashing] = useState(false);
+
+  const triggerAutofillFlash = () => {
+    setIsAutofillFlashing(true);
+    setTimeout(() => setIsAutofillFlashing(false), 1100);
+  };
 
   // 読み取りにもタイムアウトを付ける（無限ハング防止）
   const withTimeout = <T,>(p: PromiseLike<T>, ms = 15000): Promise<T> =>
@@ -176,6 +183,7 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
             setPrefecture(determinedPref);
           }
         }
+        triggerAutofillFlash();
         return true;
       }
     } catch (err) {
@@ -190,7 +198,9 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
         if (needsAreaAutoFill && determinedArea) setArea(determinedArea);
         if (needsPrefAutoFill && determinedPref) setPrefecture(determinedPref);
       }
-      return Boolean(fallback.property_name || fallback.address);
+      const didFill = Boolean(fallback.property_name || fallback.address);
+      if (didFill) triggerAutofillFlash();
+      return didFill;
     }
     return false;
   };
@@ -248,6 +258,7 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
       setPrefecture(determinedPref);
     }
 
+    triggerAutofillFlash();
     setPropertySuggestions([]);
     setShowSuggestions(false);
   };
@@ -599,391 +610,24 @@ ${notes || 'なし'}
             </div>
           </div>
 
-          {/* セクション 1: 日程と時間（最上部へ） */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
-            <div className="form-group">
-              <label htmlFor="date">対応予定日 *</label>
-              <input
-                type="date"
-                id="date"
-                className="form-control"
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
-                required
-                disabled={isInputDisabled}
-              />
+          {/* カード 1: 案件特定・自動補完 (最上部) */}
+          <div className={`schedule-modal-card card-accent-fc ${isAutofillFlashing ? 'autofill-flash' : ''}`}>
+            <div className="schedule-card-header">
+              <h4 className="schedule-card-title">
+                <span className="card-indicator"></span>
+                1. 案件特定（番号入力で下記が一瞬で自動反映）
+              </h4>
+              <span className="schedule-card-badge">
+                ⚡ FC / 物件マスタ自動連携
+              </span>
             </div>
-            <div className="form-group">
-              <label htmlFor="target_time">時間（指定時間）</label>
-              <input
-                type="text"
-                id="target_time"
-                className="form-control"
-                value={targetTime}
-                onChange={(e) => setTargetTime(e.target.value)}
-                onBlur={() => setTargetTime(normalizeTargetTime(targetTime))}
-                placeholder="時間入力 または 下の定型ボタンから選択"
-                disabled={isInputDisabled}
-              />
-              <div style={{ marginTop: '6px', display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
-                {['AM', 'PM', '必ず', '10:00', '13:00', '13:00迄', '17:00迄'].map((timeOpt) => (
-                  <button
-                    key={timeOpt}
-                    type="button"
-                    onClick={() => setTargetTime(timeOpt)}
-                    style={{
-                      padding: '2px 8px',
-                      fontSize: '0.72rem',
-                      borderRadius: '10px',
-                      border: targetTime === timeOpt ? '1px solid var(--primary, #4f46e5)' : '1px solid var(--border-cell, #cbd5e1)',
-                      background: targetTime === timeOpt ? 'rgba(99, 102, 241, 0.15)' : 'var(--bg-empty, #f1f5f9)',
-                      color: targetTime === timeOpt ? 'var(--primary, #4f46e5)' : 'var(--text-secondary, #475569)',
-                      cursor: 'pointer',
-                      fontWeight: targetTime === timeOpt ? '600' : 'normal',
-                      transition: 'all 0.12s ease'
-                    }}
-                  >
-                    {timeOpt}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
 
-          {/* セクション 2: 物件・機器の特定情報 */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1.8fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
-            <div className="form-group" style={{ position: 'relative' }}>
-              <label htmlFor="unit_number">号機</label>
-              <input
-                type="text"
-                id="unit_number"
-                className="form-control"
-                value={unitNumber}
-                onChange={(e) => handleUnitNumberChange(e.target.value)}
-                onFocus={() => {
-                  if (propertySuggestions.length > 0) setShowSuggestions(true);
-                }}
-                onBlur={handleUnitNumberBlur}
-                autoComplete="off"
-                disabled={isInputDisabled}
-              />
-              {showSuggestions && (
-                <ul className="property-suggestions-list" style={{
-                  position: 'absolute',
-                  top: '100%',
-                  left: 0,
-                  right: 0,
-                  zIndex: 1000,
-                  background: 'var(--card-bg, #ffffff)',
-                  border: '1px solid var(--border-color, #e2e8f0)',
-                  borderRadius: '4px',
-                  boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
-                  maxHeight: '200px',
-                  overflowY: 'auto',
-                  padding: '4px 0',
-                  margin: '2px 0 0 0',
-                  listStyle: 'none'
-                }}>
-                  {propertySuggestions.map((prop) => (
-                    <li
-                      key={prop.id}
-                      onClick={() => handleSelectProperty(prop)}
-                      onMouseEnter={() => setActiveHoverId(prop.id)}
-                      onMouseLeave={() => setActiveHoverId(null)}
-                      style={{
-                        padding: '8px 12px',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        borderBottom: '1px solid var(--border-color, #f1f5f9)',
-                        fontSize: '0.85rem',
-                        backgroundColor: activeHoverId === prop.id ? 'var(--hover-bg, #f1f5f9)' : 'transparent'
-                      }}
-                      onMouseDown={(e) => e.preventDefault()}
-                      className="suggestion-item"
-                    >
-                      <div style={{ fontWeight: '600', color: 'var(--text-main, #1e293b)' }}>
-                        号機: {prop.unit_number} - {prop.property_name}
-                      </div>
-                      <div style={{ fontSize: '0.75rem', color: 'var(--text-muted, #64748b)', marginTop: '2px' }}>
-                        住所: {prop.address} | 型式: {prop.model_type}
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-            <div className="form-group">
-              <label htmlFor="property_name">物件名 *</label>
-              <input
-                type="text"
-                id="property_name"
-                className="form-control"
-                value={propertyName}
-                onChange={(e) => setPropertyName(e.target.value)}
-                required
-                disabled={isInputDisabled}
-              />
-            </div>
-            <div className="form-group">
-              <label htmlFor="box">ボックス数</label>
-              <input
-                type="text"
-                id="box"
-                className="form-control"
-                value={box}
-                onChange={(e) => setBox(e.target.value)}
-                disabled={isInputDisabled}
-              />
-            </div>
-          </div>
-
-          {/* セクション 3: 物件詳細・種別・タイプ */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1.5rem' }}>
-            <div className="form-group">
-              <label htmlFor="work_type">種別（プルダウン選択）</label>
-              <select
-                id="work_type"
-                className="form-control"
-                value={isCustomWorkType ? '__custom__' : (fieldWorkTypeList.includes(workType) ? workType : (workType ? '__custom__' : ''))}
-                onChange={(e) => {
-                  const val = e.target.value;
-                  if (val === '__custom__') {
-                    setIsCustomWorkType(true);
-                    setWorkType('');
-                  } else {
-                    setIsCustomWorkType(false);
-                    setWorkType(val);
-                  }
-                }}
-                disabled={isInputDisabled}
-              >
-                <option value="">-- 種別を選択 --</option>
-                {fieldWorkTypeList.map(name => (
-                  <option key={name} value={name}>{name}</option>
-                ))}
-                <option value="__custom__">その他（自由入力）</option>
-              </select>
-              {isCustomWorkType && (
-                <input
-                  type="text"
-                  className="form-control"
-                  style={{ marginTop: '6px' }}
-                  placeholder="任意の種別名を入力"
-                  value={workType}
-                  onChange={(e) => setWorkType(e.target.value)}
-                  autoFocus
-                  disabled={isInputDisabled}
-                />
-              )}
-            </div>
-            <div className="form-group">
-              <label htmlFor="type">タイプ</label>
-              <input
-                type="text"
-                id="type"
-                className="form-control"
-                value={type}
-                onChange={(e) => setType(e.target.value)}
-                disabled={isInputDisabled}
-              />
-            </div>
-          </div>
-
-          {/* セクション 4: 担当アサイン */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
-            <div className="form-group">
-              <label htmlFor="staff-input">対応者（プルダウン選択）</label>
-              <select
-                id="staff-input"
-                className="form-control"
-                value={isCustomStaff ? '__custom__' : staffName}
-                onChange={(e) => {
-                  const val = e.target.value;
-                  if (val === '__custom__') {
-                    setIsCustomStaff(true);
-                    setStaffName('');
-                  } else {
-                    setIsCustomStaff(false);
-                    setStaffName(val);
-                    const matched = findStaffByName(staff, val);
-                    if (matched && matched.default_course) {
-                      setCourse(matched.default_course);
-                    }
-                  }
-                }}
-                disabled={isInputDisabled}
-              >
-                <option value="">-- 未設定（フリー） --</option>
-                {staff
-                  .filter((st) => st.is_active !== 0 || st.name === staffName)
-                  .map((st) => (
-                    <option key={st.id} value={st.name}>
-                      {st.name}{st.default_course ? ` (${st.default_course}コース)` : ''}
-                    </option>
-                  ))}
-                <option value="__custom__">その他（自由入力）</option>
-              </select>
-              {isCustomStaff && (
-                <input
-                  type="text"
-                  className="form-control"
-                  style={{ marginTop: '6px' }}
-                  placeholder="担当者名を入力"
-                  value={staffName}
-                  onChange={(e) => {
-                    const val = e.target.value;
-                    setStaffName(val);
-                    const matched = findStaffByName(staff, val);
-                    if (matched && matched.default_course) {
-                      setCourse(matched.default_course);
-                    }
-                  }}
-                  autoFocus
-                  disabled={isInputDisabled}
-                />
-              )}
-            </div>
-            <div className="form-group">
-              <label htmlFor="co_worker">同行者</label>
-              <input
-                type="text"
-                id="co_worker"
-                className="form-control"
-                value={coWorker}
-                onChange={(e) => setCoWorker(e.target.value)}
-                disabled={isInputDisabled}
-                placeholder="佐藤, 鈴木 (カンマ区切りで手動入力も可)"
-              />
-              <div className="co-worker-quick-select" style={{ marginTop: '8px', display: 'flex', flexWrap: 'wrap', gap: '6px', maxHeight: '100px', overflowY: 'auto', padding: '2px' }}>
-                {staff
-                  .filter((st) => {
-                    const shortName = getShortName(st.name);
-                    const isSelected = splitCoWorkers(coWorker, staff)
-                      .some(val => val === st.name.trim() || val === shortName || getShortName(val) === shortName);
-                    return st.is_active !== 0 || isSelected;
-                  })
-                  .map((st) => {
-                    const shortName = getShortName(st.name);
-                    const isSelected = splitCoWorkers(coWorker, staff)
-                      .some(val => val === st.name.trim() || val === shortName || getShortName(val) === shortName);
-                    
-                    return (
-                      <button
-                        key={st.id}
-                        type="button"
-                        onClick={() => handleToggleCoWorker(st.name)}
-                        style={{
-                          padding: '4px 10px',
-                          fontSize: '0.75rem',
-                          borderRadius: '12px',
-                          border: isSelected ? '1px solid var(--primary, #4f46e5)' : '1px solid transparent',
-                          background: isSelected ? 'rgba(99, 102, 241, 0.15)' : '#f1f5f9',
-                          color: isSelected ? 'var(--primary, #4f46e5)' : 'var(--text-secondary, #475569)',
-                          cursor: 'pointer',
-                          fontWeight: isSelected ? '600' : 'normal',
-                          transition: 'all 0.12s ease'
-                        }}
-                      >
-                        {isSelected ? '✓ ' : ''}{shortName}
-                      </button>
-                    );
-                  })}
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '10px' }}>
-                <input
-                  type="checkbox"
-                  id="sync_co_worker"
-                  checked={isSyncCoWorker}
-                  onChange={(e) => setIsSyncCoWorker(e.target.checked)}
-                  disabled={isInputDisabled}
-                  style={{ width: '16px', height: '16px', cursor: 'pointer', margin: 0 }}
-                />
-                <label htmlFor="sync_co_worker" style={{ fontSize: '0.82rem', cursor: 'pointer', userSelect: 'none', margin: 0, fontWeight: 'normal', color: 'var(--text-secondary, #475569)' }}>
-                  相手の予定表にも自動登録する（連動登録）
+            {/* 依頼番号 & 号機 */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '0.85rem', marginBottom: '0.85rem' }}>
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label htmlFor="request_number" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  依頼番号 <span style={{ fontSize: '0.74rem', color: 'var(--primary)', fontWeight: 'normal' }}>(11桁)</span>
                 </label>
-              </div>
-            </div>
-          </div>
-
-          {/* セクション 5: 作業内容・備考 */}
-          <div className="form-group" style={{ marginBottom: '1rem' }}>
-            <label htmlFor="description">作業内容</label>
-            <textarea
-              id="description"
-              className="form-control"
-              rows={3}
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              disabled={isInputDisabled}
-            ></textarea>
-          </div>
-
-          <div className="form-group" style={{ marginBottom: '1.5rem' }}>
-            <label htmlFor="notes">備考</label>
-            <input
-              type="text"
-              id="notes"
-              className="form-control"
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              disabled={isInputDisabled}
-            />
-          </div>
-
-          {/* 補助情報セクション */}
-          <div style={{ 
-            border: '1px solid var(--border-color, #e2e8f0)', 
-            borderRadius: '8px', 
-            padding: '1.25rem', 
-            backgroundColor: 'rgba(0, 0, 0, 0.01)', 
-            marginBottom: '1.5rem' 
-          }}>
-            <h4 style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary, #64748b)', marginBottom: '0.75rem', marginTop: 0 }}>
-              補助情報
-            </h4>
-            
-            {/* エリア / 県別 / 移動手段 */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
-              <div className="form-group">
-                <label htmlFor="area">エリア</label>
-                <input
-                  type="text"
-                  id="area"
-                  className="form-control"
-                  value={area}
-                  onChange={(e) => setArea(e.target.value)}
-                  disabled={isInputDisabled}
-                />
-              </div>
-              <div className="form-group">
-                <label htmlFor="prefecture">県別</label>
-                <input
-                  type="text"
-                  id="prefecture"
-                  className="form-control"
-                  value={prefecture}
-                  onChange={(e) => setPrefecture(e.target.value)}
-                  disabled={isInputDisabled}
-                />
-              </div>
-              <div className="form-group">
-                <label htmlFor="transport">移動手段</label>
-                <input
-                  type="text"
-                  id="transport"
-                  className="form-control"
-                  value={transport}
-                  onChange={(e) => setTransport(e.target.value)}
-                  disabled={isInputDisabled}
-                />
-              </div>
-            </div>
-
-            {/* 依頼番号 / TIME / コース */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr 1fr', gap: '1rem' }}>
-              <div className="form-group">
-                <label htmlFor="request_number">依頼番号</label>
                 <input
                   type="text"
                   id="request_number"
@@ -991,17 +635,429 @@ ${notes || 'なし'}
                   value={requestNumber}
                   onChange={(e) => { setRequestNumber(e.target.value); setRequestNumberHint(''); }}
                   onBlur={handleRequestNumberBlur}
+                  placeholder="例: 26091100001"
                   autoComplete="off"
                   disabled={isInputDisabled}
                 />
                 {requestNumberHint && (
-                  <div style={{ fontSize: '0.72rem', color: 'var(--text-muted, #64748b)', marginTop: '4px' }}>
+                  <div style={{ fontSize: '0.72rem', color: 'var(--text-muted, #64748b)', marginTop: '4px', lineHeight: '1.3' }}>
                     {requestNumberHint}
                   </div>
                 )}
               </div>
-              <div className="form-group">
-                <label htmlFor="time_limit">TIME</label>
+
+              <div className="form-group" style={{ position: 'relative', marginBottom: 0 }}>
+                <label htmlFor="unit_number">号機</label>
+                <input
+                  type="text"
+                  id="unit_number"
+                  className="form-control"
+                  value={unitNumber}
+                  onChange={(e) => handleUnitNumberChange(e.target.value)}
+                  onFocus={() => {
+                    if (propertySuggestions.length > 0) setShowSuggestions(true);
+                  }}
+                  onBlur={handleUnitNumberBlur}
+                  placeholder="例: 78201"
+                  autoComplete="off"
+                  disabled={isInputDisabled}
+                />
+                {showSuggestions && (
+                  <ul className="property-suggestions-list" style={{
+                    position: 'absolute',
+                    top: '100%',
+                    left: 0,
+                    right: 0,
+                    zIndex: 1000,
+                    background: 'var(--card-bg, #ffffff)',
+                    border: '1px solid var(--border-color, #e2e8f0)',
+                    borderRadius: '6px',
+                    boxShadow: '0 8px 16px -2px rgba(0, 0, 0, 0.12)',
+                    maxHeight: '200px',
+                    overflowY: 'auto',
+                    padding: '4px 0',
+                    margin: '2px 0 0 0',
+                    listStyle: 'none'
+                  }}>
+                    {propertySuggestions.map((prop) => (
+                      <li
+                        key={prop.id}
+                        onClick={() => handleSelectProperty(prop)}
+                        onMouseEnter={() => setActiveHoverId(prop.id)}
+                        onMouseLeave={() => setActiveHoverId(null)}
+                        style={{
+                          padding: '8px 12px',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          borderBottom: '1px solid var(--border-color, #f1f5f9)',
+                          fontSize: '0.85rem',
+                          backgroundColor: activeHoverId === prop.id ? 'var(--hover-bg, #f1f5f9)' : 'transparent'
+                        }}
+                        onMouseDown={(e) => e.preventDefault()}
+                        className="suggestion-item"
+                      >
+                        <div style={{ fontWeight: '600', color: 'var(--text-main, #1e293b)' }}>
+                          号機: {prop.unit_number} - {prop.property_name}
+                        </div>
+                        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted, #64748b)', marginTop: '2px' }}>
+                          住所: {prop.address} | 型式: {prop.model_type}
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </div>
+
+            {/* 物件名 */}
+            <div className="form-group" style={{ marginBottom: '0.85rem' }}>
+              <label htmlFor="property_name">物件名 *</label>
+              <input
+                type="text"
+                id="property_name"
+                className="form-control"
+                value={propertyName}
+                onChange={(e) => setPropertyName(e.target.value)}
+                placeholder="物件名を入力（番号入力で自動反映）"
+                required
+                disabled={isInputDisabled}
+              />
+            </div>
+
+            {/* BOX数・タイプ・エリア・県別（4項目並列） */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.65rem' }}>
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label htmlFor="box" style={{ fontSize: '0.78rem' }}>BOX数</label>
+                <input
+                  type="text"
+                  id="box"
+                  className="form-control"
+                  value={box}
+                  onChange={(e) => setBox(e.target.value)}
+                  placeholder="例: 8"
+                  disabled={isInputDisabled}
+                />
+              </div>
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label htmlFor="type" style={{ fontSize: '0.78rem' }}>タイプ</label>
+                <input
+                  type="text"
+                  id="type"
+                  className="form-control"
+                  value={type}
+                  onChange={(e) => setType(e.target.value)}
+                  placeholder="例: 標準"
+                  disabled={isInputDisabled}
+                />
+              </div>
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label htmlFor="area" style={{ fontSize: '0.78rem' }}>エリア</label>
+                <input
+                  type="text"
+                  id="area"
+                  className="form-control"
+                  value={area}
+                  onChange={(e) => setArea(e.target.value)}
+                  placeholder="例: 練馬区"
+                  disabled={isInputDisabled}
+                />
+              </div>
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label htmlFor="prefecture" style={{ fontSize: '0.78rem' }}>県別</label>
+                <input
+                  type="text"
+                  id="prefecture"
+                  className="form-control"
+                  value={prefecture}
+                  onChange={(e) => setPrefecture(e.target.value)}
+                  placeholder="例: 23"
+                  disabled={isInputDisabled}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* カード 2: 配車・日程決定 */}
+          <div className="schedule-modal-card">
+            <div className="schedule-card-header">
+              <h4 className="schedule-card-title">
+                <span className="card-indicator emerald"></span>
+                2. 配車・日程決定
+              </h4>
+            </div>
+
+            {/* 対応予定日 & 時間（指定時間） */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.85rem', marginBottom: '0.85rem' }}>
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label htmlFor="date">対応予定日 *</label>
+                <input
+                  type="date"
+                  id="date"
+                  className="form-control"
+                  value={date}
+                  onChange={(e) => setDate(e.target.value)}
+                  required
+                  disabled={isInputDisabled}
+                />
+              </div>
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label htmlFor="target_time">時間（指定時間）</label>
+                <input
+                  type="text"
+                  id="target_time"
+                  className="form-control"
+                  value={targetTime}
+                  onChange={(e) => setTargetTime(e.target.value)}
+                  onBlur={() => setTargetTime(normalizeTargetTime(targetTime))}
+                  placeholder="手入力 または 下のボタン"
+                  disabled={isInputDisabled}
+                />
+                {/* 定型チップ: 必ず・AM・PM の3つのみ (注釈文字なし) */}
+                <div style={{ marginTop: '6px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>定型:</span>
+                  <button
+                    type="button"
+                    className={`schedule-time-chip urgent ${targetTime === '必ず' ? 'active' : ''}`}
+                    onClick={() => setTargetTime('必ず')}
+                    disabled={isInputDisabled}
+                  >
+                    必ず
+                  </button>
+                  <button
+                    type="button"
+                    className={`schedule-time-chip standard ${targetTime === 'AM' ? 'active' : ''}`}
+                    onClick={() => setTargetTime('AM')}
+                    disabled={isInputDisabled}
+                  >
+                    AM
+                  </button>
+                  <button
+                    type="button"
+                    className={`schedule-time-chip standard ${targetTime === 'PM' ? 'active' : ''}`}
+                    onClick={() => setTargetTime('PM')}
+                    disabled={isInputDisabled}
+                  >
+                    PM
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* 対応者 & 同行者 */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.85rem', marginBottom: '0.85rem' }}>
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label htmlFor="staff-input">対応者</label>
+                <select
+                  id="staff-input"
+                  className="form-control"
+                  value={isCustomStaff ? '__custom__' : staffName}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (val === '__custom__') {
+                      setIsCustomStaff(true);
+                      setStaffName('');
+                    } else {
+                      setIsCustomStaff(false);
+                      setStaffName(val);
+                      const matched = findStaffByName(staff, val);
+                      if (matched && matched.default_course) {
+                        setCourse(matched.default_course);
+                      }
+                    }
+                  }}
+                  disabled={isInputDisabled}
+                >
+                  <option value="">-- 未設定（フリー） --</option>
+                  {staff
+                    .filter((st) => st.is_active !== 0 || st.name === staffName)
+                    .map((st) => (
+                      <option key={st.id} value={st.name}>
+                        {st.name}{st.default_course ? ` (${st.default_course}コース)` : ''}
+                      </option>
+                    ))}
+                  <option value="__custom__">その他（自由入力）</option>
+                </select>
+                {isCustomStaff && (
+                  <input
+                    type="text"
+                    className="form-control"
+                    style={{ marginTop: '6px' }}
+                    placeholder="担当者名を入力"
+                    value={staffName}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setStaffName(val);
+                      const matched = findStaffByName(staff, val);
+                      if (matched && matched.default_course) {
+                        setCourse(matched.default_course);
+                      }
+                    }}
+                    autoFocus
+                    disabled={isInputDisabled}
+                  />
+                )}
+              </div>
+
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label htmlFor="co_worker">同行者</label>
+                <input
+                  type="text"
+                  id="co_worker"
+                  className="form-control"
+                  value={coWorker}
+                  onChange={(e) => setCoWorker(e.target.value)}
+                  disabled={isInputDisabled}
+                  placeholder="佐藤, 鈴木 (下のボタンまたは手入力)"
+                />
+                <div className="co-worker-quick-select" style={{ marginTop: '6px', display: 'flex', flexWrap: 'wrap', gap: '4px', maxHeight: '72px', overflowY: 'auto', padding: '2px' }}>
+                  {staff
+                    .filter((st) => {
+                      const shortName = getShortName(st.name);
+                      const isSelected = splitCoWorkers(coWorker, staff)
+                        .some(val => val === st.name.trim() || val === shortName || getShortName(val) === shortName);
+                      return st.is_active !== 0 || isSelected;
+                    })
+                    .map((st) => {
+                      const shortName = getShortName(st.name);
+                      const isSelected = splitCoWorkers(coWorker, staff)
+                        .some(val => val === st.name.trim() || val === shortName || getShortName(val) === shortName);
+                      
+                      return (
+                        <button
+                          key={st.id}
+                          type="button"
+                          onClick={() => handleToggleCoWorker(st.name)}
+                          style={{
+                            padding: '3px 8px',
+                            fontSize: '0.72rem',
+                            borderRadius: '10px',
+                            border: isSelected ? '1px solid var(--primary, #4f46e5)' : '1px solid transparent',
+                            background: isSelected ? 'rgba(99, 102, 241, 0.15)' : 'var(--bg-empty, #f1f5f9)',
+                            color: isSelected ? 'var(--primary, #4f46e5)' : 'var(--text-secondary, #475569)',
+                            cursor: 'pointer',
+                            fontWeight: isSelected ? '600' : 'normal',
+                            transition: 'all 0.12s ease'
+                          }}
+                        >
+                          {isSelected ? '✓ ' : ''}{shortName}
+                        </button>
+                      );
+                    })}
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '6px' }}>
+                  <input
+                    type="checkbox"
+                    id="sync_co_worker"
+                    checked={isSyncCoWorker}
+                    onChange={(e) => setIsSyncCoWorker(e.target.checked)}
+                    disabled={isInputDisabled}
+                    style={{ width: '15px', height: '15px', cursor: 'pointer', margin: 0 }}
+                  />
+                  <label htmlFor="sync_co_worker" style={{ fontSize: '0.78rem', cursor: 'pointer', userSelect: 'none', margin: 0, fontWeight: 'normal', color: 'var(--text-secondary, #475569)' }}>
+                    相手の予定表にも自動登録する（連動登録）
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            {/* コース・区分・移動手段（配車情報を集約） */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.65rem' }}>
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label htmlFor="course" style={{ fontSize: '0.78rem' }}>コース</label>
+                <input
+                  type="text"
+                  id="course"
+                  className="form-control"
+                  value={course}
+                  onChange={(e) => setCourse(e.target.value)}
+                  placeholder="例: 1"
+                  disabled={isInputDisabled}
+                />
+              </div>
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label htmlFor="division" style={{ fontSize: '0.78rem' }}>区分</label>
+                <select
+                  id="division"
+                  className="form-control"
+                  value={division}
+                  onChange={(e) => setDivision(e.target.value)}
+                  disabled={isInputDisabled}
+                >
+                  <option value="委託">委託</option>
+                  <option value="FTS">FTS</option>
+                  <option value="未定">未定</option>
+                  <option value="直行直帰">直行直帰</option>
+                </select>
+              </div>
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label htmlFor="transport" style={{ fontSize: '0.78rem' }}>移動手段</label>
+                <input
+                  type="text"
+                  id="transport"
+                  className="form-control"
+                  value={transport}
+                  onChange={(e) => setTransport(e.target.value)}
+                  placeholder="例: 車 / 電車"
+                  disabled={isInputDisabled}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* カード 3: 作業内容・TIME・備考 */}
+          <div className="schedule-modal-card">
+            <div className="schedule-card-header">
+              <h4 className="schedule-card-title">
+                <span className="card-indicator amber"></span>
+                3. 作業内容・TIME・備考
+              </h4>
+            </div>
+
+            {/* 種別 & TIME (目安時間) */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.85rem', marginBottom: '0.85rem' }}>
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label htmlFor="work_type">種別</label>
+                <select
+                  id="work_type"
+                  className="form-control"
+                  value={isCustomWorkType ? '__custom__' : (fieldWorkTypeList.includes(workType) ? workType : (workType ? '__custom__' : ''))}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (val === '__custom__') {
+                      setIsCustomWorkType(true);
+                      setWorkType('');
+                    } else {
+                      setIsCustomWorkType(false);
+                      setWorkType(val);
+                    }
+                  }}
+                  disabled={isInputDisabled}
+                >
+                  <option value="">-- 種別を選択 --</option>
+                  {fieldWorkTypeList.map(name => (
+                    <option key={name} value={name}>{name}</option>
+                  ))}
+                  <option value="__custom__">その他（自由入力）</option>
+                </select>
+                {isCustomWorkType && (
+                  <input
+                    type="text"
+                    className="form-control"
+                    style={{ marginTop: '6px' }}
+                    placeholder="任意の種別名を入力"
+                    value={workType}
+                    onChange={(e) => setWorkType(e.target.value)}
+                    autoFocus
+                    disabled={isInputDisabled}
+                  />
+                )}
+              </div>
+
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label htmlFor="time_limit" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  TIME <span style={{ fontSize: '0.74rem', color: 'var(--text-muted, #64748b)', fontWeight: 'normal' }}>(作業目安時間)</span>
+                </label>
                 <input
                   type="text"
                   id="time_limit"
@@ -1009,37 +1065,53 @@ ${notes || 'なし'}
                   value={timeLimit}
                   onChange={(e) => setTimeLimit(e.target.value)}
                   onBlur={() => setTimeLimit(toHalfWidth(timeLimit))}
-                  disabled={isInputDisabled}
-                />
-              </div>
-              <div className="form-group">
-                <label htmlFor="course">コース</label>
-                <input
-                  type="text"
-                  id="course"
-                  className="form-control"
-                  value={course}
-                  onChange={(e) => setCourse(e.target.value)}
+                  placeholder="例: 13:00 / 13:00迄"
                   disabled={isInputDisabled}
                 />
               </div>
             </div>
+
+            {/* 作業内容 */}
+            <div className="form-group" style={{ marginBottom: '0.85rem' }}>
+              <label htmlFor="description">作業内容</label>
+              <textarea
+                id="description"
+                className="form-control"
+                rows={2}
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="作業の詳細や指示内容を入力"
+                disabled={isInputDisabled}
+              ></textarea>
+            </div>
+
+            {/* 備考 */}
+            <div className="form-group" style={{ marginBottom: 0 }}>
+              <label htmlFor="notes">備考</label>
+              <input
+                type="text"
+                id="notes"
+                className="form-control"
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                placeholder="連絡事項・申し送り等"
+                disabled={isInputDisabled}
+              />
+            </div>
           </div>
 
-          {/* 管理情報セクション */}
-          <div style={{ 
-            border: '1px solid var(--border-color, #e2e8f0)', 
-            borderRadius: '8px', 
-            padding: '1.25rem', 
-            backgroundColor: 'rgba(0, 0, 0, 0.01)', 
-            marginBottom: '1.5rem' 
-          }}>
-            <h4 style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary, #64748b)', marginBottom: '0.75rem', marginTop: 0 }}>
-              管理情報
-            </h4>
-            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: '1rem' }}>
-              <div className="form-group">
-                <label htmlFor="disorder_type">障害区分</label>
+          {/* カード 4: 管理情報 */}
+          <div className="schedule-modal-card">
+            <div className="schedule-card-header">
+              <h4 className="schedule-card-title">
+                <span className="card-indicator slate"></span>
+                4. 管理情報
+              </h4>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: '0.65rem' }}>
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label htmlFor="disorder_type" style={{ fontSize: '0.78rem' }}>障害区分</label>
                 <input
                   type="text"
                   id="disorder_type"
@@ -1049,8 +1121,8 @@ ${notes || 'なし'}
                   disabled={isInputDisabled}
                 />
               </div>
-              <div className="form-group">
-                <label htmlFor="level">level</label>
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label htmlFor="level" style={{ fontSize: '0.78rem' }}>level</label>
                 <input
                   type="text"
                   id="level"
@@ -1060,8 +1132,8 @@ ${notes || 'なし'}
                   disabled={isInputDisabled}
                 />
               </div>
-              <div className="form-group">
-                <label htmlFor="level3">level 2</label>
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label htmlFor="level3" style={{ fontSize: '0.78rem' }}>level 2</label>
                 <input
                   type="text"
                   id="level3"
@@ -1075,13 +1147,13 @@ ${notes || 'なし'}
 
             {isEditMode && (selectedSchedule?.created_by || selectedSchedule?.updated_by) && (
               <div style={{ 
-                marginTop: '1.25rem', 
-                paddingTop: '0.85rem', 
+                marginTop: '0.85rem', 
+                paddingTop: '0.65rem', 
                 borderTop: '1px dashed var(--border-color, #e2e8f0)',
                 display: 'flex',
                 flexDirection: 'column',
-                gap: '0.5rem',
-                fontSize: '0.75rem',
+                gap: '0.35rem',
+                fontSize: '0.72rem',
                 color: 'var(--text-secondary, #64748b)'
               }}>
                 {selectedSchedule.created_by && (
