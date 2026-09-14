@@ -78,6 +78,25 @@ ID とパスワードを聞かれるので入力する（パスワードは画�
 実績: 2026-08-25 版 54,508件 → 2026-09-14 版 55,082件（+574）。
 8/25 版には 507278 などの新設物件が無く、依頼番号を入れても補完されない状態だった。
 
+## 6. どのPCが同期しているかの確認
+
+同期が走るたびに、実行したPC名と時刻が `fc_sync_status` テーブルに記録される（2026-09-14 追加）。
+Supabase の SQL Editor で次を実行すれば、2台とも動いているかが一目でわかる。
+
+    SELECT hostname,
+           fc_user,
+           to_char(last_run_at AT TIME ZONE 'Asia/Tokyo', 'MM-DD HH24:MI:SS') AS last_run_jst,
+           last_rows
+    FROM fc_sync_status
+    ORDER BY last_run_at DESC;
+
+- **2行出ていて両方の時刻が5分以内**なら冗長構成が効いている
+- 片方の時刻が古い＝そのPCが落ちているかタスクが無効。そのPCで `%TEMP%\fsm_fc_sync.log` を見る
+- この記録は同期の「おまけ」で、書き込みに失敗しても同期本体は止まらない
+
+※ この機能は `git pull` で最新のスクリプトを取得したPCだけが記録する。
+   古いスクリプトのままだと、動いていても行が出ない点に注意。
+
 ## トラブル時
 - 「FC ログイン失敗」: FC_USER/FC_PASS を再設定（コピペで）。ターミナルを開き直してから再実行
 - 「Supabase upsert 失敗」: frontend/.env.local の URL/KEY を確認。
