@@ -30,8 +30,64 @@ function App() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // お試しモード（サンドボックス）状態管理: 他者の操作が干渉せず本番DBに影響しないローカル環境
+  const [isSandboxMode, setIsSandboxMode] = useState<boolean>(() => {
+    return localStorage.getItem('field_app_sandbox_mode') === 'true';
+  });
+
   // 同期保存（コピペ等）時の採番競合防止用の一時プール (キー: "YYYY-MM-DD", 値: 使用済みコースのSet)
   const tempUsedCoursesRef = useRef<Record<string, Set<number>>>({});
+
+  // お試しモードの開始 / 終了
+  const handleToggleSandboxMode = async (enable: boolean) => {
+    if (enable) {
+      // 現在の予定データをクローンしてお試し用ストレージへ保存
+      const clone = JSON.parse(JSON.stringify(schedules));
+      localStorage.setItem('field_app_sandbox_schedules', JSON.stringify(clone));
+      localStorage.setItem('field_app_sandbox_mode', 'true');
+      setIsSandboxMode(true);
+    } else {
+      const confirmExit = window.confirm(
+        "「お試しモード」を終了して本番モードに戻ります。\n\n※お試しモード中に行った追加・変更・削除等の操作は本番データベースには反映されません。\nよろしいですか？"
+      );
+      if (!confirmExit) return;
+      localStorage.removeItem('field_app_sandbox_mode');
+      setIsSandboxMode(false);
+      await fetchData(false);
+    }
+  };
+
+  // お試しデータのリセット（最新本番データで再同期）
+  const handleResetSandboxData = async () => {
+    const confirmReset = window.confirm(
+      "現在のお試しデータを破棄し、最新の本番データ状態でリセットしますか？\n（本番データには一切影響しません）"
+    );
+    if (!confirmReset) return;
+
+    try {
+      setLoading(true);
+      const { data: latestSchedules, error: schedError } = await supabase.from('schedules').select('*');
+      if (schedError) throw schedError;
+      const mapped: Schedule[] = (latestSchedules || []).map((s: any) => ({
+        ...s,
+        id: Number(s.id),
+        staff_id: s.staff_id ? Number(s.staff_id) : null
+      }));
+      setSchedules(mapped);
+      localStorage.setItem('field_app_sandbox_schedules', JSON.stringify(mapped));
+      alert("お試しデータを最新の本番データでリセットしました。");
+    } catch (err: any) {
+      alert("リセットに失敗しました: " + err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // コピペインポートからのサンドボックスデータ反映
+  const handleSandboxImport = (imported: Schedule[]) => {
+    setSchedules(imported);
+    localStorage.setItem('field_app_sandbox_schedules', JSON.stringify(imported));
+  };
 
 
   useEffect(() => {
@@ -234,12 +290,36 @@ function App() {
       };
       const editorName = getEditorName();
 
+      const idVal = typeof scheduleId === 'string' ? Number(scheduleId) : scheduleId;
+
+      // お試しモード時はローカルのschedules配列のみ更新し、本番DBには書き込まない
+      if (isSandboxMode) {
+        setSchedules(prev => {
+          const updated = prev.map(s => {
+            if (s.id === idVal) {
+              const u: Schedule = {
+                ...s,
+                result: resultValue,
+                updated_by: editorName
+              };
+              if (startedAt !== undefined) u.started_at = startedAt || undefined;
+              if (completedAt !== undefined) u.completed_at = completedAt || undefined;
+              if (reportNotes !== undefined) u.report_notes = reportNotes || undefined;
+              return u;
+            }
+            return s;
+          });
+          localStorage.setItem('field_app_sandbox_schedules', JSON.stringify(updated));
+          return updated;
+        });
+        return;
+      }
+
       const payload: any = { result: resultValue, updated_by: editorName };
       if (startedAt !== undefined) payload.started_at = startedAt;
       if (completedAt !== undefined) payload.completed_at = completedAt;
       if (reportNotes !== undefined) payload.report_notes = reportNotes;
 
-      const idVal = typeof scheduleId === 'string' ? Number(scheduleId) : scheduleId;
       const { error: patchError } = await supabase.from('schedules').update(payload).eq('id', idVal);
 
       if (patchError) {
@@ -264,6 +344,23 @@ function App() {
 
   const handleReorderSchedules = async (orders: { id: number | string; sort_order: number }[]) => {
     try {
+      // お試しモード時はローカルのschedules配列のみ更新
+      if (isSandboxMode) {
+        setSchedules(prev => {
+          const orderMap = new Map<string, number>(orders.map(o => [String(o.id), o.sort_order]));
+          const updated = prev.map(s => {
+            const key = String(s.id);
+            if (orderMap.has(key)) {
+              return { ...s, sort_order: orderMap.get(key)! };
+            }
+            return s;
+          });
+          localStorage.setItem('field_app_sandbox_schedules', JSON.stringify(updated));
+          return updated;
+        });
+        return;
+      }
+
       const promises = orders.map(async (item) => {
         const idVal = typeof item.id === 'string' ? Number(item.id) : item.id;
         return supabase.from('schedules').update({ sort_order: item.sort_order }).eq('id', idVal);
@@ -284,6 +381,16 @@ function App() {
 
   const handleTransferSchedules = async (dateStr: string) => {
     try {
+      // お試しモード時はローカルのschedules配列のみ更新
+      if (isSandboxMode) {
+        setSchedules(prev => {
+          const updated = prev.map(s => s.date === dateStr ? { ...s, is_transferred: 1 } : s);
+          localStorage.setItem('field_app_sandbox_schedules', JSON.stringify(updated));
+          return updated;
+        });
+        return;
+      }
+
       const { error: transferError } = await supabase.from('schedules').update({ is_transferred: 1 }).eq('date', dateStr);
 
       if (transferError) {
@@ -345,7 +452,10 @@ function App() {
   const presenceChannelRef = useRef<any>(null);
 
   useEffect(() => {
-    if (!user) return;
+    if (!user || isSandboxMode) {
+      setActiveLocks({});
+      return;
+    }
 
     const channel = supabase.channel('schedules-presence', {
       config: {
@@ -390,11 +500,11 @@ function App() {
       channel.unsubscribe();
       presenceChannelRef.current = null;
     };
-  }, [user]);
+  }, [user, isSandboxMode]);
 
   // モーダル開閉に合わせて編集ロックをブロードキャスト / 解除
   useEffect(() => {
-    if (!presenceChannelRef.current || !user) return;
+    if (!presenceChannelRef.current || !user || isSandboxMode) return;
 
     if (isModalOpen && selectedSchedule && typeof selectedSchedule.id === 'number') {
       const currentUserName = user.user_metadata?.full_name || staff.find(s => s.email && s.email.toLowerCase() === (user.email || '').toLowerCase())?.name || user.email || 'ユーザー';
@@ -407,7 +517,7 @@ function App() {
     } else {
       presenceChannelRef.current.untrack();
     }
-  }, [isModalOpen, selectedSchedule, user, staff]);
+  }, [isModalOpen, selectedSchedule, user, staff, isSandboxMode]);
 
   const fetchData = async (silent = false) => {
     if (!silent) {
@@ -496,7 +606,22 @@ function App() {
         return aCourse - bCourse;
       });
 
-      setSchedules(schedulesData);
+      if (isSandboxMode) {
+        const saved = localStorage.getItem('field_app_sandbox_schedules');
+        if (saved) {
+          try {
+            setSchedules(JSON.parse(saved));
+          } catch (e) {
+            setSchedules(schedulesData);
+            localStorage.setItem('field_app_sandbox_schedules', JSON.stringify(schedulesData));
+          }
+        } else {
+          setSchedules(schedulesData);
+          localStorage.setItem('field_app_sandbox_schedules', JSON.stringify(schedulesData));
+        }
+      } else {
+        setSchedules(schedulesData);
+      }
       setStaff(sortedStaffData);
       setWorkTypes(workTypesData);
       // データ更新完了に伴い、一時プールをクリア
@@ -519,8 +644,9 @@ function App() {
   // 他ユーザーの変更をリアルタイム反映:
   // schedules の INSERT/UPDATE/DELETE を購読し、静かに再取得する。
   // 連続イベント（貼り付け一括登録・同行者の子予定生成等）は800msデバウンスで1回にまとめる。
+  // ※お試しモード中は他者の変更を受信せず、完全なローカル環境を維持する。
   useEffect(() => {
-    if (!user) return;
+    if (!user || isSandboxMode) return;
     let timer: ReturnType<typeof setTimeout> | null = null;
     const channel = supabase
       .channel('schedules-realtime')
@@ -533,7 +659,7 @@ function App() {
       if (timer) clearTimeout(timer);
       supabase.removeChannel(channel);
     };
-  }, [user]);
+  }, [user, isSandboxMode]);
 
   const handleOpenAddModal = (dateStr: string) => {
     setSelectedSchedule(null);
@@ -675,6 +801,83 @@ function App() {
         }
       }
 
+      // お試しモード時はローカル配列のみ更新（本番SupabaseへのINSERT/UPDATEは行わない）
+      if (isSandboxMode) {
+        const idVal = isEdit ? Number(payload.id) : Date.now() + Math.floor(Math.random() * 1000);
+        const existingRec = isEdit ? schedules.find(s => s.id === idVal) : null;
+        const nowIso = new Date().toISOString();
+
+        const recordToSave: Schedule = {
+          ...(existingRec || {}),
+          ...payload,
+          id: idVal,
+          created_by: existingRec?.created_by || editorName,
+          updated_by: editorName,
+          created_at: existingRec?.created_at || nowIso,
+          updated_at: nowIso
+        } as Schedule;
+
+        let updatedList = [...schedules];
+        if (isEdit) {
+          // 以前のこの予定に関連付けられていた同行子予定を削除
+          updatedList = updatedList.filter(s => !(s.notes && s.notes.includes(`[__parent_id:${idVal}__]`)));
+          const idx = updatedList.findIndex(s => s.id === idVal);
+          if (idx >= 0) {
+            updatedList[idx] = recordToSave;
+          } else {
+            updatedList.push(recordToSave);
+          }
+        } else {
+          updatedList.push(recordToSave);
+        }
+
+        // 同行予定の自動同期処理
+        const parentNotes = recordToSave.notes || '';
+        const hasNoSync = parentNotes.includes('[__no_sync__]');
+        const coWorkersStr = recordToSave.co_worker || '';
+        if (!hasNoSync && coWorkersStr.trim() !== '') {
+          const names = coWorkersStr.split(/[,、]/).map((n: string) => n.trim()).filter((n: string) => n !== '');
+          for (const name of names) {
+            const matchedCoWorker = findStaffByName(staff, name);
+            if (matchedCoWorker) {
+              const defaultCourse = matchedCoWorker.default_course || '';
+              const courseNum = Number(defaultCourse);
+              let coWorkerDivision = '委託';
+              if (defaultCourse !== '' && !isNaN(courseNum) && courseNum >= 1 && courseNum <= 26) {
+                coWorkerDivision = 'FTS';
+              }
+
+              const parentName = recordToSave.staff_name || '';
+              const otherCoWorkers = names.filter(n => {
+                const cleanedN = n.trim();
+                return cleanedN !== name && cleanedN !== matchedCoWorker.name;
+              });
+              const childCoWorkers = [parentName, ...otherCoWorkers].filter(Boolean).join(', ');
+
+              const childPayload: Schedule = {
+                ...recordToSave,
+                id: Date.now() + Math.floor(Math.random() * 100000),
+                division: coWorkerDivision,
+                staff_id: matchedCoWorker.id,
+                staff_name: matchedCoWorker.name,
+                co_worker: childCoWorkers || null,
+                course: defaultCourse || null,
+                notes: `${recordToSave.notes || ''}\n\n[__parent_id:${idVal}__]`,
+                created_by: editorName,
+                updated_by: editorName,
+                created_at: nowIso,
+                updated_at: nowIso
+              };
+              updatedList.push(childPayload);
+            }
+          }
+        }
+
+        setSchedules(updatedList);
+        localStorage.setItem('field_app_sandbox_schedules', JSON.stringify(updatedList));
+        return;
+      }
+
       let savedId: number | null = null;
       let finalParentRecord: any = null;
       if (isEdit) {
@@ -782,6 +985,16 @@ function App() {
 
   const handleDeleteSchedule = async (id: number) => {
     try {
+      // お試しモード時はローカル配列のみ更新
+      if (isSandboxMode) {
+        setSchedules(prev => {
+          const updated = prev.filter(s => s.id !== id && !(s.notes && s.notes.includes(`[__parent_id:${id}__]`)));
+          localStorage.setItem('field_app_sandbox_schedules', JSON.stringify(updated));
+          return updated;
+        });
+        return;
+      }
+
       const targetSched = schedules.find(s => s.id === id);
       
       // 子レコード（同行予定）の削除
@@ -813,6 +1026,13 @@ function App() {
 
   const handleClearAllSchedules = async () => {
     try {
+      // お試しモード時はローカル配列のみ全削除
+      if (isSandboxMode) {
+        setSchedules([]);
+        localStorage.setItem('field_app_sandbox_schedules', JSON.stringify([]));
+        return;
+      }
+
       const res = await supabase.from('schedules').delete().neq('id', -1);
 
       if (res.error) {
@@ -867,6 +1087,25 @@ function App() {
         </div>
       ) : (
         <>
+          {/* お試しモード中バナー */}
+          {isSandboxMode && (
+            <div className="sandbox-banner">
+              <div className="sandbox-banner-content">
+                <span className="sandbox-badge">🧪 お試しモード中</span>
+                <span>本番データには一切影響しません。予定の追加・変更・削除・ドラッグ移動など自由にお試しいただけます。</span>
+              </div>
+              <div className="sandbox-banner-actions">
+                <button className="sandbox-btn-reset" onClick={handleResetSandboxData} title="最新の本番データ状態でリセットします">
+                  <RefreshCw size={13} />
+                  お試しデータをリセット
+                </button>
+                <button className="sandbox-btn-exit" onClick={() => handleToggleSandboxMode(false)} title="本番モードに戻ります">
+                  本番モードに戻る
+                </button>
+              </div>
+            </div>
+          )}
+
           <header>
             <div className="logo-section">
               <h1>現地対応予定・行動管理システム</h1>
@@ -926,6 +1165,17 @@ function App() {
                 title={theme === 'light' ? 'ダークモードに切り替え' : 'ライトモードに切り替え'}
               >
                 {theme === 'light' ? <Moon size={16} /> : <Sun size={16} />}
+              </button>
+
+              {/* お試しモード切り替えトグルボタン */}
+              <button
+                type="button"
+                className={`btn-sandbox-toggle ${isSandboxMode ? 'active' : ''}`}
+                onClick={() => handleToggleSandboxMode(!isSandboxMode)}
+                title={isSandboxMode ? 'お試しモードを終了して本番モードに戻る' : '本番データに影響しないお試しモードを開始する'}
+              >
+                <span>🧪</span>
+                <span>{isSandboxMode ? 'お試し中' : 'お試しモード'}</span>
               </button>
 
               {/* 画面表示サイズ（ズーム）コントロール */}
@@ -1115,6 +1365,9 @@ function App() {
             onImportSuccess={() => fetchData(false)}
             staff={staff}
             userEmail={user?.email || 'system'}
+            isSandboxMode={isSandboxMode}
+            existingSchedules={schedules}
+            onSandboxImport={handleSandboxImport}
           />
 
           <HelpGuideModal

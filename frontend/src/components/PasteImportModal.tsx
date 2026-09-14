@@ -4,13 +4,16 @@ import { supabase } from '../supabaseClient';
 import './PasteImportModal.css';
 import { resolveAddress } from '../utils/addressResolver';
 import { findStaffByName, toHalfWidth, normalizeTargetTime } from '../types';
-import type { Staff } from '../types';
+import type { Staff, Schedule } from '../types';
 interface PasteImportModalProps {
   isOpen: boolean;
   onClose: () => void;
   onImportSuccess: () => void;
   staff: Staff[];
   userEmail?: string;
+  isSandboxMode?: boolean;
+  existingSchedules?: Schedule[];
+  onSandboxImport?: (importedSchedules: Schedule[]) => void;
 }
 
 // 10列の固定項目定義
@@ -114,6 +117,9 @@ export const PasteImportModal: React.FC<PasteImportModalProps> = ({
   onImportSuccess,
   staff,
   userEmail,
+  isSandboxMode = false,
+  existingSchedules = [],
+  onSandboxImport,
 }) => {
   const [targetDate, setTargetDate] = useState(new Date().toISOString().split('T')[0]);
   const [parsedRows, setParsedRows] = useState<string[][]>(createEmptyGrid());
@@ -441,6 +447,148 @@ export const PasteImportModal: React.FC<PasteImportModalProps> = ({
 
     setIsSubmitting(true);
     try {
+      if (isSandboxMode) {
+        let currentSchedules = [...existingSchedules];
+        const nowTime = new Date().toLocaleTimeString('ja-JP', { timeZone: 'Asia/Tokyo', hour: '2-digit', minute: '2-digit', hour12: false });
+        let editorName = 'system';
+        if (userEmail) {
+          const matched = staff.find(s => s.email?.toLowerCase().trim() === userEmail.toLowerCase().trim());
+          editorName = matched ? matched.name : userEmail;
+        }
+
+        for (const item of previewItems) {
+          const {
+            id, status, division, type, box, unit_number, property_name, work_type, description, 
+            target_time, date, staff_id, staff_name, area, prefecture, transport, co_worker, 
+            request_number, time_limit, course, result, notes, disorder_type, level, level_3,
+            is_transferred
+          } = item;
+
+          if (!property_name || !date) continue;
+
+          let finalStaffId = staff_id ? Number(staff_id) : null;
+          let finalStaffName = staff_name ? staff_name.trim() : '';
+          if (!finalStaffId && finalStaffName !== '') {
+            const matched = findStaffByName(staff, finalStaffName);
+            if (matched) {
+              finalStaffId = matched.id;
+              finalStaffName = matched.name;
+            }
+          }
+
+          let finalCourse = course ? String(course).trim() : null;
+          if (!finalCourse) {
+            let st = null;
+            if (finalStaffId) {
+              st = staff.find(s => s.id === finalStaffId);
+            } else if (finalStaffName) {
+              st = findStaffByName(staff, finalStaffName);
+            }
+            if (st && st.default_course) {
+              finalCourse = st.default_course;
+            }
+          }
+
+          const trimmedUnitNumber = unit_number ? String(unit_number).trim() : '';
+          const existingIdx = currentSchedules.findIndex(s => {
+            if (id && s.id === Number(id)) return true;
+            const sUnit = s.unit_number ? String(s.unit_number).trim() : '';
+            const sStaffId = s.staff_id ? Number(s.staff_id) : null;
+            return s.date === date && s.property_name === property_name && sUnit === trimmedUnitNumber && sStaffId === finalStaffId;
+          });
+
+          if (existingIdx >= 0) {
+            const existing = currentSchedules[existingIdx];
+            let finalCompletedAt = existing.completed_at;
+            if (result !== undefined) {
+              if (result === '完了') {
+                if (existing.result !== '完了' || !existing.completed_at) {
+                  finalCompletedAt = nowTime;
+                }
+              } else {
+                finalCompletedAt = null;
+              }
+            }
+            currentSchedules[existingIdx] = {
+              ...existing,
+              status: status || 'free',
+              division: division || null,
+              type: type || null,
+              box: box || null,
+              unit_number: unit_number || null,
+              work_type: work_type || null,
+              description: description || null,
+              target_time: normalizeTargetTime(target_time) || null,
+              staff_id: finalStaffId,
+              staff_name: finalStaffName || null,
+              area: area || null,
+              prefecture: prefecture || null,
+              transport: transport || null,
+              co_worker: co_worker || null,
+              request_number: request_number || null,
+              time_limit: toHalfWidth(time_limit) || null,
+              course: finalCourse,
+              result: result || null,
+              completed_at: finalCompletedAt,
+              notes: notes || null,
+              disorder_type: disorder_type || null,
+              level: level || null,
+              level_3: level_3 || null,
+              is_transferred: is_transferred !== undefined ? Number(is_transferred) : Number(existing.is_transferred),
+              updated_by: editorName,
+              updated_at: new Date().toISOString()
+            };
+          } else {
+            let finalCompletedAt = null;
+            if (result === '完了') {
+              finalCompletedAt = nowTime;
+            }
+            const newId = Date.now() + Math.floor(Math.random() * 100000);
+            const newSched: Schedule = {
+              id: newId,
+              status: status || 'free',
+              division: division || null,
+              type: type || null,
+              box: box || null,
+              unit_number: unit_number || null,
+              property_name: property_name,
+              work_type: work_type || null,
+              description: description || null,
+              target_time: normalizeTargetTime(target_time) || null,
+              date: date,
+              staff_id: finalStaffId,
+              staff_name: finalStaffName || null,
+              area: area || null,
+              prefecture: prefecture || null,
+              transport: transport || null,
+              co_worker: co_worker || null,
+              request_number: request_number || null,
+              time_limit: toHalfWidth(time_limit) || null,
+              course: finalCourse,
+              result: result || null,
+              completed_at: finalCompletedAt,
+              notes: notes || null,
+              disorder_type: disorder_type || null,
+              level: level || null,
+              level_3: level_3 || null,
+              is_transferred: is_transferred !== undefined ? Number(is_transferred) : 0,
+              created_by: editorName,
+              updated_by: editorName,
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString()
+            };
+            currentSchedules.push(newSched);
+          }
+        }
+
+        if (onSandboxImport) {
+          onSandboxImport(currentSchedules);
+        }
+        setIsSubmitting(false);
+        onClose();
+        return;
+      }
+
       const results: { id: number; action: string }[] = [];
       const processedScheduleIds = new Set<number>();
       const nowTime = new Date().toLocaleTimeString('ja-JP', { timeZone: 'Asia/Tokyo', hour: '2-digit', minute: '2-digit', hour12: false });
