@@ -212,6 +212,28 @@ def main():
     total = upsert_rows(list(uniq.values()))
     log(f'upsert 完了: {total} 件')
 
+    # どのPCがいつ同期したかを記録する（2台運用の稼働確認用）。
+    # 失敗しても同期本体は成功扱いのままにする。
+    try:
+        import socket
+        url, key = supabase_conf()
+        req = urllib.request.Request(
+            f'{url}/rest/v1/fc_sync_status?on_conflict=hostname',
+            data=json.dumps([{
+                'hostname': socket.gethostname(),
+                'fc_user': os.environ.get('FC_USER', ''),
+                'last_run_at': dt.datetime.now(dt.timezone.utc).isoformat(),
+                'last_rows': total,
+            }]).encode('utf-8'),
+            headers={
+                'apikey': key, 'Authorization': f'Bearer {key}',
+                'Content-Type': 'application/json',
+                'Prefer': 'resolution=merge-duplicates,return=minimal',
+            })
+        urllib.request.urlopen(req, timeout=15).close()
+    except Exception as e:
+        log(f'（稼働記録の書き込みに失敗: {e}）')
+
 
 if __name__ == '__main__':
     main()
