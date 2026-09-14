@@ -3,7 +3,7 @@ import { X, Check, AlertTriangle, FileText, Plus, Trash2 } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import './PasteImportModal.css';
 import { resolveAddress } from '../utils/addressResolver';
-import { findStaffByName, toHalfWidth } from '../types';
+import { findStaffByName, toHalfWidth, normalizeTargetTime } from '../types';
 import type { Staff } from '../types';
 interface PasteImportModalProps {
   isOpen: boolean;
@@ -246,6 +246,8 @@ export const PasteImportModal: React.FC<PasteImportModalProps> = ({
       FIXED_MAPPINGS.forEach((field, colIdx) => {
         let val = row[colIdx] ? row[colIdx].trim() : '';
         if (field === 'target_time') {
+          val = normalizeTargetTime(val);
+        } else if (field === 'time_limit') {
           val = toHalfWidth(val);
         }
         item[field] = val;
@@ -551,7 +553,7 @@ export const PasteImportModal: React.FC<PasteImportModalProps> = ({
             unit_number: unit_number || null,
             work_type: work_type || null,
             description: description || null,
-            target_time: target_time || null,
+            target_time: normalizeTargetTime(target_time) || null,
             staff_id: finalStaffId,
             staff_name: finalStaffName || null,
             area: area || null,
@@ -559,7 +561,7 @@ export const PasteImportModal: React.FC<PasteImportModalProps> = ({
             transport: transport || null,
             co_worker: co_worker || null,
             request_number: request_number || null,
-            time_limit: time_limit || null,
+            time_limit: toHalfWidth(time_limit) || null,
             course: finalCourse,
             result: result || null,
             completed_at: finalCompletedAt,
@@ -591,7 +593,7 @@ export const PasteImportModal: React.FC<PasteImportModalProps> = ({
             property_name: property_name,
             work_type: work_type || null,
             description: description || null,
-            target_time: target_time || null,
+            target_time: normalizeTargetTime(target_time) || null,
             date: date,
             staff_id: finalStaffId,
             staff_name: finalStaffName || null,
@@ -600,7 +602,7 @@ export const PasteImportModal: React.FC<PasteImportModalProps> = ({
             transport: transport || null,
             co_worker: co_worker || null,
             request_number: request_number || null,
-            time_limit: time_limit || null,
+            time_limit: toHalfWidth(time_limit) || null,
             course: finalCourse,
             result: result || null,
             completed_at: finalCompletedAt,
