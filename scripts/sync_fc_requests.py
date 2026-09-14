@@ -30,8 +30,19 @@ BASE = 'http://fcweb.ftsosa/fc/main/'
 ENC = 'cp932'
 
 
+# 定期実行は pythonw.exe（コンソール無し）で動かすため、ログはファイルにも書く。
+# コンソール窓が5分おきに前面に出てフォーカスを奪う問題への対処（2026-09-14）。
+LOGFILE = os.environ.get('FSM_FC_SYNC_LOGFILE') or str(Path(os.environ.get('TEMP', '.')) / 'fsm_fc_sync.log')
+
+
 def log(msg):
-    print(f"[{dt.datetime.now():%H:%M:%S}] {msg}", flush=True)
+    line = f"[{dt.datetime.now():%H:%M:%S}] {msg}"
+    print(line, flush=True)
+    try:
+        with open(LOGFILE, 'a', encoding='utf-8') as fh:
+            fh.write(line + '\n')
+    except OSError:
+        pass
 
 
 def die(msg):

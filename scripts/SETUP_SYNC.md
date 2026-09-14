@@ -24,13 +24,18 @@ ID とパスワードを聞かれるので入力する（パスワードは画�
 「upsert 完了: N 件」が出ればOK。
 
 ## 3. タスクスケジューラ登録（平日 8:00〜19:00 を5分間隔）
-管理者権限不要。`scripts/FSM_FC_Sync.xml` をメモ帳で開き、`<WorkingDirectory>` を
-自分の clone の `scripts` フォルダのパスに書き換えて保存してから:
+管理者権限不要。`scripts/FSM_FC_Sync.xml` をメモ帳で開き、次の2箇所を自分の環境に合わせてから登録する:
+
+- `<WorkingDirectory>` … 自分の clone の `scripts` フォルダのパス
+- `<Command>` … 自分の **pythonw.exe** のフルパス（`where pythonw` で確認）
 
     schtasks /Create /TN "FSM_FC_Sync" /XML "<リポジトリ>\scripts\FSM_FC_Sync.xml" /F
     schtasks /Run /TN "FSM_FC_Sync"
 
-- 動作結果は `%TEMP%\fsm_fc_sync.log` に出る（`upsert 完了: N 件` ならOK）
+- **必ず `pythonw.exe` を使う**（`python.exe` や cmd 経由だと5分ごとに黒いコンソール窓が前面に出て、
+  作業中のキーボード入力を奪う。2026-09-14 に実際に発生 → pythonw 方式へ変更）
+- 動作結果は `%TEMP%\fsm_fc_sync.log` に出る（`upsert 完了: N 件` ならOK）。
+  コンソールが無くてもスクリプト自身がこのファイルに書く（`FSM_FC_SYNC_LOGFILE` で変更可）
 - 手動即時同期したいときはエクスプローラーから `sync_fc_requests.bat` をダブルクリック
 - ※ `schtasks /SC MINUTE /ET 19:00` のワンライナー登録は「当日で失効するトリガー」になるため使わない（2026-09-11 実証）
 
