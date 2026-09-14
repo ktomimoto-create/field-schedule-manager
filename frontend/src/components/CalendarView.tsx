@@ -1534,8 +1534,8 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
         <td 
           id={cellId}
           className={cellClass} 
-          style={style}
-          title={title ? cleanMetadata(title) : undefined}
+          style={{ ...style, padding: '0.35rem 0.35rem' }}
+          title={title ? cleanMetadata(title) : (matchedStaff?.name || cleanMetadata(value))}
           onMouseDown={(e) => handleCellMouseDown(e, schedule.date, rowIndex, field, schedId)}
           onMouseEnter={() => handleCellMouseEnter(schedule.date, rowIndex, field)}
           onDoubleClick={() => {
@@ -1546,7 +1546,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
             setEditingCell({ id: schedId, field });
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', width: '100%' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '5px', width: '100%' }}>
             {avatarUrl ? (
               <img 
                 src={avatarUrl} 
@@ -1563,11 +1563,16 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                 display: 'flex', 
                 alignItems: 'center', 
                 justifyContent: 'center', 
-                fontSize: '0.65rem', 
+                fontSize: String(value || '').trim().match(/^(FE|SF|FR)/i) ? '0.52rem' : '0.65rem', 
                 fontWeight: 'bold',
                 flexShrink: 0
               }}>
-                {getShortName(cleanMetadata(value)).substring(0, 1)}
+                {(() => {
+                  const str = String(value || '').trim();
+                  const match = str.match(/^(FE|SF|FR)/i);
+                  if (match) return match[1].toUpperCase();
+                  return getShortName(cleanMetadata(value)).substring(0, 1);
+                })()}
               </div>
             ) : null}
             <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -2097,7 +2102,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                           <col style={{ width: '105px' }} /> {/* 種別 (「依頼者承認済」が見切れないよう拡張) */}
                           <col style={{ width: '220px' }} /> {/* 作業内容 */}
                           <col style={{ width: '75px' }} /> {/* 時間 */}
-                          <col style={{ width: '85px' }} /> {/* 対応者 (フーギー不要化に伴いスリム化) */}
+                          <col style={{ width: '115px' }} /> {/* 対応者 (FE/SF/FR等委託スタッフの見切れ防止のため拡張) */}
                           <col style={{ width: '75px' }} /> {/* エリア */}
                           <col style={{ width: '65px' }} /> {/* 県別 */}
                           <col style={{ width: '65px' }} /> {/* 移動 */}
@@ -2607,6 +2612,8 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                                         <td 
                                           id={`cell-${day.dateStr}-${rowIndex}-staff_name`}
                                           className={`${statusClass} ${isToday ? 'today-td' : ''} ${getSelectionClassName(day.dateStr, rowIndex, 'staff_name')} ${staffSearchClass}`}
+                                          style={{ padding: '0.35rem 0.35rem' }}
+                                          title={staffMember ? staffMember.name : (schedule.staff_name || undefined)}
                                           onMouseDown={(e) => handleCellMouseDown(e, day.dateStr, rowIndex, 'staff_name', schedule.id)}
                                           onMouseEnter={() => handleCellMouseEnter(day.dateStr, rowIndex, 'staff_name')}
                                           onDoubleClick={() => {
@@ -2614,7 +2621,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                                           }}
                                         >
                                           {staffMember ? (
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', width: '100%' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '5px', width: '100%' }}>
                                               {staffMember.avatar_url ? (
                                                 <img 
                                                   src={staffMember.avatar_url} 
@@ -2631,11 +2638,15 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                                                   display: 'flex', 
                                                   alignItems: 'center', 
                                                   justifyContent: 'center', 
-                                                  fontSize: '0.65rem', 
+                                                  fontSize: staffMember.name.match(/^(FE|SF|FR)/i) ? '0.52rem' : '0.65rem', 
                                                   fontWeight: 'bold',
                                                   flexShrink: 0
                                                 }}>
-                                                  {getShortName(staffMember.name).substring(0, 1)}
+                                                  {(() => {
+                                                    const match = staffMember.name.match(/^(FE|SF|FR)/i);
+                                                    if (match) return match[1].toUpperCase();
+                                                    return getShortName(staffMember.name).substring(0, 1);
+                                                  })()}
                                                 </div>
                                               )}
                                               <span className="staff-tag-cell" style={{ borderLeft: '3px solid var(--primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
