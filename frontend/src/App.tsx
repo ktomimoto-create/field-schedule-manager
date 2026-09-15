@@ -1375,6 +1375,7 @@ function App() {
             onDelete={handleDeleteSchedule}
             workTypes={workTypes}
             currentUserEmail={user?.email || 'system'}
+            currentUserName={user?.user_metadata?.full_name || user?.user_metadata?.name || staff.find(s => s.email && s.email.toLowerCase() === (user?.email || '').toLowerCase())?.name || ''}
             defaultTransferred={activeTab === 'calendar' ? 0 : 1}
             lockedBy={selectedSchedule && typeof selectedSchedule.id === 'number' ? activeLocks[selectedSchedule.id] : null}
             currentUserRole={currentUserRole}

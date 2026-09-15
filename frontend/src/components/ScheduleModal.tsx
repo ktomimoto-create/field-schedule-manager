@@ -15,6 +15,7 @@ interface ScheduleModalProps {
   onDelete: (id: number) => Promise<void>;
   workTypes: WorkType[];
   currentUserEmail?: string;
+  currentUserName?: string;
   defaultTransferred?: number;
   lockedBy?: { userName: string; userEmail: string; startedAt: number } | null;
   currentUserRole?: UserRole;
@@ -30,6 +31,7 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
   onDelete,
   workTypes,
   currentUserEmail,
+  currentUserName,
   defaultTransferred,
   lockedBy,
   currentUserRole,
@@ -438,6 +440,10 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
     const subjectText = trimmedUnit ? `${trimmedUnit}　追加` : '追加';
     const subject = encodeURIComponent(subjectText);
 
+    // 操作者の苗字を取得（propsのcurrentUserName、またはstaffリストのemail逆引きから解決）
+    const rawUserName = currentUserName || staff.find(s => s.email && currentUserEmail && s.email.toLowerCase() === currentUserEmail.toLowerCase())?.name || '';
+    const dispatcherShortName = getShortName(rawUserName);
+
     const addressLine = currentAddress ? `${currentAddress}\n` : '';
     const bodyText = `お疲れ様です。
 １件追加対応願います。
@@ -448,7 +454,9 @@ ${addressLine}【FC起票日】${requestNumber || ''}
 【内容】
 ${description || ''}
 
-よろしくお願いいたします。`;
+よろしくお願いいたします。
+------------------------
+ディスパッチャー：${dispatcherShortName}`;
 
     const body = encodeURIComponent(bodyText);
     const mailtoUrl = `mailto:${targetStaffEmail}?subject=${subject}&body=${body}`;
