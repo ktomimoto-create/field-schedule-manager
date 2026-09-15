@@ -284,10 +284,10 @@
       padding-bottom: 10px;
     }
 
-    /* 3ステップ */
+    /* 基本操作グリッド */
     .steps-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
       gap: 16px;
     }
 
@@ -336,7 +336,7 @@
       margin-bottom: 4px;
     }
 
-    /* チートシートテーブル */
+    /* テーブル */
     table.compact-table {
       width: 100%;
       border-collapse: collapse;
@@ -511,18 +511,26 @@
           </li>
 
           <li class="item-row">
-            <span class="item-badge">✏️</span>
+            <span class="item-badge">🏖️</span>
             <div class="item-body">
-              <h3>セルダブルクリックで直接サクッと修正</h3>
-              <p>Excelと同じように、変更したいセルをダブルクリックするだけでその場で直接文字を打ち替えて素早く修正・保存できます。</p>
+              <h3>「休暇・社内予定」をワンクリック登録</h3>
+              <p>日付上部の「＋ 休暇・社内予定追加」から、休暇・有給や社内業務をスタッフを選んで一括登録。上部に分かりやすくバッジ表示されます。</p>
             </div>
           </li>
 
           <li class="item-row">
             <span class="item-badge">📅</span>
             <div class="item-body">
-              <h3>まとめて選んで一括ステータス変更</h3>
-              <p>CtrlやShiftキー、マウスドラッグで複数行をまとめて選択し、画面下のバーから「一括確定」「一括仮」「一括キャンセル」が1秒で反映できます。</p>
+              <h3>「日付指定ジャンプ」＆「本日」復帰</h3>
+              <p>画面上部のカレンダーアイコンから見たい日付へ1秒で瞬時にジャンプ。迷子になっても「本日」ボタンで今日の週へ一発で戻れます。</p>
+            </div>
+          </li>
+
+          <li class="item-row">
+            <span class="item-badge">✏️</span>
+            <div class="item-body">
+              <h3>セルダブルクリックで直接サクッと修正</h3>
+              <p>Excelと同じように、変更したいセルをダブルクリックするだけでその場で直接文字を打ち替えて素早く修正・保存できます。</p>
             </div>
           </li>
 
@@ -539,14 +547,6 @@
             <div class="item-body">
               <h3>スプレッドシートから表を一括コピペ取り込み</h3>
               <p>外部リストからコピーして貼り付けるだけで、スタッフ名からコース番号や所属区分（FTS/委託）を自動判別して一括登録できます。</p>
-            </div>
-          </li>
-
-          <li class="item-row">
-            <span class="item-badge">🔍</span>
-            <div class="item-body">
-              <h3>画面ズーム（80%〜125%）＆見やすい表示</h3>
-              <p>画面サイズに合わせて全体の大きさを調整可能。長い委託スタッフ名（FE・SF・FR等）も見切れることなくすっきり表示されます。</p>
             </div>
           </li>
         </ul>
@@ -568,6 +568,14 @@
             <div class="item-body">
               <h3>同時編集による「データ上書き事故」ゼロ</h3>
               <p>誰かが編集中は「○○さんが編集中」バッジと排他ロックが作動。2人が同じ予定を同時に触って後勝ちで消えてしまう事故を未然に防ぎます。</p>
+            </div>
+          </li>
+
+          <li class="item-row">
+            <span class="item-badge">🚫</span>
+            <div class="item-body">
+              <h3>スタッフの「休暇見落とし・誤アサイン」ゼロ</h3>
+              <p>休暇や有給が日付最上部に色付きバッジで目立つように並ぶため、休み中のスタッフへ誤って現場をアサインしてしまう事故を防ぎます。</p>
             </div>
           </li>
 
@@ -607,31 +615,40 @@
 
     </div>
 
-    <!-- セクション: 月間予定表の基本操作 3ステップ -->
+    <!-- セクション: 月間予定表の基本操作 4ステップ -->
     <div class="section-card">
-      <h2>🚀 月間予定表の基本操作 3ステップ</h2>
+      <h2>🚀 月間予定表の基本操作 4ステップ</h2>
       <div class="steps-grid">
         <div class="step-box">
           <span class="step-num">STEP 1</span>
           <h3>予定の登録・編集</h3>
           <ul>
-            <li><strong>新しく追加する</strong>: 日付上部の「＋予定追加」を押すと右側にスマート入力画面が開き、依頼番号や号機で自動入力できます。</li>
-            <li><strong>サクッと直す</strong>: セルを<strong>ダブルクリック</strong>するとExcelのようにその場で直接文字を修正できます。</li>
-            <li><strong>詳しく直す</strong>: 行右端の<strong>鉛筆アイコン（✎）</strong>または右クリック「詳細を編集」でスマート入力画面が開きます。</li>
+            <li><strong>新しく追加</strong>: 日付上部の「＋予定追加」を押すとスマート入力画面が開き、依頼番号や号機で自動入力。</li>
+            <li><strong>サクッと直す</strong>: セルを<strong>ダブルクリック</strong>するとExcelのようにその場で直接修正。</li>
+            <li><strong>詳しく直す</strong>: 行右端の<strong>鉛筆アイコン（✎）</strong>または右クリック「詳細を編集」。</li>
           </ul>
         </div>
 
         <div class="step-box">
           <span class="step-num">STEP 2</span>
-          <h3>右クリックで「別日へ移動」</h3>
-          <p>雨天や延期で現場をスライドしたい時は、予定行の上で <strong>右クリック ➔「別日へ移動」</strong> を選択します。</p>
-          <p>「元の予定をキャンセルとして残す」にチェックを入れたまま別日を選ぶと、元の日付に履歴を残したまま新しい予定が自動作成されます。</p>
+          <h3>休暇・社内予定の入力</h3>
+          <p>各日の最上部にある<strong>「＋ 休暇・社内予定追加」</strong>ボタンを押します。</p>
+          <p>種別（休暇/有給/社内業務など）とスタッフ名を選択して「登録」を押すだけで、上部に休み枠が即座に反映されます。</p>
         </div>
 
         <div class="step-box">
           <span class="step-num">STEP 3</span>
-          <h3>まとめて選んで一括ステータス変更</h3>
-          <p>Ctrlキー（個別選択）やShiftキー（範囲選択）、マウスドラッグで複数行をまとめて選択できます。</p>
+          <h3>日付ジャンプと振替移動</h3>
+          <ul>
+            <li><strong>日付ジャンプ</strong>: 画面上の<strong>「📅 日付指定」</strong>から見たい日付へ即座に移動、「本日」で今日へ1発復帰。</li>
+            <li><strong>別日へ振替</strong>: 予定を右クリック ➔<strong>「別日へ移動」</strong>で履歴を残したまま別日へ移動。</li>
+          </ul>
+        </div>
+
+        <div class="step-box">
+          <span class="step-num">STEP 4</span>
+          <h3>一括ステータス変更</h3>
+          <p>Ctrlキー（個別選択）やShiftキー（範囲選択）、マウスドラッグで複数行をまとめて選択。</p>
           <p>画面下に現れるバーから「一括確定」「一括仮」「一括キャンセル」をワンクリックで反映できます。</p>
         </div>
       </div>
@@ -640,9 +657,9 @@
       </div>
     </div>
 
-    <!-- セクション: チートシート -->
+    <!-- セクション: 操作一覧・色の見方 -->
     <div class="section-card">
-      <h2>🎯 クイック操作チートシート</h2>
+      <h2>📋 操作一覧・色の見方</h2>
       <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
         <div>
           <h4 style="font-size:0.9rem; margin-bottom:8px; color:var(--slate);">■ 予定の色ルール</h4>
@@ -669,7 +686,7 @@
         </div>
 
         <div>
-          <h4 style="font-size:0.9rem; margin-bottom:8px; color:var(--slate);">■ よく使う操作・ショートカット</h4>
+          <h4 style="font-size:0.9rem; margin-bottom:8px; color:var(--slate);">■ 主な操作一覧</h4>
           <table class="compact-table">
             <tbody>
               <tr>
@@ -681,6 +698,14 @@
                 <td>その場で直接入力（インライン直接編集）</td>
               </tr>
               <tr>
+                <td><strong>「＋ 休暇・社内予定追加」</strong></td>
+                <td>休み・社内予定の簡易入力フォームを開く</td>
+              </tr>
+              <tr>
+                <td>ヘッダーの <strong>「📅 日付指定」</strong></td>
+                <td>カレンダーピッカーから見たい日付へジャンプ</td>
+              </tr>
+              <tr>
                 <td>行右端の <strong>鉛筆アイコン (✎)</strong></td>
                 <td>詳細編集画面（スマートカード）を開く</td>
               </tr>
@@ -689,16 +714,8 @@
                 <td>「別日へ移動」・確定・仮・削除メニュー表示</td>
               </tr>
               <tr>
-                <td><span class="key-badge">Ctrl</span> + クリック</td>
-                <td>離れた予定を複数選択（一括操作用）</td>
-              </tr>
-              <tr>
-                <td><span class="key-badge">Shift</span> + クリック</td>
-                <td>範囲内の予定をまとめて一括選択</td>
-              </tr>
-              <tr>
-                <td><span class="key-badge">?</span> キー</td>
-                <td>画面どこからでもAI操作ガイドを開く</td>
+                <td><span class="key-badge">Ctrl</span> / <span class="key-badge">Shift</span> + クリック</td>
+                <td>複数行を選択して一括ステータス変更</td>
               </tr>
             </tbody>
           </table>
@@ -716,6 +733,16 @@
         </div>
 
         <div class="faq-q-box">
+          <h4>Q. スタッフの休暇や有給はどうやって登録すればいいですか？</h4>
+          <p>対象日付の最上部にある<strong>「＋ 休暇・社内予定追加」</strong>ボタンをクリックしてください。種別（休暇・有給・社内等）とスタッフ名を選択して「登録」を押すだけで、日付の上部に色付きバッジとして分かりやすく登録されます。</p>
+        </div>
+
+        <div class="faq-q-box">
+          <h4>Q. 先月や来月の予定、または特定の日付を見たい時はどうすればいいですか？</h4>
+          <p>画面上部の<strong>「📅 日付指定」</strong>をクリックするとカレンダーピッカーが開き、見たい日付へ一瞬でジャンプできます。「◀ 先月」「翌月 ▶」ボタンでの月送りや、「本日」ボタンで今日の日付へ即座に戻ることも可能です。</p>
+        </div>
+
+        <div class="faq-q-box">
           <h4>Q. 依頼番号を入れると何が起きますか？</h4>
           <p>11桁のFC依頼番号を入れて欄を離れると、<strong>号機・物件名・住所・エリア・県別・依頼日</strong>が自動でセットされます（薄紫色にフラッシュします）。号機番号だけを入力した場合でも、物件マスタから物件名や住所が自動補完されます。</p>
         </div>
@@ -723,11 +750,6 @@
         <div class="faq-q-box">
           <h4>Q. 同じ予定を2人が同時に開いたらどうなりますか？</h4>
           <p>先に開いた人が「編集中」となり、別の人が開こうとすると「○○さんが編集中です（閲覧専用）」と警告が表示されます。後から保存した人の内容で上書きされてしまうトラブルを完全に防止します。</p>
-        </div>
-
-        <div class="faq-q-box">
-          <h4>Q. 画面が小さくて表が見づらい、または文字がはみ出します。</h4>
-          <p>ヘッダー右側の<strong>「ズーム（80%〜125%）」</strong>プルダウンから、お使いのモニターに最適な倍率へ自由に変更できます。ノートPCでも全体が見渡しやすくなります。</p>
         </div>
       </div>
     </div>
