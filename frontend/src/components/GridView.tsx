@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import XLSX from 'xlsx-js-style';
 import type { Schedule, Staff, UserRole } from '../types';
-import { getShortName, cleanMetadata, splitCoWorkers, canManageSchedules, normalizeTargetTime } from '../types';
+import { getShortName, cleanMetadata, splitCoWorkers, canManageSchedules, normalizeTargetTime, compareSchedules } from '../types';
 
 import { Plus, ChevronLeft, ChevronRight, Calendar as CalendarIcon, Filter, CheckCircle2, Download, Eye, EyeOff, Printer, Lock } from 'lucide-react';
 import { PrintPreviewModal } from './PrintPreviewModal';
@@ -213,6 +213,12 @@ export const GridView: React.FC<GridViewProps> = ({
     if (filterStatus !== 'all' && s.status !== filterStatus) {
       return false;
     }
+    // 同行でコース番号が振られていない人は別途の行追加は不要（除外）
+    const isCoWorkerChild = s.notes && s.notes.includes('[__parent_id:');
+    if (isCoWorkerChild) {
+      const courseStr = String(s.course || '').trim();
+      if (!courseStr) return false;
+    }
     return true;
   });
 
@@ -229,41 +235,7 @@ export const GridView: React.FC<GridViewProps> = ({
     return s;
   });
 
-  const sortedSchedules = [...cleansedSchedules].sort((a, b) => {
-    // キャンセルされた予定は常に最下部に配置
-    const aCancelled = a.status === 'cancelled';
-    const bCancelled = b.status === 'cancelled';
-    if (aCancelled !== bCancelled) {
-      return aCancelled ? 1 : -1;
-    }
-
-    // 1. コース番号（course）の昇順
-    const aCourse = Number(a.course) || 999;
-    const bCourse = Number(b.course) || 999;
-    if (aCourse !== bCourse) {
-      return aCourse - bCourse;
-    }
-
-    // 2. エリア（area）の昇順
-    const aArea = a.area || '';
-    const bArea = b.area || '';
-    if (aArea !== bArea) {
-      return aArea.localeCompare(bArea, 'ja');
-    }
-
-    // 3. 号機（unit_number）の若い順（数値比較、ダメなら文字列比較）
-    const aUnit = Number(a.unit_number);
-    const bUnit = Number(b.unit_number);
-    const hasAUnit = a.unit_number && !isNaN(aUnit);
-    const hasBUnit = b.unit_number && !isNaN(bUnit);
-
-    if (hasAUnit && hasBUnit) {
-      return aUnit - bUnit;
-    }
-    const aUnitStr = a.unit_number || '';
-    const bUnitStr = b.unit_number || '';
-    return aUnitStr.localeCompare(bUnitStr, 'ja');
-  });
+  const sortedSchedules = [...cleansedSchedules].sort(compareSchedules);
 
 
   const handleQuickCompleteToggle = async (schedule: Schedule) => {

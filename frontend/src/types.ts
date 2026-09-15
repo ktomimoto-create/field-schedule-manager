@@ -334,4 +334,136 @@ export const splitCoWorkers = (coWorkersStr: string | null | undefined, staffLis
   return result;
 };
 
+/**
+ * スケジュールの並び順カテゴリ判定
+ * 1: FTS自社対応枠 (コース1〜26)
+ * 2: 設置 (種別が「設置」または区分が「設置」)
+ * 3: 委託 (種別が「委託」、区分が「委託」、工事、コース27以上等)
+ * 4: その他・未定・未割当
+ * 99: キャンセル
+ */
+export const getScheduleSortCategory = (s: Partial<Schedule>): number => {
+  if (s.status === 'cancelled') return 99;
+
+  const workType = (s.work_type || '').trim();
+  const division = (s.division || '').trim();
+  const courseStr = String(s.course || '').trim();
+  const courseNum = Number(courseStr);
+  const hasCourseNum = courseStr !== '' && !isNaN(courseNum);
+
+  // 1. 設置判定（種別「設置」または区分「設置」）
+  const isInstallation = workType === '設置' || division === '設置';
+  if (isInstallation) return 2;
+
+  // 2. 委託判定（種別「委託」「工事」、区分「委託」、コース27以上等）
+  const isConsignment = 
+    workType === '委託' || 
+    division === '委託' || 
+    workType === '工事' || 
+    (hasCourseNum && courseNum >= 27);
+  if (isConsignment) return 3;
+
+  // 3. FTS判定（コース1〜26、または区分がFTS）
+  const isFts = (hasCourseNum && courseNum >= 1 && courseNum <= 26) || division === 'FTS';
+  if (isFts) return 1;
+
+  // 4. その他・未定
+  return 4;
+};
+
+/**
+ * 月間予定表・予定表グリッド共通のスケジュールソート比較関数
+ * 並び順:
+ *   1. FTS自社通常予定 (コース1〜26順)
+ *   2. 設置グループ (時間順 -> 号機順)
+ *   3. 委託グループ (種別順 -> コース順 -> 時間順 -> 号機順)
+ *   4. その他・未定・未割当 (仮想空行は末尾)
+ *   5. キャンセル (最下部)
+ */
+export const compareSchedules = (a: Schedule, b: Schedule): number => {
+  // キャンセルは最下部
+  const aCancelled = a.status === 'cancelled';
+  const bCancelled = b.status === 'cancelled';
+  if (aCancelled !== bCancelled) {
+    return aCancelled ? 1 : -1;
+  }
+
+  // カテゴリ比較 (1: FTS, 2: 設置, 3: 委託, 4: 未定)
+  const aCat = getScheduleSortCategory(a);
+  const bCat = getScheduleSortCategory(b);
+  if (aCat !== bCat) {
+    return aCat - bCat;
+  }
+
+  // カテゴリ1 (FTS) の中: コース番号順 (1〜26)
+  if (aCat === 1) {
+    const aCourse = Number(a.course) || 999;
+    const bCourse = Number(b.course) || 999;
+    if (aCourse !== bCourse) return aCourse - bCourse;
+
+    const aTime = a.target_time || a.time_limit || '';
+    const bTime = b.target_time || b.time_limit || '';
+    if (aTime !== bTime) return aTime.localeCompare(bTime, 'ja');
+  }
+
+  // カテゴリ2 (設置) の中:
+  if (aCat === 2) {
+    const aCourse = a.course ? (Number(a.course) || 999) : 999;
+    const bCourse = b.course ? (Number(b.course) || 999) : 999;
+    if (aCourse !== bCourse) return aCourse - bCourse;
+
+    const aTime = a.target_time || a.time_limit || '';
+    const bTime = b.target_time || b.time_limit || '';
+    if (aTime !== bTime) return aTime.localeCompare(bTime, 'ja');
+
+    const aUnit = Number(a.unit_number);
+    const bUnit = Number(b.unit_number);
+    if (!isNaN(aUnit) && !isNaN(bUnit) && aUnit !== bUnit) return aUnit - bUnit;
+  }
+
+  // カテゴリ3 (委託) の中:
+  if (aCat === 3) {
+    // 種別順: 委託 -> 工事 -> その他
+    const getWorkTypeOrder = (wt: string | null) => {
+      if (wt === '委託') return 1;
+      if (wt === '工事') return 2;
+      return 3;
+    };
+    const aWt = getWorkTypeOrder(a.work_type);
+    const bWt = getWorkTypeOrder(b.work_type);
+    if (aWt !== bWt) return aWt - bWt;
+
+    const aCourse = a.course ? (Number(a.course) || 999) : 999;
+    const bCourse = b.course ? (Number(b.course) || 999) : 999;
+    if (aCourse !== bCourse) return aCourse - bCourse;
+
+    const aTime = a.target_time || a.time_limit || '';
+    const bTime = b.target_time || b.time_limit || '';
+    if (aTime !== bTime) return aTime.localeCompare(bTime, 'ja');
+
+    const aUnit = Number(a.unit_number);
+    const bUnit = Number(b.unit_number);
+    if (!isNaN(aUnit) && !isNaN(bUnit) && aUnit !== bUnit) return aUnit - bUnit;
+  }
+
+  // カテゴリ4 (未定・空行) の中:
+  // 仮想空行（temp-unassigned）は後ろへ
+  const aIsTempUnassigned = typeof a.id === 'string' && a.id.startsWith('temp-unassigned');
+  const bIsTempUnassigned = typeof b.id === 'string' && b.id.startsWith('temp-unassigned');
+  if (aIsTempUnassigned !== bIsTempUnassigned) {
+    return aIsTempUnassigned ? 1 : -1;
+  }
+
+  const aCourse = Number(a.course) || 999;
+  const bCourse = Number(b.course) || 999;
+  if (aCourse !== bCourse) return aCourse - bCourse;
+
+  const aUnit = Number(a.unit_number);
+  const bUnit = Number(b.unit_number);
+  if (!isNaN(aUnit) && !isNaN(bUnit) && aUnit !== bUnit) return aUnit - bUnit;
+
+  return 0;
+};
+
+
 

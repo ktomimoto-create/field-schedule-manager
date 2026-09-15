@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import type { Schedule, Staff, WorkType } from '../types';
-import { getShortName, findStaffByName, toHalfWidth, normalizeTargetTime, splitCoWorkers } from '../types';
+import { getShortName, findStaffByName, toHalfWidth, normalizeTargetTime, splitCoWorkers, compareSchedules } from '../types';
 import { buildFcAutofillPatch } from '../utils/fcAutofill';
 
 import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Edit2, Plus, Search, Lock, Eye, EyeOff } from 'lucide-react';
@@ -406,6 +406,13 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
         if (s.staff_id && holidayStaffIds.has(s.staff_id)) return false;
         if (s.staff_name && holidayStaffNames.has(s.staff_name.trim())) return false;
         
+        // 同行でコース番号が振られていない人は別途の行追加は不要（除外）
+        const isCoWorkerChild = s.notes && s.notes.includes('[__parent_id:');
+        if (isCoWorkerChild) {
+          const courseStr = String(s.course || '').trim();
+          if (!courseStr) return false;
+        }
+
         return true;
       });
 
@@ -517,32 +524,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
         } as Schedule);
       }
 
-      blended.sort((a, b) => {
-        // キャンセルされた予定は常に最下部に配置
-        const aCancelled = a.status === 'cancelled';
-        const bCancelled = b.status === 'cancelled';
-        if (aCancelled !== bCancelled) {
-          return aCancelled ? 1 : -1;
-        }
-
-        const getDivPriority = (div: string | null) => {
-          if (div === 'FTS') return 1;
-          if (div === '委託') return 2;
-          if (div === '未定' || !div) return 4;
-          return 3;
-        };
-
-        const aPriority = getDivPriority(a.division);
-        const bPriority = getDivPriority(b.division);
-
-        if (aPriority !== bPriority) {
-          return aPriority - bPriority;
-        }
-
-        const aCourse = Number(a.course) || 999;
-        const bCourse = Number(b.course) || 999;
-        return aCourse - bCourse;
-      });
+      blended.sort(compareSchedules);
 
       map[targetDate] = blended;
     });
@@ -2068,10 +2050,16 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
               const isInternalType = s.work_type && internalWorkTypes.includes(s.work_type);
               
               if (isHolidayType || isInternalType) return false;
-              
               if (s.staff_id && holidayStaffIds.has(s.staff_id)) return false;
               if (s.staff_name && holidayStaffNames.has(s.staff_name.trim())) return false;
               
+              // 同行でコース番号が振られていない人は除外
+              const isCoWorkerChild = s.notes && s.notes.includes('[__parent_id:');
+              if (isCoWorkerChild) {
+                const courseStr = String(s.course || '').trim();
+                if (!courseStr) return false;
+              }
+
               return true;
             });
 

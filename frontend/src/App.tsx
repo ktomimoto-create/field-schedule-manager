@@ -838,7 +838,12 @@ function App() {
           for (const name of names) {
             const matchedCoWorker = findStaffByName(staff, name);
             if (matchedCoWorker) {
-              const defaultCourse = matchedCoWorker.default_course || '';
+              const defaultCourse = (matchedCoWorker.default_course || '').trim();
+              // コース番号が振られていない同行者は別途の行追加は不要
+              if (!defaultCourse) {
+                continue;
+              }
+
               const courseNum = Number(defaultCourse);
               let coWorkerDivision = '委託';
               if (defaultCourse !== '' && !isNaN(courseNum) && courseNum >= 1 && courseNum <= 26) {
@@ -920,8 +925,13 @@ function App() {
           for (const name of names) {
             const matchedCoWorker = findStaffByName(staff, name);
             if (matchedCoWorker) {
+              const defaultCourse = (matchedCoWorker.default_course || '').trim();
+              // コース番号が振られていない同行者は別途の行追加は不要
+              if (!defaultCourse) {
+                continue;
+              }
+
               // コース番号に基づいて区分を判定（1〜26はFTS、それ以外または未設定は委託）
-              const defaultCourse = matchedCoWorker.default_course || '';
               const courseNum = Number(defaultCourse);
               let coWorkerDivision = '委託';
               if (defaultCourse !== '' && !isNaN(courseNum) && courseNum >= 1 && courseNum <= 26) {
