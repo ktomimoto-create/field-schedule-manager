@@ -358,10 +358,10 @@ export const GridView: React.FC<GridViewProps> = ({
             <button 
               className={`btn btn-toggle-view ${showFullText ? 'active' : ''}`} 
               onClick={() => setShowFullText(!showFullText)}
-              title="すべての予定の物件名・作業内容・備考のテキストを折り返して全表示します"
+              title={showFullText ? "2〜3行の標準折り返し表示に戻します" : "すべての予定の物件名・作業内容・備考のテキストを折り返して全行展開します"}
             >
               {showFullText ? <EyeOff size={15} /> : <Eye size={15} />}
-              <span>{showFullText ? '簡易表示に戻す' : '全文表示に切替'}</span>
+              <span>{showFullText ? '標準表示に戻す' : '全文表示に切替'}</span>
             </button>
 
             <button 
@@ -414,21 +414,21 @@ export const GridView: React.FC<GridViewProps> = ({
         <table className={`spreadsheet-table ${showFullText ? 'show-full-text' : ''}`}>
           <thead>
             <tr>
-              <th style={{ width: '40px', textAlign: 'center' }}>区分</th>
-              <th style={{ width: '38px' }}>タイプ</th>
-              <th style={{ width: '40px' }}>BOX</th>
-              <th style={{ width: '60px' }}>号機</th>
-              <th style={{ width: '220px' }}>物件名</th>
-              <th style={{ width: '55px' }}>種別</th>
-              <th style={{ width: '300px' }}>作業内容</th>
-              <th style={{ width: '65px' }}>時間</th>
-              <th style={{ width: '80px' }}>対応者</th>
-              <th style={{ width: '70px' }}>エリア</th>
-              <th style={{ width: '45px' }}>移動</th>
-              <th style={{ width: '80px' }}>同行者</th>
-              <th style={{ width: '80px' }}>依頼番号</th>
-              <th style={{ width: '70px', textAlign: 'center' }}>結果</th>
-              <th style={{ width: '120px' }}>備考</th>
+              <th style={{ width: '42px', textAlign: 'center' }}>区分</th>
+              <th style={{ width: '40px' }}>タイプ</th>
+              <th style={{ width: '42px' }}>BOX</th>
+              <th style={{ width: '65px' }}>号機</th>
+              <th style={{ width: '240px' }}>物件名</th>
+              <th style={{ width: '58px' }}>種別</th>
+              <th style={{ width: '340px' }}>作業内容</th>
+              <th style={{ width: '68px' }}>時間</th>
+              <th style={{ width: '85px' }}>対応者</th>
+              <th style={{ width: '75px' }}>エリア</th>
+              <th style={{ width: '48px' }}>移動</th>
+              <th style={{ width: '85px' }}>同行者</th>
+              <th style={{ width: '85px' }}>依頼番号</th>
+              <th style={{ width: '72px', textAlign: 'center' }}>結果</th>
+              <th style={{ width: '130px' }}>備考</th>
             </tr>
           </thead>
           <tbody>
@@ -458,17 +458,21 @@ export const GridView: React.FC<GridViewProps> = ({
                     <td>{schedule.box}</td>
                     <td>{schedule.unit_number}</td>
                     <td className="bold-cell" title={schedule.property_name}>
-                      {schedule.property_name}
-                      {typeof schedule.id === 'number' && activeLocks[schedule.id] && (
-                        <span className="editing-lock-badge" title={`${activeLocks[schedule.id].userName} さんが編集中`} style={{ marginLeft: '6px' }}>
-                          <Lock size={10} style={{ marginRight: '2px', verticalAlign: 'middle' }} />
-                          {getShortName(activeLocks[schedule.id].userName)}編集中
-                        </span>
-                      )}
+                      <div className="cell-clamp-2">
+                        {schedule.property_name}
+                        {typeof schedule.id === 'number' && activeLocks[schedule.id] && (
+                          <span className="editing-lock-badge" title={`${activeLocks[schedule.id].userName} さんが編集中`} style={{ marginLeft: '6px' }}>
+                            <Lock size={10} style={{ marginRight: '2px', verticalAlign: 'middle' }} />
+                            {getShortName(activeLocks[schedule.id].userName)}編集中
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td>{schedule.work_type}</td>
                     <td className="description-cell" title={schedule.description || ''}>
-                      {schedule.description}
+                      <div className="cell-clamp-3">
+                        {schedule.description}
+                      </div>
                     </td>
                     <td className="time-cell">
                       {normalizeTargetTime(schedule.target_time)}
@@ -571,7 +575,9 @@ export const GridView: React.FC<GridViewProps> = ({
                     </td>
 
                     <td className="notes-cell" title={cleanMetadata(schedule.notes)}>
-                      {cleanMetadata(schedule.notes)}
+                      <div className="cell-clamp-2">
+                        {cleanMetadata(schedule.notes)}
+                      </div>
                     </td>
                   </tr>
                 );
