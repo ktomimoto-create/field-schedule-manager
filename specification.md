@@ -695,29 +695,40 @@
   - `target_time`（時間列 / 指定時間）
   - テーブル表示時（`renderEditableCell`）にも `toHalfWidth` を通して描画することで、過去に保存された既存の全角データも画面上で綺麗な半角で表示されます。
 
-### 14.4 画面表示サイズ変更時の垂直レイアウト自動フィット・下部余白解消仕様
+### 14.4 画面表示サイズ変更時のヘッダー100%固定化・垂直レイアウト自動フィット仕様
 * **概要・目的**:
-  - 画面表示サイズ（ズーム）を80%や90%等の縮小設定にした際、ビューポート全体の垂直ピクセルが拡大（例: 100vh / 0.8 = 1.25倍）される一方、メインコンテンツ（`<main>`）がコンテンツの成り行き高さ（auto）のままだと、カードやテーブルが途中で終わり、画面下部に広大な余白（アプリ背景の隙間）が発生する課題を解消します。
-  - 画面の倍率（80%〜125%）に関わらず、メインカードおよびグリッド/カレンダーのテーブルコンテナが常に画面下端（下パディング分）まで100%垂直伸長し、余白のない美しく広々とした業務ダッシュボード表示を実現します。
+  - 画面表示サイズ（ズーム: 80%〜125%）を変更した際、ページ全体（`<html>`）にズームを適用してしまうと、最上部のヘッダーバー（タイトルロゴ、タブ、ズーム操作ボタン、お試しモード切替等）まで一緒に縮小・拡大されてしまい、操作性が損なわれるとともに、ブラウザのビューポート計算不整合により画面下部に広大な余白（アプリ背景の隙間）が発生する課題を完全に解消します。
+  - **最上部ヘッダーは常に100%（デフォルトサイズ）で固定表示**し、**ヘッダーより下のメインコンテンツ領域（`.main-content`）のみを独立してスケーリング**。さらに、縮小倍率（80%等）の逆数計算（`calc(100% / scale)`）により、メインカードおよびカレンダー・グリッドのテーブルコンテナが常に画面下端まで100%垂直伸長し、余白のない美しく広々とした全画面ダッシュボード表示を実現します。
 * **実装仕様**:
-  - `frontend/src/index.css`: `.main-content` クラスを定義。
-    ```css
-    .main-content {
-      flex: 1;
-      min-height: 0;
-      display: flex;
-      flex-direction: column;
-      max-width: 100%;
-      padding: 0 1rem 0.75rem 1rem;
-      position: relative;
-      overflow: hidden;
-    }
-    ```
-  - `frontend/src/App.tsx`: `<main className="main-content">` に適用し、親コンテナ（`app-container` 100vh）からの高さを直下のビューへ確実に伝達。
+  - `frontend/src/App.tsx`:
+    - `document.documentElement.style.zoom` の適用を完全廃止（常に空文字リセット）。これにより、ヘッダー（`header`）や各種モーダル（`ScheduleModal` 等）はブラウザの100%基準で通常通りクッキリ美しく表示されます。
+    - `<main className="main-content">` 直下に `.main-zoom-wrapper` を配置し、倍率 $S = \text{zoomLevel} / 100$ に応じて以下のように動的サイズを適用：
+      ```tsx
+      style={zoomLevel !== 100 ? {
+        zoom: `${zoomLevel}%`,
+        width: `calc(100% / ${zoomLevel / 100})`,
+        height: `calc(100% / ${zoomLevel / 100})`,
+        minHeight: `calc(100% / ${zoomLevel / 100})`,
+        display: 'flex',
+        flexDirection: 'column',
+        flex: 1,
+        boxSizing: 'border-box',
+      } : {
+        display: 'flex',
+        flexDirection: 'column',
+        flex: 1,
+        minHeight: 0,
+        height: '100%',
+        boxSizing: 'border-box',
+      }}
+      ```
+  - `frontend/src/index.css`:
+    - `.main-content`: `flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden;`
+    - `.main-zoom-wrapper`: `flex: 1; min-height: 0; display: flex; flex-direction: column; box-sizing: border-box;`
   - `frontend/src/components/CalendarView.css`:
-    - `.matrix-board-container`: `flex: 1; min-height: 0;` により画面下端まで伸長。
-    - `.matrix-table-wrapper`: `flex: 1; overflow: auto;` によりカード内の残りの高さいっぱいにテーブルエリアを広げ、80%縮小時にもスクロールなしで多くの行・列を広々一覧可能とする。
-    - `.matrix-table-wrapper` の背景色をテーマ変数 `var(--bg-primary)` に統一し、不自然な黒ずみを防止。
+    - `.matrix-board-container`: `flex: 1; min-height: 0; height: 100%; box-sizing: border-box;` により親コンテナ下端まで確実に伸長。
+    - `.matrix-table-wrapper`: `flex: 1; overflow: auto;` によりカード内の残りの高さいっぱいにテーブル領域を広げ、80%縮小時にも下部に余白が生じず、スクロールなしで多くの行・列を広々一覧可能。
+
 
 ### 14.5 時間（target_time / 指定時間）表記の自動統一・正規化仕様
 * **概要・目的**:

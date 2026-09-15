@@ -424,12 +424,10 @@ function App() {
 
   useEffect(() => {
     localStorage.setItem('field_app_zoom_level', String(zoomLevel));
-    if (zoomLevel === 100) {
-      document.documentElement.style.zoom = '';
-    } else {
-      document.documentElement.style.zoom = `${zoomLevel}%`;
-    }
+    // ヘッダーを100%固定するため、html全体のzoomは常に解除
+    document.documentElement.style.zoom = '';
   }, [zoomLevel]);
+
 
   const handleZoomIn = () => {
     const levels = [80, 90, 100, 110, 125];
@@ -1282,7 +1280,26 @@ function App() {
                 </button>
               </div>
             ) : (
-              <>
+              <div
+                className="main-zoom-wrapper"
+                style={zoomLevel !== 100 ? {
+                  zoom: `${zoomLevel}%`,
+                  width: `calc(100% / ${zoomLevel / 100})`,
+                  height: `calc(100% / ${zoomLevel / 100})`,
+                  minHeight: `calc(100% / ${zoomLevel / 100})`,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  flex: 1,
+                  boxSizing: 'border-box',
+                } : {
+                  display: 'flex',
+                  flexDirection: 'column',
+                  flex: 1,
+                  minHeight: 0,
+                  height: '100%',
+                  boxSizing: 'border-box',
+                }}
+              >
                 {loading && (
                   <div className="loading-overlay">
                     <div className="spinner"></div>
@@ -1340,9 +1357,10 @@ function App() {
                     staff={staff}
                   />
                 )}
-              </>
+              </div>
             )}
           </main>
+
 
           <ScheduleModal
             isOpen={isModalOpen}
