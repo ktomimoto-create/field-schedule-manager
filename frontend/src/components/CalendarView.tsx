@@ -1622,7 +1622,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                   {getShortName(lockInfo?.userName || '')}編集中
                 </span>
               )}
-              <span className="property-cell-text" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
+              <span className="property-cell-text cell-clamp-2" style={{ flex: 1 }}>
                 {cleanMetadata(value)}
               </span>
             </div>
@@ -1725,7 +1725,17 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
           setEditingCell({ id: schedId, field });
         }}
       >
-        {field === 'target_time' ? normalizeTargetTime(cleanMetadata(value)) : ((field === 'time_limit') ? toHalfWidth(cleanMetadata(value)) : cleanMetadata(value))}
+        {field === 'target_time' ? (
+          normalizeTargetTime(cleanMetadata(value))
+        ) : field === 'time_limit' ? (
+          toHalfWidth(cleanMetadata(value))
+        ) : field === 'description' ? (
+          <div className="cell-clamp-3">{cleanMetadata(value)}</div>
+        ) : field === 'notes' ? (
+          <div className="cell-clamp-2">{cleanMetadata(value)}</div>
+        ) : (
+          cleanMetadata(value)
+        )}
       </td>
     );
   };
@@ -1947,11 +1957,11 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
               type="button"
               className={`btn btn-secondary btn-sm-nav ${showFullText ? 'active' : ''}`} 
               onClick={() => setShowFullText(!showFullText)} 
-              title="すべての予定の物件名・作業内容・備考等のテキストを折り返して全表示します"
+              title={showFullText ? "2〜3行の標準折り返し表示に戻します" : "すべての予定の物件名・作業内容・備考等のテキストを折り返して全行展開します"}
               style={showFullText ? { backgroundColor: 'var(--primary)', color: '#fff', borderColor: 'var(--primary)' } : undefined}
             >
               {showFullText ? <EyeOff size={14} style={{ marginRight: '4px' }} /> : <Eye size={14} style={{ marginRight: '4px' }} />}
-              <span>{showFullText ? '簡易表示に戻す' : '全文表示に切替'}</span>
+              <span>{showFullText ? '標準表示に戻す' : '全文表示に切替'}</span>
             </button>
             <button 
               className="btn btn-secondary btn-sm-nav" 
@@ -2125,9 +2135,9 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                           <col style={{ width: '65px' }} /> {/* タイプ (見切れ防止のため幅を確保) */}
                           <col style={{ width: '45px' }} /> {/* BOX */}
                           <col style={{ width: '65px' }} /> {/* 号機 */}
-                          <col style={{ width: '180px' }} /> {/* 物件名 */}
+                          <col style={{ width: '200px' }} /> {/* 物件名 (2行折り返し時に収まりやすいよう拡張) */}
                           <col style={{ width: '105px' }} /> {/* 種別 (「依頼者承認済」が見切れないよう拡張) */}
-                          <col style={{ width: '220px' }} /> {/* 作業内容 */}
+                          <col style={{ width: '250px' }} /> {/* 作業内容 (3行折り返し時にしっかり読めるよう拡張) */}
                           <col style={{ width: '75px' }} /> {/* 時間 */}
                           <col style={{ width: '115px' }} /> {/* 対応者 (FE/SF/FR等委託スタッフの見切れ防止のため拡張) */}
                           <col style={{ width: '75px' }} /> {/* エリア */}
