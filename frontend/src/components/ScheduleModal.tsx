@@ -450,7 +450,7 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
 
 【号機】${trimmedUnit}
 【物件名】${propertyName || ''}
-${addressLine}【FC起票日】${requestNumber || ''}
+${addressLine}【FC依頼番号】${requestNumber || ''}
 【内容】
 ${description || ''}
 

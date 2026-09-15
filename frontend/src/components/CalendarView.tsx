@@ -51,8 +51,11 @@ const groupFreeSpaceSchedules = (schedulesList: Schedule[]): GroupedSchedule[] =
     
     const isAlreadyAdded = groups[groupKey].items.some(item => item.id === s.id);
     if (!isAlreadyAdded) {
-      if (s.staff_name && !groups[groupKey].staff_names.includes(s.staff_name)) {
-        groups[groupKey].staff_names.push(s.staff_name);
+      if (s.staff_name) {
+        const shortName = getShortName(s.staff_name);
+        if (shortName && !groups[groupKey].staff_names.includes(shortName)) {
+          groups[groupKey].staff_names.push(shortName);
+        }
       }
       groups[groupKey].items.push(s);
     }
@@ -2218,7 +2221,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                                   const isHoliday = group.work_type === '休暇';
                                   const badgeClass = isHoliday ? 'badge-holiday' : 'badge-internal';
                                   
-                                  const staffLabel = group.staff_names.length > 0 ? ` (${group.staff_names.join(', ')})` : '';
+                                  const staffLabel = group.staff_names.length > 0 ? ` (${group.staff_names.map(n => getShortName(n)).join(', ')})` : '';
                                   const timeLabel = group.target_time ? ` ${group.target_time}` : '';
                                   const showPropName = group.property_name && !['（社内用務）', '（休暇）'].includes(group.property_name);
                                   const descLabel = showPropName ? ` - ${group.property_name}` : '';
