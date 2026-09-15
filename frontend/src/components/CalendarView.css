@@ -260,6 +260,44 @@
   transition: background-color 0.12s ease; /* セル選択・ホバー時の背景変化を滑らかにする */
 }
 
+/* 全文表示モードのスタイル（物件名・作業内容・備考等のテキストを折り返して全表示） */
+.day-calendar-table.show-full-text td {
+  height: auto !important;
+  min-height: 36px;
+  white-space: normal !important;
+  vertical-align: top !important;
+  word-break: break-all;
+  overflow: visible !important;
+  text-overflow: clip !important;
+  line-height: 1.4 !important;
+  padding: 0.4rem 0.45rem !important;
+}
+
+.day-calendar-table.show-full-text .property-cell-wrapper {
+  align-items: flex-start !important;
+}
+
+.day-calendar-table.show-full-text .property-cell-text {
+  white-space: normal !important;
+  overflow: visible !important;
+  text-overflow: clip !important;
+  word-break: break-all;
+  line-height: 1.4 !important;
+}
+
+.day-calendar-table.show-full-text td.text-muted-cell,
+.day-calendar-table.show-full-text td.font-bold-cell {
+  white-space: pre-wrap !important;
+  word-break: break-all;
+  line-height: 1.4 !important;
+}
+
+.day-calendar-table.show-full-text td .staff-tag-cell {
+  white-space: normal !important;
+  overflow: visible !important;
+  word-break: break-all;
+}
+
 
 
 /* 今日の列全体の背景を微かにハイライト */

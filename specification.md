@@ -994,5 +994,27 @@ FC依頼番号（11桁）および号機による物件・住所・BOX・タイ�
 * **対象ロール**: 開発者（`developer`）ロールのみ表示
 * **クリック動作**: `activeTab = 'master_management'` へ切り替え、マスタ管理画面を展開。
 
+---
+
+## 21. 月間予定表（CalendarView）全文表示切替仕様
+
+### 21.1 概要・目的
+* 長い物件名（タワーマンションや大型商業ビル）、詳細な作業指示、備考の注意書き、複数名の同行者名など、固定幅のセル内に収まらないテキストをワンクリックで折り返し（`white-space: normal` / `pre-wrap`）、行高さを自動伸長して全文を表示する機能を提供します。
+* 「予定表（グリッド）」に備わっていた全文表示切替と同等の機能を「月間予定表」にも実装し、現場の確認作業や配車計画の精査時の視認性を飛躍的に向上させます。
+
+### 21.2 操作・UI仕様
+* **トグルボタン**:
+  - 配置: 月間予定表ツールバー（`matrix-header` ➔ `matrix-nav-buttons action-group`）の先頭（「スプレッドシートから貼り付け」ボタンの左側）。
+  - 通常時（簡易表示）: `[👁️ 全文表示に切替]`（グレーのセカンダリボタン）
+  - 全文表示時: `[👁️‍🗨️ 簡易表示に戻す]`（プライマリカラー強調表示）
+  - 状態永続化: ブラウザの `localStorage`（キー: `field_app_calendar_full_text`）に記憶され、次回アクセス時やリロード時も前回の表示モードを維持。
+* **テーブル表示仕様**:
+  - 全文表示 ON 時、すべての曜日ブロックのテーブルに `.show-full-text` クラスを付与。
+  - セル（`td`）: `height: auto !important; min-height: 36px; white-space: normal !important; vertical-align: top !important; word-break: break-all; overflow: visible; text-overflow: clip; line-height: 1.4;`
+  - 物件名（`.property-cell-wrapper`, `.property-cell-text`）: 上揃え（`align-items: flex-start`）かつテキスト折り返し。
+  - 備考・作業内容（`td.text-muted-cell`, `td.font-bold-cell`）: `white-space: pre-wrap !important;` により改行コードを保持したまま全行展開。
+  - スタッフ・同行者（`.staff-tag-cell`）: 複数人や長い名前でも枠内で自然に折り返し。
+
+
 
 

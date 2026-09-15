@@ -3,7 +3,7 @@ import type { Schedule, Staff, WorkType } from '../types';
 import { getShortName, findStaffByName, toHalfWidth, normalizeTargetTime, splitCoWorkers } from '../types';
 import { buildFcAutofillPatch } from '../utils/fcAutofill';
 
-import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Edit2, Plus, Search, Lock } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Edit2, Plus, Search, Lock, Eye, EyeOff } from 'lucide-react';
 import './CalendarView.css';
 
 // ローカルタイムゾーン基準で YYYY-MM-DD 形式の日付文字列を生成する
@@ -266,6 +266,15 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
 }) => {
   const [currentDate, setCurrentDate] = useState(new Date());
   const dateInputRef = useRef<HTMLInputElement>(null);
+
+  // 全文表示モード状態管理（物件名・作業内容・備考などのテキストを折り返して全表示）
+  const [showFullText, setShowFullText] = useState<boolean>(() => {
+    return localStorage.getItem('field_app_calendar_full_text') === 'true';
+  });
+
+  React.useEffect(() => {
+    localStorage.setItem('field_app_calendar_full_text', String(showFullText));
+  }, [showFullText]);
 
   const triggerDatePicker = () => {
     if (dateInputRef.current) {
@@ -1950,6 +1959,16 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
           </div>
           <div className="matrix-nav-buttons action-group">
             <button 
+              type="button"
+              className={`btn btn-secondary btn-sm-nav ${showFullText ? 'active' : ''}`} 
+              onClick={() => setShowFullText(!showFullText)} 
+              title="すべての予定の物件名・作業内容・備考等のテキストを折り返して全表示します"
+              style={showFullText ? { backgroundColor: 'var(--primary)', color: '#fff', borderColor: 'var(--primary)' } : undefined}
+            >
+              {showFullText ? <EyeOff size={14} style={{ marginRight: '4px' }} /> : <Eye size={14} style={{ marginRight: '4px' }} />}
+              <span>{showFullText ? '簡易表示に戻す' : '全文表示に切替'}</span>
+            </button>
+            <button 
               className="btn btn-secondary btn-sm-nav" 
               onClick={onOpenPasteImportModal} 
               title="Excelやスプレッドシートからコピーしたデータを貼り付け"
@@ -2110,7 +2129,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                       id={`day-block-${day.dateStr}`}
                       className={`day-column-block ${isToday ? 'today-column' : ''} ${dayClass}`}
                     >
-                      <table className="day-calendar-table">
+                      <table className={`day-calendar-table ${showFullText ? 'show-full-text' : ''}`}>
                         <colgroup>
                           <col style={{ width: '65px' }} /> {/* タイプ (見切れ防止のため幅を確保) */}
                           <col style={{ width: '45px' }} /> {/* BOX */}
