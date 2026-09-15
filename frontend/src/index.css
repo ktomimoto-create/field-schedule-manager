@@ -201,6 +201,14 @@ header {
   padding: 0;
 }
 
+.header-divider {
+  width: 1px;
+  height: 20px;
+  background: var(--border-glass, rgba(255, 255, 255, 0.15));
+  margin: 0 0.15rem;
+  flex-shrink: 0;
+}
+
 /* 画面表示サイズ（ズーム）コントロール */
 .zoom-controller {
   display: inline-flex;

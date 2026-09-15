@@ -8,7 +8,7 @@ import { AnalyticsView } from './components/AnalyticsView';
 import { ScheduleModal } from './components/ScheduleModal';
 import { PasteImportModal } from './components/PasteImportModal';
 import { HelpGuideModal } from './components/HelpGuideModal';
-import { Calendar, Layers, RefreshCw, AlertCircle, List, Sliders, Sun, Moon, BarChart3, HelpCircle, ZoomIn, ZoomOut } from 'lucide-react';
+import { Calendar, Layers, RefreshCw, AlertCircle, List, Settings, Sun, Moon, BarChart3, HelpCircle, ZoomIn, ZoomOut } from 'lucide-react';
 import { supabase, talkScriptSupabase } from './supabaseClient';
 import { resolveAddress } from './utils/addressResolver';
 import { findStaffByName, canManageSchedules, normalizeRole } from './types';
@@ -1139,30 +1139,9 @@ function App() {
             </div>
 
             <div className="header-actions">
-              {canManageSchedules(currentUserRole) && (
-                <button
-                  className={`btn ${activeTab === 'analytics' ? 'btn-primary' : 'btn-secondary'}`}
-                  onClick={() => setActiveTab('analytics')}
-                  title="集計分析を開く"
-                >
-                  <BarChart3 size={16} />
-                </button>
-              )}
-              {currentUserRole === 'developer' && (
-                <button
-                  className={`btn ${activeTab === 'master_management' ? 'btn-primary' : 'btn-secondary'}`}
-                  onClick={() => setActiveTab('master_management')}
-                  title="マスタ管理を開く"
-                >
-                  <Sliders size={16} />
-                </button>
-              )}
-              <button 
-                className="btn btn-secondary" 
-                onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')} 
-                title={theme === 'light' ? 'ダークモードに切り替え' : 'ライトモードに切り替え'}
-              >
-                {theme === 'light' ? <Moon size={16} /> : <Sun size={16} />}
+              {/* グループ1: 作業・表示操作 */}
+              <button className="btn btn-secondary" onClick={() => fetchData(false)} title="データを更新">
+                <RefreshCw size={16} />
               </button>
 
               {/* お試しモード切り替えトグルボタン */}
@@ -1206,9 +1185,39 @@ function App() {
                 </button>
               </div>
 
-              <button className="btn btn-secondary" onClick={() => fetchData(false)} title="データを更新">
-                <RefreshCw size={16} />
+              <div className="header-divider"></div>
+
+              {/* グループ2: 業務・マスタ管理 */}
+              {canManageSchedules(currentUserRole) && (
+                <button
+                  className={`btn ${activeTab === 'analytics' ? 'btn-primary' : 'btn-secondary'}`}
+                  onClick={() => setActiveTab('analytics')}
+                  title="集計分析を開く"
+                >
+                  <BarChart3 size={16} />
+                </button>
+              )}
+              {currentUserRole === 'developer' && (
+                <button
+                  className={`btn ${activeTab === 'master_management' ? 'btn-primary' : 'btn-secondary'}`}
+                  onClick={() => setActiveTab('master_management')}
+                  title="マスタ管理を開く"
+                >
+                  <Settings size={16} />
+                </button>
+              )}
+
+              <div className="header-divider"></div>
+
+              {/* グループ3: システム・サポート・アカウント */}
+              <button 
+                className="btn btn-secondary" 
+                onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')} 
+                title={theme === 'light' ? 'ダークモードに切り替え' : 'ライトモードに切り替え'}
+              >
+                {theme === 'light' ? <Moon size={16} /> : <Sun size={16} />}
               </button>
+
               <button 
                 className="btn btn-secondary header-help-btn" 
                 onClick={() => setIsHelpGuideOpen(true)} 
