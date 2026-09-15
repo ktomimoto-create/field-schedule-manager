@@ -257,8 +257,9 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   vertical-align: middle;
-  min-height: 38px; /* 固定高さを撤廃し、内容量（1〜3行）に応じて自然にフィット */
-  height: auto;
+  height: 58px; /* 全行の高さを均一に統一（3行折り返しが綺麗に収まる固定高さ） */
+  min-height: 58px;
+  max-height: 58px;
   box-sizing: border-box;
   font-size: 12px; /* スプレッドシート同様の12px */
   transition: background-color 0.12s ease;
@@ -310,7 +311,8 @@
 /* 全文表示モードのスタイル（物件名・作業内容・備考等のテキストを折り返して全表示） */
 .day-calendar-table.show-full-text td {
   height: auto !important;
-  min-height: 38px;
+  min-height: 58px !important;
+  max-height: none !important;
   white-space: normal !important;
   vertical-align: top !important;
   word-break: break-word;

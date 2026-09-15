@@ -323,8 +323,9 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   vertical-align: middle;
-  min-height: 40px; /* 固定高さを撤廃し、内容（1〜3行）に応じて自然に広がる */
-  height: auto;
+  height: 58px; /* 全行の高さを均一に統一（3行折り返しが綺麗に収まる固定高さ） */
+  min-height: 58px;
+  max-height: 58px;
   box-sizing: border-box;
   font-size: 12px; /* セル文字サイズを12px */
 }
@@ -633,6 +634,8 @@
 /* 全文表示モードのスタイル（全行展開） */
 .spreadsheet-table.show-full-text td {
   height: auto !important;
+  min-height: 58px !important;
+  max-height: none !important;
   white-space: normal !important;
   vertical-align: top !important;
 }
