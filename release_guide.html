@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>現場対応予定・行動管理システム ご利用ガイド</title>
+  <title>月間予定表 先行リリース ご利用ガイド</title>
   <style>
     :root {
       --primary: #4f46e5;
@@ -42,7 +42,7 @@
     header.hero {
       background: linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #4338ca 100%);
       color: #ffffff;
-      padding: 40px 20px;
+      padding: 36px 20px 44px;
       text-align: center;
     }
 
@@ -64,18 +64,27 @@
       border: 1px solid rgba(255,255,255,0.25);
     }
 
+    .badge-release {
+      background: #f59e0b;
+      color: #ffffff;
+      margin-left: 6px;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 0.75rem;
+    }
+
     .hero h1 {
-      font-size: 2rem;
+      font-size: 1.95rem;
       font-weight: 800;
       letter-spacing: -0.01em;
       margin-bottom: 10px;
     }
 
     .hero p {
-      font-size: 1.05rem;
+      font-size: 1.02rem;
       color: #c7d2fe;
       max-width: 680px;
-      margin: 0 auto 20px;
+      margin: 0 auto 18px;
     }
 
     .hero-btns {
@@ -119,12 +128,58 @@
       padding: 0 16px;
     }
 
+    /* お試しモード特設バナー */
+    .sandbox-banner {
+      background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
+      border: 2px dashed #f59e0b;
+      border-radius: 12px;
+      padding: 16px 20px;
+      margin-bottom: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      flex-wrap: wrap;
+      box-shadow: var(--shadow);
+    }
+
+    .sandbox-banner-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .sandbox-banner-left .icon {
+      font-size: 2rem;
+    }
+
+    .sandbox-banner-left h3 {
+      font-size: 1.05rem;
+      font-weight: 800;
+      color: #92400e;
+    }
+
+    .sandbox-banner-left p {
+      font-size: 0.88rem;
+      color: #b45309;
+    }
+
+    .sandbox-pill {
+      background: #f59e0b;
+      color: #ffffff;
+      padding: 6px 14px;
+      border-radius: 6px;
+      font-size: 0.85rem;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
     /* 2大対比グリッド（できること vs こんな事故起こりません） */
     .core-grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
       gap: 20px;
-      margin-bottom: 32px;
+      margin-bottom: 24px;
     }
 
     @media (max-width: 768px) {
@@ -165,7 +220,7 @@
     }
 
     .card-title-wrap h2 {
-      font-size: 1.25rem;
+      font-size: 1.22rem;
       font-weight: 800;
     }
 
@@ -176,7 +231,7 @@
       list-style: none;
       display: flex;
       flex-direction: column;
-      gap: 14px;
+      gap: 12px;
     }
 
     .item-row {
@@ -208,51 +263,6 @@
       line-height: 1.5;
     }
 
-    /* お試しモード特設バナー */
-    .sandbox-banner {
-      background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
-      border: 2px dashed #f59e0b;
-      border-radius: 12px;
-      padding: 16px 20px;
-      margin-bottom: 32px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 16px;
-      flex-wrap: wrap;
-    }
-
-    .sandbox-banner-left {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-
-    .sandbox-banner-left .icon {
-      font-size: 2rem;
-    }
-
-    .sandbox-banner-left h3 {
-      font-size: 1.05rem;
-      font-weight: 800;
-      color: #92400e;
-    }
-
-    .sandbox-banner-left p {
-      font-size: 0.88rem;
-      color: #b45309;
-    }
-
-    .sandbox-pill {
-      background: #f59e0b;
-      color: #ffffff;
-      padding: 6px 14px;
-      border-radius: 6px;
-      font-size: 0.85rem;
-      font-weight: 700;
-      white-space: nowrap;
-    }
-
     /* セクションブロック */
     .section-card {
       background: var(--card-bg);
@@ -263,7 +273,7 @@
     }
 
     .section-card h2 {
-      font-size: 1.2rem;
+      font-size: 1.18rem;
       font-weight: 800;
       color: var(--text);
       margin-bottom: 16px;
@@ -274,14 +284,14 @@
       padding-bottom: 10px;
     }
 
-    /* 3大画面カード */
-    .screen-tri-grid {
+    /* 3ステップ */
+    .steps-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
       gap: 16px;
     }
 
-    .screen-mini-card {
+    .step-box {
       background: var(--slate-light);
       border: 1px solid var(--border);
       border-radius: 10px;
@@ -289,23 +299,30 @@
       display: flex;
       flex-direction: column;
       gap: 8px;
+      position: relative;
     }
 
-    .screen-mini-card h3 {
-      font-size: 1rem;
+    .step-num {
+      display: inline-block;
+      background: var(--primary);
+      color: #ffffff;
+      font-size: 0.75rem;
+      font-weight: 800;
+      padding: 2px 8px;
+      border-radius: 999px;
+      width: fit-content;
+    }
+
+    .step-box h3 {
+      font-size: 0.98rem;
       font-weight: 700;
-      color: var(--primary);
+      color: var(--text);
     }
 
-    .screen-mini-card p {
+    .step-box p {
       font-size: 0.85rem;
       color: var(--text-muted);
-    }
-
-    .screen-mini-card ul {
-      padding-left: 18px;
-      font-size: 0.83rem;
-      color: var(--text);
+      line-height: 1.5;
     }
 
     /* チートシートテーブル */
@@ -381,6 +398,16 @@
       color: var(--text);
     }
 
+    .notice-box {
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+      border-radius: 8px;
+      padding: 12px 16px;
+      font-size: 0.85rem;
+      color: #1e40af;
+      margin-top: 16px;
+    }
+
     /* フッター */
     footer {
       text-align: center;
@@ -410,7 +437,7 @@
         break-inside: avoid;
         page-break-inside: avoid;
       }
-      .item-row, .screen-mini-card, .faq-q-box {
+      .item-row, .step-box, .faq-q-box {
         background: #fcfcfc !important;
       }
     }
@@ -421,14 +448,17 @@
   <!-- ヒーローヘッダー -->
   <header class="hero">
     <div class="hero-inner">
-      <div class="badge-top">現場対応予定・行動管理システム</div>
-      <h1>現場配車・予定管理をシンプルに、ミスゼロへ</h1>
+      <div class="badge-top">
+        現場対応予定・行動管理システム <span class="badge-release">先行リリース</span>
+      </div>
+      <h1>【月間予定表】先行リリース ご利用ガイド</h1>
       <p>
-        「このシステムで何ができるのか」「どんな事故を防げるのか」が一目でわかるクイックガイドです。
+        月間の現場配車・予定管理が新システムへ移行します。<br>
+        「月間予定表で何ができるのか」「どんな事故が防げるのか」をシンプルにまとめました。
       </p>
       <div class="hero-btns">
         <button class="btn btn-white" onclick="window.print()">🖨️ A4で印刷 / PDF保存</button>
-        <a class="btn btn-glass" href="./" target="_blank">🚀 システムを開く</a>
+        <a class="btn btn-glass" href="./" target="_blank">🚀 月間予定表を開く</a>
       </div>
     </div>
   </header>
@@ -440,23 +470,23 @@
       <div class="sandbox-banner-left">
         <span class="icon">🧪</span>
         <div>
-          <h3>本番データを壊す心配ゼロ！「お試しモード」完備</h3>
-          <p>画面右上のボタンから、誰にも迷惑をかけずに予定追加・削除・ドラッグ移動を自由に試せます。</p>
+          <h3>まずは触ってみよう！本番を壊さない「お試しモード」完備</h3>
+          <p>ヘッダー右上のボタンを押すと練習モードに。予定の追加・編集・削除をいくら試しても本番データには一切影響しません。</p>
         </div>
       </div>
-      <span class="sandbox-pill">ヘッダー右上の [ 🧪 お試しモード ] から開始</span>
+      <span class="sandbox-pill">画面右上の [ 🧪 お試しモード ] から開始</span>
     </div>
 
     <!-- 2大対比: できること vs こんな事故起こりません -->
     <div class="core-grid">
 
-      <!-- 左: こういうことができます -->
+      <!-- 左: 月間予定表でできること -->
       <div class="core-card can-do">
         <div class="card-title-wrap">
           <span class="card-icon">💡</span>
           <div>
-            <h2>このシステムで「できること」</h2>
-            <span style="font-size:0.8rem; color:var(--text-muted);">日常の予定作成・配車が劇的にラクになります</span>
+            <h2>月間予定表で「できること」</h2>
+            <span style="font-size:0.8rem; color:var(--text-muted);">配車・予定の登録と変更が圧倒的にラクになります</span>
           </div>
         </div>
 
@@ -488,16 +518,16 @@
           <li class="item-row">
             <span class="item-badge">📋</span>
             <div class="item-body">
-              <h3>スプレッドシートから表をコピペ取り込み</h3>
+              <h3>スプレッドシートから表を一括コピペ取り込み</h3>
               <p>外部リストからコピーして貼り付けるだけで、スタッフ名からコース番号や所属区分（FTS/委託）を自動判別して一括登録できます。</p>
             </div>
           </li>
 
           <li class="item-row">
-            <span class="item-badge">🖨️</span>
+            <span class="item-badge">🔍</span>
             <div class="item-body">
-              <h3>個人用の現場持参A4印刷＆メール連絡</h3>
-              <p>共有データを汚さずに自分の予定だけをA4印刷（一時メモ追記可能）。予定からワンクリックで宛先・号機・物件名が入った指示メールも起動できます。</p>
+              <h3>画面ズーム（80%〜125%）＆見やすい表示</h3>
+              <p>画面サイズに合わせて全体の大きさを調整可能。長い委託スタッフ名（FE・SF・FR等）も見切れることなくすっきり表示されます。</p>
             </div>
           </li>
         </ul>
@@ -509,7 +539,7 @@
           <span class="card-icon">🛡️</span>
           <div>
             <h2>もう「こんな事故」は起こりません！</h2>
-            <span style="font-size:0.8rem; color:var(--text-muted);">人為的ミスや上書きトラブルをシステムが自動防止</span>
+            <span style="font-size:0.8rem; color:var(--text-muted);">手作業スプレッドシートのトラブルをシステムが自動防止</span>
           </div>
         </div>
 
@@ -526,7 +556,7 @@
             <span class="item-badge">🚫</span>
             <div class="item-body">
               <h3>住所・エリア・県別の「判定ミス」ゼロ</h3>
-              <p>住所を入れると「練馬区なら23」「南区Sなら埼玉」「西区Kなら神奈川」と社内ルール通りに自動分割。入力者の勘違いやブレが起きません。</p>
+              <p>住所を入れると「練馬区➔23」「南区S➔埼玉」「西区K➔神奈川」と社内ルール通りに自動分割。入力者の勘違いやブレが起きません。</p>
             </div>
           </li>
 
@@ -558,40 +588,30 @@
 
     </div>
 
-    <!-- セクション: 使う画面は主にこの3つ -->
+    <!-- セクション: 月間予定表の基本操作 3ステップ -->
     <div class="section-card">
-      <h2>🖥️ 日常業務で使う3大画面</h2>
-      <div class="screen-tri-grid">
-        <div class="screen-mini-card">
-          <h3>① 月間予定表 (CalendarView)</h3>
-          <p>月全体の配車・アサインを行うメイン画面</p>
-          <ul>
-            <li>ダブルクリックで入力サイドバー起動</li>
-            <li>Ctrl/Shiftで複数選んで一括確定・仮・キャンセル</li>
-            <li>右クリックで別日振替や削除</li>
-            <li>画面右上のズーム（80%〜125%）でサイズ調整</li>
-          </ul>
+      <h2>🚀 月間予定表の基本操作 3ステップ</h2>
+      <div class="steps-grid">
+        <div class="step-box">
+          <span class="step-num">STEP 1</span>
+          <h3>セルをダブルクリックして登録</h3>
+          <p>日付の枠をダブルクリックすると右側にスマート入力画面が開きます。依頼番号（11桁）または号機を入れると物件名や住所が自動で埋まります。</p>
         </div>
 
-        <div class="screen-mini-card">
-          <h3>② 当日行動予定表 (TimelineView)</h3>
-          <p>当日のスタッフ動態と進捗を確認する画面</p>
-          <ul>
-            <li>コース番号順（1〜26: FTS / 90番台: 委託）で整然と表示</li>
-            <li>現場完了・未完了の結果をワンクリック更新</li>
-            <li>「＋予定追加」から急な当日現場も即登録</li>
-          </ul>
+        <div class="step-box">
+          <span class="step-num">STEP 2</span>
+          <h3>ドラッグまたは右クリックで日程移動</h3>
+          <p>予定をそのまま別の日付へドラッグ＆ドロップして移動できます。キャンセル順延の場合は右クリック「別日へ移動」で履歴を残したまま振替可能です。</p>
         </div>
 
-        <div class="screen-mini-card">
-          <h3>③ お試しモード (Sandbox)</h3>
-          <p>失敗を恐れず自由に操作感を試せる安全画面</p>
-          <ul>
-            <li>本番データに影響せず、他の人にも見えません</li>
-            <li>上部バーから「最新データでリセット」可能</li>
-            <li>いつでも「本番モードに戻る」で即座に復帰</li>
-          </ul>
+        <div class="step-box">
+          <span class="step-num">STEP 3</span>
+          <h3>まとめて選んで一括ステータス変更</h3>
+          <p>CtrlまたはShiftを押しながら複数予定をクリック。画面下に現れるバーから「一括確定」「一括仮」「一括キャンセル」を1秒で反映できます。</p>
         </div>
+      </div>
+      <div class="notice-box">
+        💡 <strong>先行リリースについて</strong>: 今回はまず「月間予定表」から運用を開始します。「当日行動予定表」は月間運用の定着後に順次リリース予定です。
       </div>
     </div>
 
@@ -673,8 +693,8 @@
         </div>
 
         <div class="faq-q-box">
-          <h4>Q. 自分の担当分だけを現場に持って行くために印刷したいです。</h4>
-          <p>画面上部の「予定表 (グリッド)」から「印刷プレビュー」を開き、ご自身の名前を選択してください。自分の予定だけがA4用紙1枚にきれいに収まります。その場限りの「一時メモ（鍵番号など）」を書き添えて印刷することも可能です。</p>
+          <h4>Q. 画面が小さくて表が見づらい、または文字がはみ出します。</h4>
+          <p>ヘッダー右側の<strong>「ズーム（80%〜125%）」</strong>プルダウンから、お使いのモニターに最適な倍率へ自由に変更できます。ノートPCでも全体が見渡しやすくなります。</p>
         </div>
       </div>
     </div>
@@ -682,7 +702,7 @@
   </main>
 
   <footer>
-    <p>現場対応予定・行動管理システム (Field Schedule Manager) リリース説明資料</p>
+    <p>現場対応予定・行動管理システム (Field Schedule Manager) 月間予定表 先行リリース資料</p>
     <p style="margin-top: 4px;">&copy; 2026 株式会社FTS. All Rights Reserved.</p>
   </footer>
 
