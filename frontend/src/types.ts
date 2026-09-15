@@ -336,57 +336,53 @@ export const splitCoWorkers = (coWorkersStr: string | null | undefined, staffLis
 
 /**
  * スケジュールの並び順カテゴリ判定
- * 1: FTS自社対応枠 (コース1〜26)
- * 2: 設置 (種別が「設置」または区分が「設置」)
- * 3: 委託 (種別が「委託」、区分が「委託」、工事、コース27以上等)
- * 4: その他・未定・未割当
+ * 1: コースあり（最優先。すべてのコース番号付き予定）
+ * 2: コースなし「設置」（種別または区分が「設置」）
+ * 3: コースなし「委託」（種別または区分が「委託」）
+ * 4: コースなし「その他」（一般・工事・未定など）
+ * 90: 未割当仮想空行（temp-unassigned）
  * 99: キャンセル
  */
 export const getScheduleSortCategory = (s: Partial<Schedule>): number => {
   if (s.status === 'cancelled') return 99;
 
+  // 仮想空行（temp-unassigned）は最下部直前
+  const isTempUnassigned = typeof s.id === 'string' && s.id.startsWith('temp-unassigned');
+  if (isTempUnassigned) return 90;
+
   const courseStr = String(s.course || '').trim();
   const courseNum = Number(courseStr);
   const hasCourseNum = courseStr !== '' && !isNaN(courseNum);
 
-  // 1. FTS自社対応枠: コース番号 1〜26 の自社予定を最優先
-  // （種別が定期・障害・工事等に関わらず、自社コース1〜26の予定は最上部にコース順で並ぶ）
-  if (hasCourseNum && courseNum >= 1 && courseNum <= 26) {
+  // 1. コースが最優先（コース番号が振られているすべての予定）
+  if (hasCourseNum) {
     return 1;
   }
 
   const workType = (s.work_type || '').trim();
   const division = (s.division || '').trim();
 
-  // 2. 設置判定（種別「設置」または区分「設置」）
-  // 自社枠（コース1〜26）の直後に配置
+  // 2. コース振られていないもののうち「設置」
   const isInstallation = workType === '設置' || division === '設置';
   if (isInstallation) return 2;
 
-  // 3. 委託判定（種別「委託」、区分「委託」、コース27以上、外注工事等）
-  // 設置の直後に配置（設置と混ざらないよう完全分離）
-  const isConsignment = 
-    workType === '委託' || 
-    division === '委託' || 
-    workType === '工事' || 
-    (hasCourseNum && courseNum >= 27);
+  // 3. コース振られていないもののうち「委託」
+  const isConsignment = workType === '委託' || division === '委託';
   if (isConsignment) return 3;
 
-  // 区分がFTSだがコースが未定のもの
-  if (division === 'FTS') return 1;
-
-  // 4. その他・未定・未割当
+  // 4. コース振られていないその他（工事、一般など）
   return 4;
 };
 
 /**
  * 月間予定表・予定表グリッド共通のスケジュールソート比較関数
  * 並び順:
- *   1. FTS自社通常予定 (コース1〜26順)
- *   2. 設置グループ (時間順 -> 号機順)
- *   3. 委託グループ (種別順 -> コース順 -> 時間順 -> 号機順)
- *   4. その他・未定・未割当 (仮想空行は末尾)
- *   5. キャンセル (最下部)
+ *   1. コース番号順（最優先: コース1〜26、90番台などコース番号の昇順）
+ *   2. コースなし「設置」グループ (時間順 -> 号機順)
+ *   3. コースなし「委託」グループ (時間順 -> 号機順)
+ *   4. コースなし「その他」グループ (時間順 -> 号機順)
+ *   5. 未割当仮想空行 (末尾)
+ *   6. キャンセル (最下部)
  */
 export const compareSchedules = (a: Schedule, b: Schedule): number => {
   // キャンセルは最下部
@@ -396,30 +392,30 @@ export const compareSchedules = (a: Schedule, b: Schedule): number => {
     return aCancelled ? 1 : -1;
   }
 
-  // カテゴリ比較 (1: FTS, 2: 設置, 3: 委託, 4: 未定)
+  // カテゴリ比較 (1: コースあり, 2: コースなし設置, 3: コースなし委託, 4: コースなしその他, 90: 未割当空行)
   const aCat = getScheduleSortCategory(a);
   const bCat = getScheduleSortCategory(b);
   if (aCat !== bCat) {
     return aCat - bCat;
   }
 
-  // カテゴリ1 (FTS) の中: コース番号順 (1〜26)
+  // カテゴリ1: コース番号順（最優先）
   if (aCat === 1) {
-    const aCourse = Number(a.course) || 999;
-    const bCourse = Number(b.course) || 999;
+    const aCourse = Number(a.course);
+    const bCourse = Number(b.course);
     if (aCourse !== bCourse) return aCourse - bCourse;
 
     const aTime = a.target_time || a.time_limit || '';
     const bTime = b.target_time || b.time_limit || '';
     if (aTime !== bTime) return aTime.localeCompare(bTime, 'ja');
+
+    const aUnit = Number(a.unit_number);
+    const bUnit = Number(b.unit_number);
+    if (!isNaN(aUnit) && !isNaN(bUnit) && aUnit !== bUnit) return aUnit - bUnit;
   }
 
-  // カテゴリ2 (設置) の中:
+  // カテゴリ2: コースなし「設置」
   if (aCat === 2) {
-    const aCourse = a.course ? (Number(a.course) || 999) : 999;
-    const bCourse = b.course ? (Number(b.course) || 999) : 999;
-    if (aCourse !== bCourse) return aCourse - bCourse;
-
     const aTime = a.target_time || a.time_limit || '';
     const bTime = b.target_time || b.time_limit || '';
     if (aTime !== bTime) return aTime.localeCompare(bTime, 'ja');
@@ -429,22 +425,8 @@ export const compareSchedules = (a: Schedule, b: Schedule): number => {
     if (!isNaN(aUnit) && !isNaN(bUnit) && aUnit !== bUnit) return aUnit - bUnit;
   }
 
-  // カテゴリ3 (委託) の中:
+  // カテゴリ3: コースなし「委託」
   if (aCat === 3) {
-    // 種別順: 委託 -> 工事 -> その他
-    const getWorkTypeOrder = (wt: string | null) => {
-      if (wt === '委託') return 1;
-      if (wt === '工事') return 2;
-      return 3;
-    };
-    const aWt = getWorkTypeOrder(a.work_type);
-    const bWt = getWorkTypeOrder(b.work_type);
-    if (aWt !== bWt) return aWt - bWt;
-
-    const aCourse = a.course ? (Number(a.course) || 999) : 999;
-    const bCourse = b.course ? (Number(b.course) || 999) : 999;
-    if (aCourse !== bCourse) return aCourse - bCourse;
-
     const aTime = a.target_time || a.time_limit || '';
     const bTime = b.target_time || b.time_limit || '';
     if (aTime !== bTime) return aTime.localeCompare(bTime, 'ja');
@@ -454,18 +436,18 @@ export const compareSchedules = (a: Schedule, b: Schedule): number => {
     if (!isNaN(aUnit) && !isNaN(bUnit) && aUnit !== bUnit) return aUnit - bUnit;
   }
 
-  // カテゴリ4 (未定・空行) の中:
-  // 仮想空行（temp-unassigned）は後ろへ
-  const aIsTempUnassigned = typeof a.id === 'string' && a.id.startsWith('temp-unassigned');
-  const bIsTempUnassigned = typeof b.id === 'string' && b.id.startsWith('temp-unassigned');
-  if (aIsTempUnassigned !== bIsTempUnassigned) {
-    return aIsTempUnassigned ? 1 : -1;
+  // カテゴリ4: コースなし「その他」
+  if (aCat === 4) {
+    const aTime = a.target_time || a.time_limit || '';
+    const bTime = b.target_time || b.time_limit || '';
+    if (aTime !== bTime) return aTime.localeCompare(bTime, 'ja');
+
+    const aUnit = Number(a.unit_number);
+    const bUnit = Number(b.unit_number);
+    if (!isNaN(aUnit) && !isNaN(bUnit) && aUnit !== bUnit) return aUnit - bUnit;
   }
 
-  const aCourse = Number(a.course) || 999;
-  const bCourse = Number(b.course) || 999;
-  if (aCourse !== bCourse) return aCourse - bCourse;
-
+  // デフォルト
   const aUnit = Number(a.unit_number);
   const bUnit = Number(b.unit_number);
   if (!isNaN(aUnit) && !isNaN(bUnit) && aUnit !== bUnit) return aUnit - bUnit;
