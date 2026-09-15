@@ -58,6 +58,7 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
   const [box, setBox] = useState('');
   const [unitNumber, setUnitNumber] = useState('');
   const [propertyName, setPropertyName] = useState('');
+  const [propertyAddress, setPropertyAddress] = useState('');
   const [workType, setWorkType] = useState('');
   const [description, setDescription] = useState('');
   const [targetTime, setTargetTime] = useState('');
@@ -173,8 +174,8 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
         }
         setBox(matched.box_count ? String(matched.box_count) : '');
         setType(matched.model_type || '');
-
         if (matched.address) {
+          setPropertyAddress(matched.address);
           const { area: determinedArea, prefecture: determinedPref } = resolveAddress(matched.address);
           if (needsAreaAutoFill && determinedArea) {
             setArea(determinedArea);
@@ -194,6 +195,7 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
     if (fallback) {
       if (needsNameAutoFill && fallback.property_name) setPropertyName(fallback.property_name);
       if (fallback.address) {
+        setPropertyAddress(fallback.address);
         const { area: determinedArea, prefecture: determinedPref } = resolveAddress(fallback.address);
         if (needsAreaAutoFill && determinedArea) setArea(determinedArea);
         if (needsPrefAutoFill && determinedPref) setPrefecture(determinedPref);
@@ -253,9 +255,12 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
     // 区分はコース番号（course）に連動して自動入力されるため、ここでは設定しません
 
     if (prop.address) {
+      setPropertyAddress(prop.address);
       const { area: determinedArea, prefecture: determinedPref } = resolveAddress(prop.address);
       setArea(determinedArea);
       setPrefecture(determinedPref);
+    } else {
+      setPropertyAddress('');
     }
 
     triggerAutofillFlash();
@@ -339,6 +344,23 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
       setDisorderType(selectedSchedule.disorder_type || '');
       setLevel(selectedSchedule.level || '');
       setLevel3(selectedSchedule.level_3 || '');
+
+      setPropertyAddress('');
+      if (selectedSchedule.unit_number) {
+        supabase
+          .from('properties')
+          .select('address')
+          .eq('unit_number', selectedSchedule.unit_number)
+          .limit(1)
+          .then(
+            ({ data, error }) => {
+              if (!error && data && data.length > 0 && data[0].address) {
+                setPropertyAddress(data[0].address);
+              }
+            },
+            (err: any) => console.error('Failed to fetch property address:', err)
+          );
+      }
     } else {
       setStatus('free');
       setDivision('FTS'); // 新規追加時の初期値は「FTS」
@@ -346,6 +368,7 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
       setBox('');
       setUnitNumber('');
       setPropertyName('');
+      setPropertyAddress('');
       setWorkType('');
       setIsCustomWorkType(false);
       setDescription('');
@@ -391,26 +414,41 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
   const targetStaffEmail = targetStaff?.email;
 
   const handleSendEmailNotification = async () => {
-    if (!selectedSchedule || !targetStaff || !targetStaffEmail) return;
+    if (!targetStaffEmail) return;
 
-    const subject = encodeURIComponent(`【緊急】本日作業予定追加（物件名：${propertyName}）`);
-    
-    const bodyText = `${targetStaff.name}さん
+    // 住所が未取得の場合は念のため物件マスタから最新を取得
+    let currentAddress = propertyAddress;
+    const trimmedUnit = unitNumber.trim();
+    if (!currentAddress && trimmedUnit) {
+      try {
+        const { data } = await supabase
+          .from('properties')
+          .select('address')
+          .eq('unit_number', trimmedUnit)
+          .limit(1);
+        if (data && data.length > 0 && data[0].address) {
+          currentAddress = data[0].address;
+          setPropertyAddress(currentAddress);
+        }
+      } catch (e) {
+        console.error('Failed to fetch address on mail create:', e);
+      }
+    }
 
-お疲れ様です。本日急遽、以下の作業予定が追加（または変更）されました。
-内容をご確認の上、ご対応をお願いいたします。
+    const subjectText = trimmedUnit ? `${trimmedUnit}　追加` : '追加';
+    const subject = encodeURIComponent(subjectText);
 
-■ 日付: ${date}
-■ 物件名: ${propertyName}
-■ 種別: ${workType || '一般'}
-■ 指定時間: ${targetTime || 'なし'}
-■ 作業内容:
-${description || '※作業内容の記載なし'}
+    const addressLine = currentAddress ? `${currentAddress}\n` : '';
+    const bodyText = `お疲れ様です。
+１件追加対応願います。
 
-■ 備考/特記指示:
-${notes || 'なし'}
+【号機】${trimmedUnit}
+【物件名】${propertyName || ''}
+${addressLine}【FC起票日】${requestNumber || ''}
+【内容】
+${description || ''}
 
-現地に到着しましたら、ナビタイム（当日行動予定表）のステータスを「作業中」、作業完了後は「完了」へ更新してください。`;
+よろしくお願いいたします。`;
 
     const body = encodeURIComponent(bodyText);
     const mailtoUrl = `mailto:${targetStaffEmail}?subject=${subject}&body=${body}`;
@@ -418,18 +456,20 @@ ${notes || 'なし'}
     // メーラーを起動
     window.location.href = mailtoUrl;
 
-    // バックエンドにログを記録する
-    try {
-      await fetch(`http://localhost:5000/api/schedules/${selectedSchedule.id}/email-log`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-User-Email': currentUserEmail || 'system'
-        },
-        body: JSON.stringify({ recipient: targetStaffEmail })
-      });
-    } catch (err) {
-      console.error('Failed to log email notification:', err);
+    // 既存予定の場合はバックエンドにログを記録する
+    if (selectedSchedule && selectedSchedule.id) {
+      try {
+        await fetch(`http://localhost:5000/api/schedules/${selectedSchedule.id}/email-log`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-User-Email': currentUserEmail || 'system'
+          },
+          body: JSON.stringify({ recipient: targetStaffEmail })
+        });
+      } catch (err) {
+        console.error('Failed to log email notification:', err);
+      }
     }
   };
 
@@ -1201,7 +1241,7 @@ ${notes || 'なし'}
                 <div></div>
               )}
 
-              {isEditMode && targetStaffEmail && (
+              {targetStaffEmail && (
                 <button
                   type="button"
                   className="btn"
