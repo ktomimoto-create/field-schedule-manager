@@ -345,17 +345,26 @@ export const splitCoWorkers = (coWorkersStr: string | null | undefined, staffLis
 export const getScheduleSortCategory = (s: Partial<Schedule>): number => {
   if (s.status === 'cancelled') return 99;
 
-  const workType = (s.work_type || '').trim();
-  const division = (s.division || '').trim();
   const courseStr = String(s.course || '').trim();
   const courseNum = Number(courseStr);
   const hasCourseNum = courseStr !== '' && !isNaN(courseNum);
 
-  // 1. 設置判定（種別「設置」または区分「設置」）
+  // 1. FTS自社対応枠: コース番号 1〜26 の自社予定を最優先
+  // （種別が定期・障害・工事等に関わらず、自社コース1〜26の予定は最上部にコース順で並ぶ）
+  if (hasCourseNum && courseNum >= 1 && courseNum <= 26) {
+    return 1;
+  }
+
+  const workType = (s.work_type || '').trim();
+  const division = (s.division || '').trim();
+
+  // 2. 設置判定（種別「設置」または区分「設置」）
+  // 自社枠（コース1〜26）の直後に配置
   const isInstallation = workType === '設置' || division === '設置';
   if (isInstallation) return 2;
 
-  // 2. 委託判定（種別「委託」「工事」、区分「委託」、コース27以上等）
+  // 3. 委託判定（種別「委託」、区分「委託」、コース27以上、外注工事等）
+  // 設置の直後に配置（設置と混ざらないよう完全分離）
   const isConsignment = 
     workType === '委託' || 
     division === '委託' || 
@@ -363,11 +372,10 @@ export const getScheduleSortCategory = (s: Partial<Schedule>): number => {
     (hasCourseNum && courseNum >= 27);
   if (isConsignment) return 3;
 
-  // 3. FTS判定（コース1〜26、または区分がFTS）
-  const isFts = (hasCourseNum && courseNum >= 1 && courseNum <= 26) || division === 'FTS';
-  if (isFts) return 1;
+  // 区分がFTSだがコースが未定のもの
+  if (division === 'FTS') return 1;
 
-  // 4. その他・未定
+  // 4. その他・未定・未割当
   return 4;
 };
 
