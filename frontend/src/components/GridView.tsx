@@ -16,6 +16,7 @@ interface GridViewProps {
   currentUserRole: UserRole;
   currentStaffId: number | null;
   activeLocks?: Record<number, { userEmail: string; userName: string; startedAt: number }>;
+  zoomLevel?: number;
 }
 
 export const GridView: React.FC<GridViewProps> = ({
@@ -27,6 +28,7 @@ export const GridView: React.FC<GridViewProps> = ({
   currentUserRole,
   currentStaffId,
   activeLocks = {},
+  zoomLevel = 100,
 }) => {
   const dateInputRef = useRef<HTMLInputElement>(null);
   const [selectedDate, setSelectedDate] = useState<string>(
@@ -421,6 +423,22 @@ export const GridView: React.FC<GridViewProps> = ({
       )}
 
       <div className="grid-table-wrapper">
+        <div
+          className="grid-table-zoom-inner"
+          style={zoomLevel !== 100 ? {
+            zoom: `${zoomLevel}%`,
+            minHeight: `calc(100% / ${zoomLevel / 100})`,
+            width: 'max-content',
+            minWidth: '100%',
+            display: 'flex',
+            flexDirection: 'column',
+          } : {
+            width: '100%',
+            minHeight: '100%',
+            display: 'flex',
+            flexDirection: 'column',
+          }}
+        >
         <table className={`spreadsheet-table ${showFullText ? 'show-full-text' : ''}`}>
           <thead>
             <tr>
@@ -589,6 +607,7 @@ export const GridView: React.FC<GridViewProps> = ({
             )}
           </tbody>
         </table>
+        </div>
       </div>
 
       <div className="grid-view-footer">

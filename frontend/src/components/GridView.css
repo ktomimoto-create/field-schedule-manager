@@ -283,6 +283,15 @@
   box-shadow: var(--shadow-sm);
 }
 
+/* ズーム倍率適用ラッパー（テーブルのみを拡大・縮小しヘッダー・フィルターは100%固定を維持） */
+.grid-table-zoom-inner {
+  width: 100%;
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+}
+
 .spreadsheet-table {
   width: 100%;
   border-collapse: collapse;

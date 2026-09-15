@@ -695,39 +695,30 @@
   - `target_time`（時間列 / 指定時間）
   - テーブル表示時（`renderEditableCell`）にも `toHalfWidth` を通して描画することで、過去に保存された既存の全角データも画面上で綺麗な半角で表示されます。
 
-### 14.4 画面表示サイズ変更時のヘッダー100%固定化・垂直レイアウト自動フィット仕様
+### 14.4 画面表示サイズ変更時のヘッダー・操作ツールバー100%固定化＆テーブル個別ズーム仕様
 * **概要・目的**:
-  - 画面表示サイズ（ズーム: 80%〜125%）を変更した際、ページ全体（`<html>`）にズームを適用してしまうと、最上部のヘッダーバー（タイトルロゴ、タブ、ズーム操作ボタン、お試しモード切替等）まで一緒に縮小・拡大されてしまい、操作性が損なわれるとともに、ブラウザのビューポート計算不整合により画面下部に広大な余白（アプリ背景の隙間）が発生する課題を完全に解消します。
-  - **最上部ヘッダーは常に100%（デフォルトサイズ）で固定表示**し、**ヘッダーより下のメインコンテンツ領域（`.main-content`）のみを独立してスケーリング**。さらに、縮小倍率（80%等）の逆数計算（`calc(100% / scale)`）により、メインカードおよびカレンダー・グリッドのテーブルコンテナが常に画面下端まで100%垂直伸長し、余白のない美しく広々とした全画面ダッシュボード表示を実現します。
+  - 画面表示サイズ（ズーム: 80%〜125%）を変更した際、ページ全体やカード全体にズームをかけてしまうと、最上部のグローバルヘッダーだけでなく、各画面上部の操作ツールバー（月間予定表の日付ナビ「< 8月」「10月 >」「日付指定」「本日」、スプレッドシート貼り付けボタン、予定追加ボタン、検索窓など）まで縮小・拡大されてしまい、ボタンが押しづらくなったり文字が見切れたりする課題を解決します。
+  - **最上部ヘッダー（グローバルナビゲーション）および各画面の操作ツールバー（カードヘッダー）は常に100%（通常標準サイズ）で完全固定**します。
+  - **ズーム（拡大・縮小）はデータ表示部分（カレンダーテーブル・グリッド表・タイムラインのかんばん領域）のみに適用**し、80%縮小時には表内のフォントや行・列がコンパクトになって1画面に広々収まりつつ、操作ボタン類は押しやすい実用的な業務UIを実現します。
+  - スクロールバーは100%通常サイズで外側コンテナに保持され、画面下部への余白発生もゼロ（下端まで100%垂直フィット）を維持します。
 * **実装仕様**:
   - `frontend/src/App.tsx`:
-    - `document.documentElement.style.zoom` の適用を完全廃止（常に空文字リセット）。これにより、ヘッダー（`header`）や各種モーダル（`ScheduleModal` 等）はブラウザの100%基準で通常通りクッキリ美しく表示されます。
-    - `<main className="main-content">` 直下に `.main-zoom-wrapper` を配置し、倍率 $S = \text{zoomLevel} / 100$ に応じて以下のように動的サイズを適用：
-      ```tsx
-      style={zoomLevel !== 100 ? {
-        zoom: `${zoomLevel}%`,
-        width: `calc(100% / ${zoomLevel / 100})`,
-        height: `calc(100% / ${zoomLevel / 100})`,
-        minHeight: `calc(100% / ${zoomLevel / 100})`,
-        display: 'flex',
-        flexDirection: 'column',
-        flex: 1,
-        boxSizing: 'border-box',
-      } : {
-        display: 'flex',
-        flexDirection: 'column',
-        flex: 1,
-        minHeight: 0,
-        height: '100%',
-        boxSizing: 'border-box',
-      }}
-      ```
-  - `frontend/src/index.css`:
-    - `.main-content`: `flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden;`
-    - `.main-zoom-wrapper`: `flex: 1; min-height: 0; display: flex; flex-direction: column; box-sizing: border-box;`
-  - `frontend/src/components/CalendarView.css`:
-    - `.matrix-board-container`: `flex: 1; min-height: 0; height: 100%; box-sizing: border-box;` により親コンテナ下端まで確実に伸長。
-    - `.matrix-table-wrapper`: `flex: 1; overflow: auto;` によりカード内の残りの高さいっぱいにテーブル領域を広げ、80%縮小時にも下部に余白が生じず、スクロールなしで多くの行・列を広々一覧可能。
+    - `document.documentElement.style.zoom` の適用を完全廃止（常に空文字リセット）。最上部ヘッダー（`header`）や各種モーダル（`ScheduleModal` 等）はブラウザの100%基準で通常通り表示。
+    - `<main className="main-content">` 内の `.main-view-container` も100%基準（`flex: 1; min-height: 0; height: 100%;`）で維持。
+    - `zoomLevel` の値を各ビュー（`CalendarView`, `GridView`, `TimelineView`）の props として伝達。
+  - `frontend/src/components/CalendarView.tsx` & `CalendarView.css`:
+    - `.matrix-board-container card`: 100%基準で画面下端まで伸長。
+    - `.matrix-header`: 100%固定表示。タイトル、年月バッジ、日付操作（前月/翌月/日付指定/本日）、スプレッドシート貼り付けボタン、予定追加、検索がすべて押しやすい標準サイズで固定。
+    - `.matrix-table-wrapper`: `flex: 1; overflow: auto;`。スクロールバーは通常サイズ。
+    - `.matrix-table-zoom-inner`: テーブル群（各週の曜日別テーブル）を内包し、`style={{ zoom: `${zoomLevel}%`, minHeight: `calc(100% / ${zoomLevel / 100})` }}` を適用。各曜日の日付ヘッダー（`position: sticky`）の追従も正常に機能。
+  - `frontend/src/components/GridView.tsx` & `GridView.css`:
+    - `.grid-view-container card`: 100%基準。
+    - `.grid-view-header`: 100%固定表示。日付ナビ、残件数バッジ、各種フィルター、Excel出力、印刷プレビュー等が標準サイズで固定。
+    - `.grid-table-wrapper` 直下に `.grid-table-zoom-inner` を配置し、スプレッドシートテーブルに `zoomLevel` を適用。
+  - `frontend/src/components/TimelineView.tsx` & `TimelineView.css`:
+    - `.timeline-container card`: 100%基準。
+    - `.timeline-header`: 100%固定表示。日付ナビ、スタッフ検索、件数バッジ等が標準サイズで固定。
+    - `.card-board-wrapper` 直下に `.card-board-zoom-inner` を配置し、かんばんボード列に `zoomLevel` を適用。
 
 
 ### 14.5 時間（target_time / 指定時間）表記の自動統一・正規化仕様

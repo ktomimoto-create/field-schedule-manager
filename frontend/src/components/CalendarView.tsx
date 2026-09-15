@@ -248,6 +248,7 @@ interface CalendarViewProps {
   onTransferSchedules?: (date: string) => Promise<void>;
   onOpenPasteImportModal: () => void;
   activeLocks?: Record<number, { userEmail: string; userName: string; startedAt: number }>;
+  zoomLevel?: number;
 }
 
 export const CalendarView: React.FC<CalendarViewProps> = ({
@@ -261,6 +262,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
   onTransferSchedules,
   onOpenPasteImportModal,
   activeLocks = {},
+  zoomLevel = 100,
 }) => {
   const [currentDate, setCurrentDate] = useState(new Date());
   const dateInputRef = useRef<HTMLInputElement>(null);
@@ -1988,6 +1990,21 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
       </div>
 
       <div className="matrix-table-wrapper">
+        <div
+          className="matrix-table-zoom-inner"
+          style={zoomLevel !== 100 ? {
+            zoom: `${zoomLevel}%`,
+            minHeight: `calc(100% / ${zoomLevel / 100})`,
+            width: 'max-content',
+            display: 'flex',
+            flexDirection: 'column',
+          } : {
+            width: 'max-content',
+            minHeight: '100%',
+            display: 'flex',
+            flexDirection: 'column',
+          }}
+        >
         {weeks.map((weekDays, weekIndex) => {
           // 各曜日のスケジュール配列と休みスケジュールの配列を取得
           const parsedDaysData = weekDays.map(day => {
@@ -2717,6 +2734,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
           );
 
         })}
+        </div>
       </div>
 
       {/* 簡易コンテキストメニュー */}

@@ -109,6 +109,15 @@
   box-shadow: inset 0 1px 4px rgba(0, 0, 0, 0.05);
 }
 
+/* ズーム倍率適用ラッパー（テーブルのみを拡大・縮小しヘッダーは100%固定を維持） */
+.matrix-table-zoom-inner {
+  width: max-content;
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+}
+
 /* 曜日ブロックを横並びにするコンテナ */
 .week-days-container {
   display: flex;

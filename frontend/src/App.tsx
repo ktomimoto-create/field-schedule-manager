@@ -1281,17 +1281,8 @@ function App() {
               </div>
             ) : (
               <div
-                className="main-zoom-wrapper"
-                style={zoomLevel !== 100 ? {
-                  zoom: `${zoomLevel}%`,
-                  width: `calc(100% / ${zoomLevel / 100})`,
-                  height: `calc(100% / ${zoomLevel / 100})`,
-                  minHeight: `calc(100% / ${zoomLevel / 100})`,
-                  display: 'flex',
-                  flexDirection: 'column',
-                  flex: 1,
-                  boxSizing: 'border-box',
-                } : {
+                className="main-view-container"
+                style={{
                   display: 'flex',
                   flexDirection: 'column',
                   flex: 1,
@@ -1315,6 +1306,7 @@ function App() {
                     currentUserRole={currentUserRole}
                     currentStaffId={currentStaffId}
                     activeLocks={activeLocks}
+                    zoomLevel={zoomLevel}
                   />
                 )}
                 {activeTab === 'timeline' && (
@@ -1326,6 +1318,7 @@ function App() {
                     currentStaffId={currentStaffId}
                     onUpdateResult={handleUpdateScheduleResult}
                     onReorder={handleReorderSchedules}
+                    zoomLevel={zoomLevel}
                   />
                 )}
                 {canManageSchedules(currentUserRole) && activeTab === 'calendar' && (
@@ -1340,6 +1333,7 @@ function App() {
                     onTransferSchedules={handleTransferSchedules}
                     onOpenPasteImportModal={() => setIsImportOpen(true)}
                     activeLocks={activeLocks}
+                    zoomLevel={zoomLevel}
                   />
                 )}
                 {currentUserRole === 'developer' && activeTab === 'master_management' && (

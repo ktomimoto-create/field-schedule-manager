@@ -20,6 +20,7 @@ interface TimelineViewProps {
     reportNotes?: string | null
   ) => Promise<void>;
   onReorder: (orders: { id: number | string; sort_order: number }[]) => Promise<void>;
+  zoomLevel?: number;
 }
 
 export const TimelineView: React.FC<TimelineViewProps> = ({
@@ -30,6 +31,7 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
   currentStaffId,
   onUpdateResult,
   onReorder,
+  zoomLevel = 100,
 }) => {
   const [targetDateStr, setTargetDateStr] = useState(
     new Date().toISOString().split('T')[0]
@@ -227,6 +229,22 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
       )}
 
       <div className="card-board-wrapper">
+        <div
+          className="card-board-zoom-inner"
+          style={zoomLevel !== 100 ? {
+            zoom: `${zoomLevel}%`,
+            minHeight: `calc(100% / ${zoomLevel / 100})`,
+            width: 'max-content',
+            minWidth: '100%',
+            display: 'flex',
+            flexDirection: 'column',
+          } : {
+            width: '100%',
+            minHeight: '100%',
+            display: 'flex',
+            flexDirection: 'column',
+          }}
+        >
         {filteredStaff.map(member => {
           // 当日のこのスタッフ宛ての予定（sort_order昇順でソート）
           const memberSchedules = todaySchedules
@@ -382,6 +400,7 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
             </div>
           );
         })}
+        </div>
       </div>
 
       {reportSchedule && (

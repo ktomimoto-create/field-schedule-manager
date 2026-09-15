@@ -96,6 +96,15 @@
   min-height: 500px;
 }
 
+/* ズーム倍率適用ラッパー */
+.card-board-zoom-inner {
+  display: flex;
+  gap: 1.5rem;
+  align-items: flex-start;
+  min-height: 100%;
+  box-sizing: border-box;
+}
+
 /* スタッフ別の列コラム */
 .staff-board-column {
   width: 360px;
