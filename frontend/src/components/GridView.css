@@ -667,8 +667,29 @@
 }
 
 /* スプレッドシート完全準拠: セル選択・ドラッグ範囲・コピー枠 */
-.spreadsheet-table td {
-  position: relative;
+/* スプレッドシート完全準拠: セル選択・ドラッグ範囲・コピー枠（遅延0msの即時描画・GPU最適化） */
+.selected-grid-cell,
+.selected-border-top,
+.selected-border-bottom,
+.selected-border-left,
+.selected-border-right,
+.copied-grid-cell,
+.copied-border-top,
+.copied-border-bottom,
+.copied-border-left,
+.copied-border-right {
+  transition: none !important;
+  will-change: background-color, box-shadow;
+}
+
+/* ドラッグ選択中のテーブル全体最適化（不要なCSSトランジションやテキスト選択の完全抑止で60fpsを維持） */
+.spreadsheet-table.is-selecting-grid,
+.spreadsheet-table.is-selecting-grid * {
+  user-select: none !important;
+}
+.spreadsheet-table.is-selecting-grid td,
+.spreadsheet-table.is-selecting-grid tr {
+  transition: none !important;
 }
 
 .selected-grid-cell {

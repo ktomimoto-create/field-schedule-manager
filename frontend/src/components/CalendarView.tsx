@@ -339,6 +339,12 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
   const [selectionStart, setSelectionStart] = useState<CellCoordinate | null>(null);
   const [selectionEnd, setSelectionEnd] = useState<CellCoordinate | null>(null);
   const [isSelecting, setIsSelecting] = useState<boolean>(false);
+  const isSelectingRef = useRef(isSelecting);
+  React.useEffect(() => {
+    isSelectingRef.current = isSelecting;
+  }, [isSelecting]);
+  const dragRafRef = useRef<number | null>(null);
+  const pendingCoordRef = useRef<CellCoordinate | null>(null);
 
   // スプレッドシート完全準拠: コピー範囲（破線マーキー枠）とトースト通知
   const [copiedRange, setCopiedRange] = useState<{
@@ -381,11 +387,24 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
     'notes'
   ];
 
-  const getColAbsoluteIndex = (dateStr: string, field: keyof Schedule) => {
-    const dateIdx = calendarDates.indexOf(dateStr);
-    const fieldIdx = FIELD_ORDER.indexOf(field);
+  const dateIndexMap = React.useMemo(() => {
+    const map: Record<string, number> = {};
+    calendarDates.forEach((d, idx) => { map[d] = idx; });
+    return map;
+  }, [calendarDates]);
+
+  const fieldIndexMap = React.useMemo(() => {
+    const map: Record<string, number> = {};
+    FIELD_ORDER.forEach((f, idx) => { map[f] = idx; });
+    return map;
+  }, []);
+
+  const getColAbsoluteIndex = React.useCallback((dateStr: string, field: keyof Schedule) => {
+    const dateIdx = dateIndexMap[dateStr] ?? -1;
+    const fieldIdx = fieldIndexMap[field] ?? -1;
+    if (dateIdx === -1 || fieldIdx === -1) return -1;
     return dateIdx * FIELD_ORDER.length + fieldIdx;
-  };
+  }, [dateIndexMap, fieldIndexMap]);
 
   // 各日付ごとのソート・仮想行適用済みのスケジュールリストをキャッシュして再レンダリング時のもっさり感を完全に解消
   const sortedSchedulesMap = React.useMemo(() => {
@@ -553,51 +572,42 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
     return sortedSchedulesMap[targetDate] || [];
   };
 
-  const getCellSelectionStatus = (
-    dateStr: string,
-    rowIndex: number,
-    field: keyof Schedule
-  ) => {
-    if (!selectionStart) {
-      return { isSelected: false, borderTop: false, borderBottom: false, borderLeft: false, borderRight: false };
-    }
-
+  // 選択範囲（行・列の境界）を事前計算してメモ化（セル描画ごとの数万回の再計算・indexOf探索を完全撲滅）
+  const selectionRange = React.useMemo(() => {
+    if (!selectionStart) return null;
     const end = selectionEnd || selectionStart;
-
     const startCol = getColAbsoluteIndex(selectionStart.dateStr, selectionStart.field);
     const endCol = getColAbsoluteIndex(end.dateStr, end.field);
-    const minCol = Math.min(startCol, endCol);
-    const maxCol = Math.max(startCol, endCol);
+    if (startCol === -1 || endCol === -1) return null;
+    return {
+      minRow: Math.min(selectionStart.rowIndex, end.rowIndex),
+      maxRow: Math.max(selectionStart.rowIndex, end.rowIndex),
+      minCol: Math.min(startCol, endCol),
+      maxCol: Math.max(startCol, endCol),
+    };
+  }, [selectionStart, selectionEnd, getColAbsoluteIndex]);
 
-    const curCol = getColAbsoluteIndex(dateStr, field);
-
-    const minRow = Math.min(selectionStart.rowIndex, end.rowIndex);
-    const maxRow = Math.max(selectionStart.rowIndex, end.rowIndex);
-
-    const isSelected = rowIndex >= minRow && rowIndex <= maxRow && curCol >= minCol && curCol <= maxCol;
-
+  const getCellSelectionStatus = (curCol: number, rowIndex: number) => {
+    if (!selectionRange) {
+      return { isSelected: false, borderTop: false, borderBottom: false, borderLeft: false, borderRight: false };
+    }
+    const isSelected = rowIndex >= selectionRange.minRow && rowIndex <= selectionRange.maxRow && curCol >= selectionRange.minCol && curCol <= selectionRange.maxCol;
     if (!isSelected) {
       return { isSelected: false, borderTop: false, borderBottom: false, borderLeft: false, borderRight: false };
     }
-
     return {
       isSelected,
-      borderTop: rowIndex === minRow,
-      borderBottom: rowIndex === maxRow,
-      borderLeft: curCol === minCol,
-      borderRight: curCol === maxCol
+      borderTop: rowIndex === selectionRange.minRow,
+      borderBottom: rowIndex === selectionRange.maxRow,
+      borderLeft: curCol === selectionRange.minCol,
+      borderRight: curCol === selectionRange.maxCol
     };
   };
 
-  const getCopiedCellStatus = (
-    dateStr: string,
-    rowIndex: number,
-    field: keyof Schedule
-  ) => {
+  const getCopiedCellStatus = (curCol: number, rowIndex: number) => {
     if (!copiedRange) {
       return { isCopied: false, borderTop: false, borderBottom: false, borderLeft: false, borderRight: false };
     }
-    const curCol = getColAbsoluteIndex(dateStr, field);
     const isCopied = rowIndex >= copiedRange.minRow && rowIndex <= copiedRange.maxRow && curCol >= copiedRange.minCol && curCol <= copiedRange.maxCol;
     if (!isCopied) {
       return { isCopied: false, borderTop: false, borderBottom: false, borderLeft: false, borderRight: false };
@@ -611,20 +621,19 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
     };
   };
 
-  const isBottomRightSelectedCell = (dateStr: string, rowIndex: number, field: keyof Schedule) => {
-    if (!selectionStart) return false;
-    const end = selectionEnd || selectionStart;
-    const startCol = getColAbsoluteIndex(selectionStart.dateStr, selectionStart.field);
-    const endCol = getColAbsoluteIndex(end.dateStr, end.field);
-    const maxCol = Math.max(startCol, endCol);
-    const maxRow = Math.max(selectionStart.rowIndex, end.rowIndex);
-    const curCol = getColAbsoluteIndex(dateStr, field);
-    return rowIndex === maxRow && curCol === maxCol;
+  const isBottomRightSelectedCell = (dateStrOrCol: string | number, rowIndex: number, field?: keyof Schedule) => {
+    if (!selectionRange) return false;
+    const curCol = typeof dateStrOrCol === 'number' 
+      ? dateStrOrCol 
+      : (field ? getColAbsoluteIndex(dateStrOrCol, field) : -1);
+    return rowIndex === selectionRange.maxRow && curCol === selectionRange.maxCol;
   };
 
   const getSelectionClassName = (dateStr: string, rowIndex: number, field: keyof Schedule) => {
-    const selStatus = getCellSelectionStatus(dateStr, rowIndex, field);
-    const copyStatus = getCopiedCellStatus(dateStr, rowIndex, field);
+    const curCol = getColAbsoluteIndex(dateStr, field);
+    if (curCol === -1) return '';
+    const selStatus = getCellSelectionStatus(curCol, rowIndex);
+    const copyStatus = getCopiedCellStatus(curCol, rowIndex);
     
     let classes = '';
     if (selStatus.isSelected) {
@@ -660,15 +669,25 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
     setSelectionStart(coord);
     setSelectionEnd(coord);
     setIsSelecting(true);
+    isSelectingRef.current = true;
 
     setSelectedCell({ id: scheduleId, field });
     setSelectedEmptyCell(null);
   };
 
-  const handleCellMouseEnter = (dateStr: string, rowIndex: number, field: keyof Schedule) => {
-    if (!isSelecting) return;
-    setSelectionEnd({ dateStr, rowIndex, field });
-  };
+  // requestAnimationFrame でマウス移動イベントをスロットリングし、60fpsでスムーズに追従
+  const handleCellMouseEnter = React.useCallback((dateStr: string, rowIndex: number, field: keyof Schedule) => {
+    if (!isSelectingRef.current) return;
+    pendingCoordRef.current = { dateStr, rowIndex, field };
+    if (dragRafRef.current === null) {
+      dragRafRef.current = requestAnimationFrame(() => {
+        dragRafRef.current = null;
+        if (pendingCoordRef.current && isSelectingRef.current) {
+          setSelectionEnd(pendingCoordRef.current);
+        }
+      });
+    }
+  }, []);
 
   // コピペ貼り付け処理
   const handlePaste = async (targetDate: string, targetStaffId: number) => {
@@ -1096,13 +1115,26 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
   // ドラッグのグローバル監視
   React.useEffect(() => {
     const handleMouseUpGlobal = () => {
+      if (dragRafRef.current !== null) {
+        cancelAnimationFrame(dragRafRef.current);
+        dragRafRef.current = null;
+      }
+      if (pendingCoordRef.current && isSelectingRef.current) {
+        setSelectionEnd(pendingCoordRef.current);
+        pendingCoordRef.current = null;
+      }
       setIsSelecting(false);
+      isSelectingRef.current = false;
     };
     window.addEventListener('mouseup', handleMouseUpGlobal);
     return () => {
       window.removeEventListener('mouseup', handleMouseUpGlobal);
+      if (dragRafRef.current !== null) {
+        cancelAnimationFrame(dragRafRef.current);
+        dragRafRef.current = null;
+      }
     };
-  }, [isSelecting]);
+  }, []);
 
   // キーボードショートカットおよびクリップボード貼り付けの監視
   React.useEffect(() => {
@@ -1148,56 +1180,66 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
           const firstDate = calendarDates[0];
           if (firstDate) {
             const daySchedules = getSortedDaySchedules(firstDate);
-            const sched = daySchedules[0];
-            if (sched) {
-              const firstField = FIELD_ORDER[0];
-              setSelectedCell({ id: sched.id, field: firstField });
-              setSelectedScheduleId(sched.id);
+            if (daySchedules.length > 0) {
+              const firstSched = daySchedules[0];
+              setSelectedCell({ id: firstSched.id, field: FIELD_ORDER[0] });
+              setSelectedScheduleId(firstSched.id);
               setSelectedEmptyCell(null);
-              setSelectionStart({ dateStr: firstDate, rowIndex: 0, field: firstField });
-              setSelectionEnd({ dateStr: firstDate, rowIndex: 0, field: firstField });
+              setSelectionStart({ dateStr: firstDate, rowIndex: 0, field: FIELD_ORDER[0] });
+              setSelectionEnd({ dateStr: firstDate, rowIndex: 0, field: FIELD_ORDER[0] });
             }
           }
-          e.preventDefault();
           return;
         }
 
         e.preventDefault();
 
-        const currentFieldIdx = FIELD_ORDER.indexOf(selectionStart.field);
-        let nextFieldIdx = currentFieldIdx;
-        let nextDateStr = selectionStart.dateStr;
-        let nextRowIndex = selectionStart.rowIndex;
+        const curDateStr = selectionStart.dateStr;
+        const curRowIndex = selectionStart.rowIndex;
+        const curField = selectionStart.field;
 
-        if (e.key === 'ArrowLeft') {
-          nextFieldIdx = currentFieldIdx - 1;
-          if (nextFieldIdx < 0) {
-            const currentDateIdx = calendarDates.indexOf(selectionStart.dateStr);
-            if (currentDateIdx > 0) {
-              nextDateStr = calendarDates[currentDateIdx - 1];
-              nextFieldIdx = FIELD_ORDER.length - 1;
-            } else {
-              return;
+        const dateIdx = calendarDates.indexOf(curDateStr);
+        const fieldIdx = FIELD_ORDER.indexOf(curField);
+
+        let nextDateStr = curDateStr;
+        let nextRowIndex = curRowIndex;
+        let nextFieldIdx = fieldIdx;
+
+        if (e.key === 'ArrowUp') {
+          if (curRowIndex > 0) {
+            nextRowIndex = curRowIndex - 1;
+          }
+        } else if (e.key === 'ArrowDown') {
+          const daySchedules = getSortedDaySchedules(curDateStr);
+          if (curRowIndex < daySchedules.length - 1) {
+            nextRowIndex = curRowIndex + 1;
+          }
+        } else if (e.key === 'ArrowLeft') {
+          if (fieldIdx > 0) {
+            nextFieldIdx = fieldIdx - 1;
+          } else if (dateIdx > 0) {
+            nextDateStr = calendarDates[dateIdx - 1];
+            nextFieldIdx = FIELD_ORDER.length - 1;
+            const prevDaySchedules = getSortedDaySchedules(nextDateStr);
+            if (nextRowIndex >= prevDaySchedules.length) {
+              nextRowIndex = Math.max(0, prevDaySchedules.length - 1);
             }
           }
         } else if (e.key === 'ArrowRight') {
-          nextFieldIdx = currentFieldIdx + 1;
-          if (nextFieldIdx >= FIELD_ORDER.length) {
-            const currentDateIdx = calendarDates.indexOf(selectionStart.dateStr);
-            if (currentDateIdx < calendarDates.length - 1) {
-              nextDateStr = calendarDates[currentDateIdx + 1];
-              nextFieldIdx = 0;
-            } else {
-              return;
+          if (fieldIdx < FIELD_ORDER.length - 1) {
+            nextFieldIdx = fieldIdx + 1;
+          } else if (dateIdx < calendarDates.length - 1) {
+            nextDateStr = calendarDates[dateIdx + 1];
+            nextFieldIdx = 0;
+            const nextDaySchedules = getSortedDaySchedules(nextDateStr);
+            if (nextRowIndex >= nextDaySchedules.length) {
+              nextRowIndex = Math.max(0, nextDaySchedules.length - 1);
             }
           }
-        } else if (e.key === 'ArrowUp') {
-          nextRowIndex = selectionStart.rowIndex - 1;
-          if (nextRowIndex < 0) return;
-        } else if (e.key === 'ArrowDown') {
-          nextRowIndex = selectionStart.rowIndex + 1;
-          const daySchedules = getSortedDaySchedules(selectionStart.dateStr);
-          if (nextRowIndex >= daySchedules.length) return;
+        }
+
+        if (nextDateStr === curDateStr && nextRowIndex === curRowIndex && nextFieldIdx === fieldIdx) {
+          return;
         }
 
         const nextField = FIELD_ORDER[nextFieldIdx];
@@ -1210,18 +1252,16 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
           setSelectionStart({ dateStr: nextDateStr, rowIndex: nextRowIndex, field: nextField });
           setSelectionEnd({ dateStr: nextDateStr, rowIndex: nextRowIndex, field: nextField });
 
-          // 自動スクロール処理
-          setTimeout(() => {
-            const cellId = `cell-${nextDateStr}-${nextRowIndex}-${nextField}`;
-            const cellElem = document.getElementById(cellId);
-            if (cellElem) {
-              cellElem.scrollIntoView({
-                behavior: 'smooth',
-                block: 'nearest',
-                inline: 'nearest'
-              });
-            }
-          }, 10);
+          // 自動スクロール処理（即時追従 behavior: 'auto' でキー連打時も遅延ゼロで動作）
+          const cellId = `cell-${nextDateStr}-${nextRowIndex}-${nextField}`;
+          const cellElem = document.getElementById(cellId);
+          if (cellElem) {
+            cellElem.scrollIntoView({
+              behavior: 'auto',
+              block: 'nearest',
+              inline: 'nearest'
+            });
+          }
         }
         return;
       }
@@ -2145,7 +2185,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
         </div>
       </div>
 
-      <div className="matrix-table-wrapper">
+      <div className={`matrix-table-wrapper ${isSelecting ? 'is-selecting-grid' : ''}`}>
         <div
           className="matrix-table-zoom-inner"
           style={zoomLevel !== 100 ? {

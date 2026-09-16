@@ -323,6 +323,12 @@ export const GridView: React.FC<GridViewProps> = ({
   const [selectionStart, setSelectionStart] = useState<{ rowIndex: number; colIndex: number } | null>(null);
   const [selectionEnd, setSelectionEnd] = useState<{ rowIndex: number; colIndex: number } | null>(null);
   const [isSelecting, setIsSelecting] = useState<boolean>(false);
+  const isSelectingRef = useRef(isSelecting);
+  React.useEffect(() => {
+    isSelectingRef.current = isSelecting;
+  }, [isSelecting]);
+  const dragRafRef = useRef<number | null>(null);
+  const pendingCoordRef = useRef<{ rowIndex: number; colIndex: number } | null>(null);
   const [copiedRange, setCopiedRange] = useState<{
     minRow: number;
     maxRow: number;
@@ -400,27 +406,33 @@ export const GridView: React.FC<GridViewProps> = ({
     }
   };
 
-  // スプレッドシート完全準拠: セル選択状態の判定
+  // スプレッドシート完全準拠: 選択範囲の事前計算（全セル再計算の撲滅）
+  const selectionRange = React.useMemo(() => {
+    if (!selectionStart) return null;
+    const end = selectionEnd || selectionStart;
+    return {
+      minRow: Math.min(selectionStart.rowIndex, end.rowIndex),
+      maxRow: Math.max(selectionStart.rowIndex, end.rowIndex),
+      minCol: Math.min(selectionStart.colIndex, end.colIndex),
+      maxCol: Math.max(selectionStart.colIndex, end.colIndex),
+    };
+  }, [selectionStart, selectionEnd]);
+
+  // セル選択状態の判定（O(1) 高速数値比較）
   const getCellSelectionStatus = (rowIndex: number, colIndex: number) => {
-    if (!selectionStart) {
+    if (!selectionRange) {
       return { isSelected: false, borderTop: false, borderBottom: false, borderLeft: false, borderRight: false };
     }
-    const end = selectionEnd || selectionStart;
-    const minRow = Math.min(selectionStart.rowIndex, end.rowIndex);
-    const maxRow = Math.max(selectionStart.rowIndex, end.rowIndex);
-    const minCol = Math.min(selectionStart.colIndex, end.colIndex);
-    const maxCol = Math.max(selectionStart.colIndex, end.colIndex);
-
-    const isSelected = rowIndex >= minRow && rowIndex <= maxRow && colIndex >= minCol && colIndex <= maxCol;
+    const isSelected = rowIndex >= selectionRange.minRow && rowIndex <= selectionRange.maxRow && colIndex >= selectionRange.minCol && colIndex <= selectionRange.maxCol;
     if (!isSelected) {
       return { isSelected: false, borderTop: false, borderBottom: false, borderLeft: false, borderRight: false };
     }
     return {
       isSelected,
-      borderTop: rowIndex === minRow,
-      borderBottom: rowIndex === maxRow,
-      borderLeft: colIndex === minCol,
-      borderRight: colIndex === maxCol
+      borderTop: rowIndex === selectionRange.minRow,
+      borderBottom: rowIndex === selectionRange.maxRow,
+      borderLeft: colIndex === selectionRange.minCol,
+      borderRight: colIndex === selectionRange.maxCol
     };
   };
 
@@ -442,11 +454,8 @@ export const GridView: React.FC<GridViewProps> = ({
   };
 
   const isBottomRightSelectedCell = (rowIndex: number, colIndex: number) => {
-    if (!selectionStart) return false;
-    const end = selectionEnd || selectionStart;
-    const maxRow = Math.max(selectionStart.rowIndex, end.rowIndex);
-    const maxCol = Math.max(selectionStart.colIndex, end.colIndex);
-    return rowIndex === maxRow && colIndex === maxCol;
+    if (!selectionRange) return false;
+    return rowIndex === selectionRange.maxRow && colIndex === selectionRange.maxCol;
   };
 
   const getCellClassName = (rowIndex: number, colIndex: number, extraClass: string = '') => {
@@ -482,20 +491,43 @@ export const GridView: React.FC<GridViewProps> = ({
     setSelectionStart({ rowIndex, colIndex });
     setSelectionEnd({ rowIndex, colIndex });
     setIsSelecting(true);
+    isSelectingRef.current = true;
   };
 
-  const handleCellMouseEnter = (rowIndex: number, colIndex: number) => {
-    if (!isSelecting) return;
-    setSelectionEnd({ rowIndex, colIndex });
-  };
+  // requestAnimationFrame でマウスドラッグを60fpsスロットリング
+  const handleCellMouseEnter = React.useCallback((rowIndex: number, colIndex: number) => {
+    if (!isSelectingRef.current) return;
+    pendingCoordRef.current = { rowIndex, colIndex };
+    if (dragRafRef.current === null) {
+      dragRafRef.current = requestAnimationFrame(() => {
+        dragRafRef.current = null;
+        if (pendingCoordRef.current && isSelectingRef.current) {
+          setSelectionEnd(pendingCoordRef.current);
+        }
+      });
+    }
+  }, []);
 
   React.useEffect(() => {
     const handleMouseUpGlobal = () => {
+      if (dragRafRef.current !== null) {
+        cancelAnimationFrame(dragRafRef.current);
+        dragRafRef.current = null;
+      }
+      if (pendingCoordRef.current && isSelectingRef.current) {
+        setSelectionEnd(pendingCoordRef.current);
+        pendingCoordRef.current = null;
+      }
       setIsSelecting(false);
+      isSelectingRef.current = false;
     };
     window.addEventListener('mouseup', handleMouseUpGlobal);
     return () => {
       window.removeEventListener('mouseup', handleMouseUpGlobal);
+      if (dragRafRef.current !== null) {
+        cancelAnimationFrame(dragRafRef.current);
+        dragRafRef.current = null;
+      }
     };
   }, []);
 
@@ -525,6 +557,16 @@ export const GridView: React.FC<GridViewProps> = ({
 
         setSelectionStart({ rowIndex: nextRow, colIndex: nextCol });
         setSelectionEnd({ rowIndex: nextRow, colIndex: nextCol });
+
+        // 即時スクロール追従（behavior: 'auto' で遅延ゼロ）
+        const cellElem = document.getElementById(`grid-cell-${nextRow}-${nextCol}`);
+        if (cellElem) {
+          cellElem.scrollIntoView({
+            behavior: 'auto',
+            block: 'nearest',
+            inline: 'nearest'
+          });
+        }
         return;
       }
 
@@ -816,7 +858,7 @@ export const GridView: React.FC<GridViewProps> = ({
             flexDirection: 'column',
           }}
         >
-        <table className={`spreadsheet-table ${showFullText ? 'show-full-text' : ''}`}>
+        <table className={`spreadsheet-table ${showFullText ? 'show-full-text' : ''} ${isSelecting ? 'is-selecting-grid' : ''}`}>
           <thead>
             <tr>
               <th style={{ width: '42px', textAlign: 'center' }}>区分</th>
@@ -895,6 +937,7 @@ export const GridView: React.FC<GridViewProps> = ({
                     className={`spreadsheet-row ${isCompleted ? 'row-completed' : ''} ${isSelected ? 'row-selected' : ''}`}
                   >
                     <td 
+                      id={`grid-cell-${rowIndex}-0`}
                       className={getCellClassName(rowIndex, 0, '')}
                       style={{ textAlign: 'center', fontWeight: '500' }}
                       onMouseDown={(e) => handleCellMouseDown(e, rowIndex, 0)}
@@ -904,6 +947,7 @@ export const GridView: React.FC<GridViewProps> = ({
                       {isBottomRightSelectedCell(rowIndex, 0) && <div className="cell-fill-handle" />}
                     </td>
                     <td 
+                      id={`grid-cell-${rowIndex}-1`}
                       className={getCellClassName(rowIndex, 1, '')}
                       onMouseDown={(e) => handleCellMouseDown(e, rowIndex, 1)}
                       onMouseEnter={() => handleCellMouseEnter(rowIndex, 1)}
@@ -912,6 +956,7 @@ export const GridView: React.FC<GridViewProps> = ({
                       {isBottomRightSelectedCell(rowIndex, 1) && <div className="cell-fill-handle" />}
                     </td>
                     <td 
+                      id={`grid-cell-${rowIndex}-2`}
                       className={getCellClassName(rowIndex, 2, '')}
                       onMouseDown={(e) => handleCellMouseDown(e, rowIndex, 2)}
                       onMouseEnter={() => handleCellMouseEnter(rowIndex, 2)}
@@ -920,6 +965,7 @@ export const GridView: React.FC<GridViewProps> = ({
                       {isBottomRightSelectedCell(rowIndex, 2) && <div className="cell-fill-handle" />}
                     </td>
                     <td 
+                      id={`grid-cell-${rowIndex}-3`}
                       className={getCellClassName(rowIndex, 3, '')}
                       onMouseDown={(e) => handleCellMouseDown(e, rowIndex, 3)}
                       onMouseEnter={() => handleCellMouseEnter(rowIndex, 3)}
@@ -928,6 +974,7 @@ export const GridView: React.FC<GridViewProps> = ({
                       {isBottomRightSelectedCell(rowIndex, 3) && <div className="cell-fill-handle" />}
                     </td>
                     <td 
+                      id={`grid-cell-${rowIndex}-4`}
                       className={getCellClassName(rowIndex, 4, 'bold-cell')}
                       title={schedule.property_name}
                       onMouseDown={(e) => handleCellMouseDown(e, rowIndex, 4)}
@@ -962,6 +1009,7 @@ export const GridView: React.FC<GridViewProps> = ({
                       {isBottomRightSelectedCell(rowIndex, 4) && <div className="cell-fill-handle" />}
                     </td>
                     <td 
+                      id={`grid-cell-${rowIndex}-5`}
                       className={getCellClassName(rowIndex, 5, '')}
                       onMouseDown={(e) => handleCellMouseDown(e, rowIndex, 5)}
                       onMouseEnter={() => handleCellMouseEnter(rowIndex, 5)}
@@ -970,6 +1018,7 @@ export const GridView: React.FC<GridViewProps> = ({
                       {isBottomRightSelectedCell(rowIndex, 5) && <div className="cell-fill-handle" />}
                     </td>
                     <td 
+                      id={`grid-cell-${rowIndex}-6`}
                       className={getCellClassName(rowIndex, 6, 'description-cell')}
                       title={schedule.description || ''}
                       onMouseDown={(e) => handleCellMouseDown(e, rowIndex, 6)}
@@ -981,6 +1030,7 @@ export const GridView: React.FC<GridViewProps> = ({
                       {isBottomRightSelectedCell(rowIndex, 6) && <div className="cell-fill-handle" />}
                     </td>
                     <td 
+                      id={`grid-cell-${rowIndex}-7`}
                       className={getCellClassName(rowIndex, 7, 'time-cell')}
                       onMouseDown={(e) => handleCellMouseDown(e, rowIndex, 7)}
                       onMouseEnter={() => handleCellMouseEnter(rowIndex, 7)}
@@ -989,6 +1039,7 @@ export const GridView: React.FC<GridViewProps> = ({
                       {isBottomRightSelectedCell(rowIndex, 7) && <div className="cell-fill-handle" />}
                     </td>
                     <td 
+                      id={`grid-cell-${rowIndex}-8`}
                       className={getCellClassName(rowIndex, 8, '')}
                       style={{ verticalAlign: 'middle' }}
                       onMouseDown={(e) => handleCellMouseDown(e, rowIndex, 8)}
@@ -1035,6 +1086,7 @@ export const GridView: React.FC<GridViewProps> = ({
                       {isBottomRightSelectedCell(rowIndex, 8) && <div className="cell-fill-handle" />}
                     </td>
                     <td 
+                      id={`grid-cell-${rowIndex}-9`}
                       className={getCellClassName(rowIndex, 9, '')}
                       onMouseDown={(e) => handleCellMouseDown(e, rowIndex, 9)}
                       onMouseEnter={() => handleCellMouseEnter(rowIndex, 9)}
@@ -1043,6 +1095,7 @@ export const GridView: React.FC<GridViewProps> = ({
                       {isBottomRightSelectedCell(rowIndex, 9) && <div className="cell-fill-handle" />}
                     </td>
                     <td 
+                      id={`grid-cell-${rowIndex}-10`}
                       className={getCellClassName(rowIndex, 10, '')}
                       onMouseDown={(e) => handleCellMouseDown(e, rowIndex, 10)}
                       onMouseEnter={() => handleCellMouseEnter(rowIndex, 10)}
@@ -1051,6 +1104,7 @@ export const GridView: React.FC<GridViewProps> = ({
                       {isBottomRightSelectedCell(rowIndex, 10) && <div className="cell-fill-handle" />}
                     </td>
                     <td 
+                      id={`grid-cell-${rowIndex}-11`}
                       className={getCellClassName(rowIndex, 11, '')}
                       onMouseDown={(e) => handleCellMouseDown(e, rowIndex, 11)}
                       onMouseEnter={() => handleCellMouseEnter(rowIndex, 11)}
@@ -1071,6 +1125,7 @@ export const GridView: React.FC<GridViewProps> = ({
                       {isBottomRightSelectedCell(rowIndex, 11) && <div className="cell-fill-handle" />}
                     </td>
                     <td 
+                      id={`grid-cell-${rowIndex}-12`}
                       className={getCellClassName(rowIndex, 12, '')}
                       onMouseDown={(e) => handleCellMouseDown(e, rowIndex, 12)}
                       onMouseEnter={() => handleCellMouseEnter(rowIndex, 12)}
@@ -1080,6 +1135,7 @@ export const GridView: React.FC<GridViewProps> = ({
                     </td>
                     
                     <td 
+                      id={`grid-cell-${rowIndex}-13`}
                       className={getCellClassName(rowIndex, 13, '')}
                       style={{ textAlign: 'center', verticalAlign: 'middle' }}
                       onMouseDown={(e) => handleCellMouseDown(e, rowIndex, 13)}
@@ -1130,6 +1186,7 @@ export const GridView: React.FC<GridViewProps> = ({
                     </td>
 
                     <td 
+                      id={`grid-cell-${rowIndex}-14`}
                       className={getCellClassName(rowIndex, 14, 'notes-cell')}
                       title={cleanMetadata(schedule.notes)}
                       onMouseDown={(e) => handleCellMouseDown(e, rowIndex, 14)}
