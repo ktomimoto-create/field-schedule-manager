@@ -4,11 +4,13 @@ import { X, Mail, Lock } from 'lucide-react';
 import { resolveAddress } from '../utils/addressResolver';
 import { supabase } from '../supabaseClient';
 import { findStaffByName, getShortName, toHalfWidth, normalizeTargetTime, splitCoWorkers, canManageSchedules } from '../types';
+import { PropertyAutocomplete, type PropertyCandidate } from './PropertyAutocomplete';
 
 interface ScheduleModalProps {
   isOpen: boolean;
   onClose: () => void;
   staff: Staff[];
+  schedules?: Schedule[];
   selectedDate: string | null;
   selectedSchedule: Schedule | null;
   onSave: (scheduleData: Partial<Schedule>) => Promise<void>;
@@ -25,6 +27,7 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
   isOpen,
   onClose,
   staff,
+  schedules = [],
   selectedDate,
   selectedSchedule,
   onSave,
@@ -149,6 +152,26 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
     }, 300);
 
     setSearchTimeout(timeout);
+  };
+
+  const handleSelectPropertyCandidate = (candidate: PropertyCandidate) => {
+    setPropertyName(candidate.property_name);
+    if (!unitNumber && candidate.unit_number) {
+      setUnitNumber(candidate.unit_number);
+    }
+    if (!type && candidate.type) {
+      setType(candidate.type);
+    }
+    if (!box && candidate.box) {
+      setBox(candidate.box);
+    }
+    if (!area && candidate.area) {
+      setArea(candidate.area);
+    }
+    if (!propertyAddress && candidate.address) {
+      setPropertyAddress(candidate.address);
+    }
+    triggerAutofillFlash();
   };
 
   /** 号機をキーに物件マスタを引き、未入力の項目だけ補完する。
@@ -759,13 +782,12 @@ ${description || ''}
             {/* 物件名 */}
             <div className="form-group" style={{ marginBottom: '0.85rem' }}>
               <label htmlFor="property_name">物件名 *</label>
-              <input
-                type="text"
-                id="property_name"
-                className="form-control"
+              <PropertyAutocomplete
                 value={propertyName}
-                onChange={(e) => setPropertyName(e.target.value)}
-                required
+                onChange={setPropertyName}
+                onSelectCandidate={handleSelectPropertyCandidate}
+                schedules={schedules}
+                placeholder="物件名を入力（候補選択で号機・タイプ・BOX・エリア自動補完）"
                 disabled={isInputDisabled}
               />
             </div>

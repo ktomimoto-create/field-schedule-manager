@@ -1319,11 +1319,14 @@ function App() {
                   <GridView
                     schedules={schedules.filter(s => s.is_transferred === 1)}
                     staff={staff}
+                    workTypes={workTypes}
                     onOpenAddModal={handleOpenAddModal}
                     onOpenEditModal={handleOpenEditModal}
                     onSave={handleSaveSchedule}
+                    onDelete={handleDeleteSchedule}
                     currentUserRole={currentUserRole}
                     currentStaffId={currentStaffId}
+                    currentUserName={user?.user_metadata?.full_name || user?.user_metadata?.name || staff.find(s => s.id === currentStaffId)?.name || '担当者'}
                     activeLocks={activeLocks}
                     zoomLevel={zoomLevel}
                   />
@@ -1379,6 +1382,7 @@ function App() {
             isOpen={isModalOpen}
             onClose={() => setIsModalOpen(false)}
             staff={staff}
+            schedules={schedules}
             selectedDate={selectedDate}
             selectedSchedule={selectedSchedule}
             onSave={handleSaveSchedule}

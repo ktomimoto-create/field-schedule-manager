@@ -1,20 +1,24 @@
 import React, { useState, useRef } from 'react';
 import XLSX from 'xlsx-js-style';
-import type { Schedule, Staff, UserRole } from '../types';
+import type { Schedule, Staff, UserRole, WorkType } from '../types';
 import { getShortName, cleanMetadata, splitCoWorkers, canManageSchedules, normalizeTargetTime, compareSchedules } from '../types';
 
-import { Plus, ChevronLeft, ChevronRight, Calendar as CalendarIcon, Filter, CheckCircle2, Download, Eye, EyeOff, Printer, Lock } from 'lucide-react';
+import { Plus, ChevronLeft, ChevronRight, Calendar as CalendarIcon, Filter, CheckCircle2, Download, Eye, EyeOff, Printer, Lock, ArrowUpDown, RotateCcw } from 'lucide-react';
 import { PrintPreviewModal } from './PrintPreviewModal';
+import { ScheduleSidePanel } from './ScheduleSidePanel';
 import './GridView.css';
 
 interface GridViewProps {
   schedules: Schedule[];
   staff: Staff[];
+  workTypes?: WorkType[];
   onOpenAddModal: (date: string) => void;
   onOpenEditModal: (schedule: Schedule) => void;
   onSave: (scheduleData: Partial<Schedule>) => Promise<void>;
+  onDelete?: (id: number) => Promise<void>;
   currentUserRole: UserRole;
   currentStaffId: number | null;
+  currentUserName?: string;
   activeLocks?: Record<number, { userEmail: string; userName: string; startedAt: number }>;
   zoomLevel?: number;
 }
@@ -22,11 +26,14 @@ interface GridViewProps {
 export const GridView: React.FC<GridViewProps> = ({
   schedules,
   staff,
+  workTypes = [],
   onOpenAddModal,
   onOpenEditModal,
   onSave,
+  onDelete,
   currentUserRole,
   currentStaffId,
+  currentUserName = '担当者',
   activeLocks = {},
   zoomLevel = 100,
 }) => {
@@ -235,7 +242,64 @@ export const GridView: React.FC<GridViewProps> = ({
     return s;
   });
 
-  const sortedSchedules = [...cleansedSchedules].sort(compareSchedules);
+  const [selectedScheduleForPanel, setSelectedScheduleForPanel] = useState<Schedule | null>(null);
+  const [sortColumn, setSortColumn] = useState<'default' | 'unit_number' | 'property_name' | 'target_time' | 'staff_name'>('default');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
+
+  const sortedSchedules = [...cleansedSchedules].sort((a, b) => {
+    if (sortColumn === 'default') {
+      return compareSchedules(a, b);
+    }
+    let valA = '';
+    let valB = '';
+    if (sortColumn === 'unit_number') {
+      valA = String(a.unit_number || '');
+      valB = String(b.unit_number || '');
+    } else if (sortColumn === 'property_name') {
+      valA = String(a.property_name || '');
+      valB = String(b.property_name || '');
+    } else if (sortColumn === 'target_time') {
+      valA = String(a.target_time || '');
+      valB = String(b.target_time || '');
+    } else if (sortColumn === 'staff_name') {
+      valA = String(a.staff_name || '');
+      valB = String(b.staff_name || '');
+    }
+    const cmp = valA.localeCompare(valB, 'ja', { numeric: true });
+    return sortOrder === 'asc' ? cmp : -cmp;
+  });
+
+  const currentIndex = selectedScheduleForPanel 
+    ? sortedSchedules.findIndex(s => s.id === selectedScheduleForPanel.id)
+    : -1;
+  const hasPrev = currentIndex > 0;
+  const hasNext = currentIndex >= 0 && currentIndex < sortedSchedules.length - 1;
+
+  const handleSelectPrev = () => {
+    if (hasPrev) {
+      setSelectedScheduleForPanel(sortedSchedules[currentIndex - 1]);
+    }
+  };
+
+  const handleSelectNext = () => {
+    if (hasNext) {
+      setSelectedScheduleForPanel(sortedSchedules[currentIndex + 1]);
+    }
+  };
+
+  const handleSortToggle = (column: 'unit_number' | 'property_name' | 'target_time' | 'staff_name') => {
+    if (sortColumn === column) {
+      if (sortOrder === 'asc') {
+        setSortOrder('desc');
+      } else {
+        setSortColumn('default');
+        setSortOrder('asc');
+      }
+    } else {
+      setSortColumn(column);
+      setSortOrder('asc');
+    }
+  };
 
 
   const handleQuickCompleteToggle = async (schedule: Schedule) => {
@@ -355,6 +419,21 @@ export const GridView: React.FC<GridViewProps> = ({
           </div>
 
           <div className="grid-actions-right">
+            {sortColumn !== 'default' && (
+              <button 
+                className="btn btn-secondary"
+                onClick={() => {
+                  setSortColumn('default');
+                  setSortOrder('asc');
+                }}
+                title="コース最優先・設置➔委託の業務標準ソートに戻します"
+                style={{ color: 'var(--primary, #4f46e5)', borderColor: 'var(--primary, #4f46e5)', fontWeight: '600' }}
+              >
+                <RotateCcw size={14} style={{ marginRight: '4px' }} />
+                <span>標準ソートに戻す</span>
+              </button>
+            )}
+
             <button 
               className={`btn btn-toggle-view ${showFullText ? 'active' : ''}`} 
               onClick={() => setShowFullText(!showFullText)}
@@ -417,12 +496,48 @@ export const GridView: React.FC<GridViewProps> = ({
               <th style={{ width: '42px', textAlign: 'center' }}>区分</th>
               <th style={{ width: '40px' }}>タイプ</th>
               <th style={{ width: '42px' }}>BOX</th>
-              <th style={{ width: '65px' }}>号機</th>
-              <th style={{ width: '240px' }}>物件名</th>
+              <th 
+                style={{ width: '65px', cursor: 'pointer', userSelect: 'none' }} 
+                onClick={() => handleSortToggle('unit_number')}
+                title="クリックで号機順に並び替え"
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
+                  <span>号機</span>
+                  <ArrowUpDown size={11} style={{ opacity: sortColumn === 'unit_number' ? 1 : 0.35, color: sortColumn === 'unit_number' ? 'var(--primary, #4f46e5)' : 'inherit' }} />
+                </div>
+              </th>
+              <th 
+                style={{ width: '240px', cursor: 'pointer', userSelect: 'none' }} 
+                onClick={() => handleSortToggle('property_name')}
+                title="クリックで物件名順に並び替え"
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
+                  <span>物件名</span>
+                  <ArrowUpDown size={11} style={{ opacity: sortColumn === 'property_name' ? 1 : 0.35, color: sortColumn === 'property_name' ? 'var(--primary, #4f46e5)' : 'inherit' }} />
+                </div>
+              </th>
               <th style={{ width: '58px' }}>種別</th>
               <th style={{ width: '340px' }}>作業内容</th>
-              <th style={{ width: '68px' }}>時間</th>
-              <th style={{ width: '85px' }}>対応者</th>
+              <th 
+                style={{ width: '68px', cursor: 'pointer', userSelect: 'none' }} 
+                onClick={() => handleSortToggle('target_time')}
+                title="クリックで時間順に並び替え"
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
+                  <span>時間</span>
+                  <ArrowUpDown size={11} style={{ opacity: sortColumn === 'target_time' ? 1 : 0.35, color: sortColumn === 'target_time' ? 'var(--primary, #4f46e5)' : 'inherit' }} />
+                </div>
+              </th>
+              <th 
+                style={{ width: '85px', cursor: 'pointer', userSelect: 'none' }} 
+                onClick={() => handleSortToggle('staff_name')}
+                title="クリックで対応者順に並び替え"
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
+                  <span>対応者</span>
+                  <ArrowUpDown size={11} style={{ opacity: sortColumn === 'staff_name' ? 1 : 0.35, color: sortColumn === 'staff_name' ? 'var(--primary, #4f46e5)' : 'inherit' }} />
+                </div>
+              </th>
               <th style={{ width: '75px' }}>エリア</th>
               <th style={{ width: '48px' }}>移動</th>
               <th style={{ width: '85px' }}>同行者</th>
@@ -445,11 +560,15 @@ export const GridView: React.FC<GridViewProps> = ({
 
                 const isAdmin = canManageSchedules(currentUserRole);
 
+                const isSelected = selectedScheduleForPanel?.id === schedule.id;
+
                 return (
                   <tr 
                     key={schedule.id} 
+                    onClick={() => setSelectedScheduleForPanel(schedule)}
                     onDoubleClick={isAdmin ? () => onOpenEditModal(schedule) : undefined}
-                    className={`spreadsheet-row ${isCompleted ? 'row-completed' : ''}`}
+                    className={`spreadsheet-row ${isCompleted ? 'row-completed' : ''} ${isSelected ? 'row-selected' : ''}`}
+                    style={{ cursor: 'pointer' }}
                   >
                     <td style={{ textAlign: 'center', fontWeight: '500' }}>
                       {schedule.division}
@@ -541,7 +660,10 @@ export const GridView: React.FC<GridViewProps> = ({
                         isCompleted ? (
                           <button
                             className="btn-result-completed"
-                            onClick={() => handleQuickCompleteToggle(schedule)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleQuickCompleteToggle(schedule);
+                            }}
                             title="未完了に戻す"
                             style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center', gap: '2px', padding: '0.2rem 0.5rem', height: 'auto', minHeight: 'unset' }}
                           >
@@ -556,7 +678,10 @@ export const GridView: React.FC<GridViewProps> = ({
                         ) : (
                           <button
                             className="btn-result-incomplete"
-                            onClick={() => handleQuickCompleteToggle(schedule)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleQuickCompleteToggle(schedule);
+                            }}
                             title="完了にする"
                           >
                             未対応
@@ -613,6 +738,28 @@ export const GridView: React.FC<GridViewProps> = ({
         staff={staff}
         selectedDate={selectedDate}
         initialFilterStaff={myScheduleOnly && currentStaffId !== null ? String(currentStaffId) : filterStaff}
+      />
+
+      <ScheduleSidePanel
+        schedule={selectedScheduleForPanel}
+        isOpen={selectedScheduleForPanel !== null}
+        onClose={() => setSelectedScheduleForPanel(null)}
+        onSave={async (data) => {
+          await onSave(data);
+          if (selectedScheduleForPanel) {
+            setSelectedScheduleForPanel(prev => prev ? { ...prev, ...data } : null);
+          }
+        }}
+        onDelete={onDelete}
+        staff={staff}
+        schedules={schedules}
+        workTypes={workTypes}
+        currentUserRole={currentUserRole}
+        currentUserName={currentUserName}
+        onSelectPrev={handleSelectPrev}
+        onSelectNext={handleSelectNext}
+        hasPrev={hasPrev}
+        hasNext={hasNext}
       />
     </div>
   );

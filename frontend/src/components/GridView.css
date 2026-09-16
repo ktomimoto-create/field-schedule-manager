@@ -351,6 +351,15 @@
   background: rgba(99, 102, 241, 0.14) !important; /* ダークテーマ向けのホバー */
 }
 
+.spreadsheet-row.row-selected {
+  background: rgba(79, 70, 229, 0.12) !important;
+  box-shadow: inset 3px 0 0 var(--primary, #4f46e5);
+}
+.dark-theme .spreadsheet-row.row-selected {
+  background: rgba(99, 102, 241, 0.22) !important;
+  box-shadow: inset 3px 0 0 var(--primary, #6366f1);
+}
+
 .spreadsheet-table tbody tr:nth-child(even) {
   background: var(--bg-empty); /* ゼブラストライプのコントラストを強化して行の切り替わりを明瞭に */
 }
