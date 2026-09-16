@@ -1316,3 +1316,30 @@ FC依頼番号（11桁）および号機による物件・住所・BOX・タイ�
      * 重い仮想DOM比較を React の低優先度バックグラウンドタスク（Transition）に逃がすことで、ブラウザの描画フレーム（0ms）を絶対にブロックしない構造へ刷新。
      * これにより、Googleスプレッドシートと寸分違わぬ「押した瞬間にパッパッパッと青枠が吸い付く」完全な遅延ゼロ（0ms）の操作レスポンスを達成。
 
+### 27.11 前セルとの一時的な範囲選択バグの完全根絶と単一・複数選択の厳格分離仕様
+* **背景と課題**:
+  * 動作レスポンスは大幅に向上したものの、あるセルをクリックした後に別のセルをクリックした際、「クリックしたセルと前回クリックしたセルが一瞬長方形で範囲選択されてしまう」という表示バグが発生。
+* **原因の解明**:
+  1. **React 18 の `startTransition` と `mouseup` の優先度差によるステート不整合**:
+     - `onMouseDown` 時に `startTransition` 内で `setSelectionStart(今回のセル)` をスケジュールしていたため、低優先度となりステート更新がわずかに遅延。
+     - 一方、ユーザーがマウスをクリックして離した瞬間（`mouseup` / `handleMouseUpGlobal`）は通常の通常優先度で `setSelectionEnd(pendingCoordRef.current)`（＝今回のセル）を即座に更新。
+     - その結果、Reactのレンダリングツリーにおいて「`selectionStart` が前回のセルA」かつ「`selectionEnd` が今回のセルB」という中途半端なステートが同期コミットされ、セルA〜セルBの全領域が巨大な矩形選択（`selected-grid-cell`）として一瞬描画されていた。
+  2. **単一セルクリック時にもドラッグ終了処理が発火していたこと**:
+     - 単一クリック操作（ドラッグしていない操作）の際にも `mouseup` で `setSelectionEnd` が呼ばれていたため、不要なステート更新と競合が発生していた。
+  3. **微小なマウス揺れによる誤ドラッグ判定**:
+     - クリック直後のわずかな手振れによって同一セル内で `mouseenter` が発火し、ドラッグモードと誤判定されていた。
+* **実施した改善仕様**:
+  1. **単一セル選択座標の完全同期更新（`startTransition` 競合の撲滅）**:
+     - `handleCellMouseDown` において、`startTransition` を撤廃し、クリックされたセル座標 `coord` を `setSelectionStart(coord)` と `setSelectionEnd(coord)` に同一値として同期更新。
+     - マウスダウンの瞬間に Direct DOM（`clearAllDomSelection()` ＋ `.active-grid-cell` 付与）を行い、ステートも完全に一致させることで、過去のセルを引きずるタイムラグを物理的に完全撲滅。
+  2. **`isDraggingRef` によるドラッグ状態の厳格管理**:
+     - ドラッグ状態を追跡する `isDraggingRef` を導入。
+     - `handleCellMouseDown` 時に `isDraggingRef.current = false` をセット。
+     - `handleCellMouseEnter` では起点セルと同一セルへのイベントは完全無視し、**起点と異なる別のセルへマウスが移動した時のみ** `isDraggingRef.current = true` と判定してドラッグ描画を開始。
+     - `handleMouseUpGlobal` では、`isDraggingRef.current` が true の場合（実際に2セル以上へドラッグした場合）のみ `setSelectionEnd` を実行。単一セルのクリック時は何もしない。
+  3. **単一アクティブセルと複数ドラッグ選択の厳格分離（Googleスプレッドシート完全準拠）**:
+     - `isMultiCell`（`selectionRange.minRow !== selectionRange.maxRow || selectionRange.minCol !== selectionRange.maxCol`）を導入。
+     - 単一セルの場合は `isSelected` を false とし、青背景色・内側格子線（`selected-grid-cell`）を一切付与せず、Googleスプレッドシート同様に青枠（`active-grid-cell`）のみを表示。
+     - 2セル以上が実際にドラッグされた時のみ薄青背景色と境界線を描画。
+  4. **キーボード移動（矢印キー）のDirect DOM完全連動**:
+     - 矢印キー移動時にも既存ハイライトを即時消去し、移動先セルに `.active-grid-cell` を即時付与することで、キー操作時もスプレッドシート同様に遅延0msで青枠が瞬間移動。

@@ -348,6 +348,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
   const selectionStartRef = useRef<CellCoordinate | null>(null);
   const highlightedCellsRef = useRef<HTMLElement[]>([]);
   const activeCellElemRef = useRef<HTMLElement | null>(null);
+  const isDraggingRef = useRef<boolean>(false);
 
   // スプレッドシート完全準拠: コピー範囲（破線マーキー枠）とトースト通知
   const [copiedRange, setCopiedRange] = useState<{
@@ -594,6 +595,11 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
     if (!selectionRange) {
       return { isSelected: false, borderTop: false, borderBottom: false, borderLeft: false, borderRight: false };
     }
+    // 単一セル選択の時は矩形ハイライト（青い背景色）は出さない（Googleスプレッドシート完全準拠: 青枠のみ）
+    const isMultiCell = selectionRange.minRow !== selectionRange.maxRow || selectionRange.minCol !== selectionRange.maxCol;
+    if (!isMultiCell) {
+      return { isSelected: false, borderTop: false, borderBottom: false, borderLeft: false, borderRight: false };
+    }
     const isSelected = rowIndex >= selectionRange.minRow && rowIndex <= selectionRange.maxRow && curCol >= selectionRange.minCol && curCol <= selectionRange.maxCol;
     if (!isSelected) {
       return { isSelected: false, borderTop: false, borderBottom: false, borderLeft: false, borderRight: false };
@@ -626,6 +632,8 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
 
   const isBottomRightSelectedCell = (dateStrOrCol: string | number, rowIndex: number, field?: keyof Schedule) => {
     if (!selectionRange) return false;
+    const isMultiCell = selectionRange.minRow !== selectionRange.maxRow || selectionRange.minCol !== selectionRange.maxCol;
+    if (!isMultiCell) return false; // 単一セル時は active-grid-cell::after が描画するので二重描画を防ぐ
     const curCol = typeof dateStrOrCol === 'number' 
       ? dateStrOrCol 
       : (field ? getColAbsoluteIndex(dateStrOrCol, field) : -1);
@@ -762,24 +770,35 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
     selectionStartRef.current = coord;
     pendingCoordRef.current = coord;
     isSelectingRef.current = true;
+    isDraggingRef.current = false; // まだドラッグしていない！
 
-    // 2. React 18 の startTransition で内部ステートを非同期更新し、ブラウザの描画フレーム（0ms）を絶対にブロックしない！
-    React.startTransition(() => {
-      setIsSelecting(true);
-      setSelectedCell({ id: scheduleId, field });
-      setSelectedEmptyCell(null);
-      setSelectionStart(coord);
-      setSelectionEnd(coord);
-    });
+    // 2. start と end を 同期で確実に同じ coord でセット（前回のセルとのタイムラグズレを100%撲滅）
+    setIsSelecting(true);
+    setSelectedCell({ id: scheduleId, field });
+    setSelectedEmptyCell(null);
+    setSelectionStart(coord);
+    setSelectionEnd(coord);
   };
 
   // ドラッグ中はReactの再レンダリング（880ms）を完全バイパスし、直接DOMクラスを0.1msで更新！
   const handleCellMouseEnter = (dateStr: string, rowIndex: number, field: keyof Schedule) => {
     if (!isSelectingRef.current || !selectionStartRef.current) return;
+    
+    // 起点セルと同じセルにマウスが入っただけなら、ドラッグとはみなさない！
+    if (
+      selectionStartRef.current.dateStr === dateStr &&
+      selectionStartRef.current.rowIndex === rowIndex &&
+      selectionStartRef.current.field === field
+    ) {
+      return;
+    }
+
+    // 別のセルへマウスが移動した時だけドラッグを開始！
+    isDraggingRef.current = true;
     const endCoord = { dateStr, rowIndex, field };
     pendingCoordRef.current = endCoord;
 
-    // ドラッグで複数セル選択になったら単一セル用青枠を解除して矩形描画へ
+    // 単一セル用の青枠を外し、ドラッグ矩形描画へ切り替え
     if (activeCellElemRef.current) {
       activeCellElemRef.current.classList.remove('active-grid-cell');
     }
@@ -1217,12 +1236,14 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
         cancelAnimationFrame(dragRafRef.current);
         dragRafRef.current = null;
       }
-      if (pendingCoordRef.current && isSelectingRef.current) {
+      // 実際に別のセルへドラッグされた時だけ、setSelectionEnd を確定する！
+      if (isDraggingRef.current && pendingCoordRef.current && selectionStartRef.current) {
         setSelectionEnd(pendingCoordRef.current);
-        pendingCoordRef.current = null;
       }
       setIsSelecting(false);
       isSelectingRef.current = false;
+      isDraggingRef.current = false;
+      pendingCoordRef.current = null;
     };
     window.addEventListener('mouseup', handleMouseUpGlobal);
     return () => {

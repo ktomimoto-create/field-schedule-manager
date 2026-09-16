@@ -328,6 +328,7 @@ export const GridView: React.FC<GridViewProps> = ({
     isSelectingRef.current = isSelecting;
   }, [isSelecting]);
   const dragRafRef = useRef<number | null>(null);
+  const isDraggingRef = useRef<boolean>(false);
   const pendingCoordRef = useRef<{ rowIndex: number; colIndex: number } | null>(null);
   const selectionStartRef = useRef<{ rowIndex: number; colIndex: number } | null>(null);
   const highlightedCellsRef = useRef<HTMLElement[]>([]);
@@ -421,9 +422,15 @@ export const GridView: React.FC<GridViewProps> = ({
     };
   }, [selectionStart, selectionEnd]);
 
-  // セル選択状態の判定（O(1) 高速数値比較）
+  // 2セル以上の複数選択（ドラッグ矩形選択）かどうかの判定
+  const isMultiCell = React.useMemo(() => {
+    if (!selectionRange) return false;
+    return selectionRange.minRow !== selectionRange.maxRow || selectionRange.minCol !== selectionRange.maxCol;
+  }, [selectionRange]);
+
+  // セル選択状態の判定（2セル以上のドラッグ選択時のみ適用・背景色や太枠用）
   const getCellSelectionStatus = (rowIndex: number, colIndex: number) => {
-    if (!selectionRange) {
+    if (!selectionRange || !isMultiCell) {
       return { isSelected: false, borderTop: false, borderBottom: false, borderLeft: false, borderRight: false };
     }
     const isSelected = rowIndex >= selectionRange.minRow && rowIndex <= selectionRange.maxRow && colIndex >= selectionRange.minCol && colIndex <= selectionRange.maxCol;
@@ -457,14 +464,28 @@ export const GridView: React.FC<GridViewProps> = ({
   };
 
   const isBottomRightSelectedCell = (rowIndex: number, colIndex: number) => {
-    if (!selectionRange) return false;
+    if (!selectionRange || !isMultiCell) return false;
     return rowIndex === selectionRange.maxRow && colIndex === selectionRange.maxCol;
+  };
+
+  // Googleスプレッドシート完全準拠: 単一アクティブセルの判定（2px青枠のみ、背景色なし）
+  const isSingleActiveCell = (rowIndex: number, colIndex: number) => {
+    if (!selectionStart || isMultiCell) return false;
+    const end = selectionEnd || selectionStart;
+    return selectionStart.rowIndex === end.rowIndex && 
+           selectionStart.colIndex === end.colIndex &&
+           selectionStart.rowIndex === rowIndex && 
+           selectionStart.colIndex === colIndex;
   };
 
   const getCellClassName = (rowIndex: number, colIndex: number, extraClass: string = '') => {
     const sel = getCellSelectionStatus(rowIndex, colIndex);
     const copy = getCopiedCellStatus(rowIndex, colIndex);
     let classes = extraClass;
+
+    if (isSingleActiveCell(rowIndex, colIndex)) {
+      classes += ' active-grid-cell';
+    }
 
     if (sel.isSelected) {
       classes += ' selected-grid-cell';
@@ -548,22 +569,8 @@ export const GridView: React.FC<GridViewProps> = ({
 
     const targetTd = (e.target as HTMLElement).closest('td') || (e.currentTarget as HTMLElement).closest('td');
 
-    // 1. 直前の青枠を0.0001msで消去し、クリックされたセルに即座に青枠（2px実線＋フィルハンドル）をDirect DOMで付与！
-    if (activeCellElemRef.current && activeCellElemRef.current !== targetTd) {
-      activeCellElemRef.current.classList.remove('active-grid-cell');
-    }
-    const prevCells = highlightedCellsRef.current;
-    for (let i = 0; i < prevCells.length; i++) {
-      prevCells[i].classList.remove(
-        'selected-grid-cell',
-        'selected-border-top',
-        'selected-border-bottom',
-        'selected-border-left',
-        'selected-border-right',
-        'selected-bottom-right'
-      );
-    }
-    highlightedCellsRef.current = [];
+    // 1. 直前の全選択ハイライト（青枠・ドラッグ矩形選択）を0.0001msで消去し、クリックされたセルに即座に青枠（2px実線＋フィルハンドル）をDirect DOMで付与！
+    clearAllDomSelection();
 
     if (targetTd) {
       targetTd.classList.add('active-grid-cell');
@@ -574,24 +581,33 @@ export const GridView: React.FC<GridViewProps> = ({
     selectionStartRef.current = coord;
     pendingCoordRef.current = coord;
     isSelectingRef.current = true;
+    isDraggingRef.current = false; // 単一セルクリック時はドラッグ状態ではない
 
-    // 2. React 18 の startTransition で内部ステートを非同期更新し、ブラウザの描画フレーム（0ms）を絶対にブロックしない！
-    React.startTransition(() => {
-      setIsSelecting(true);
-      setSelectionStart(coord);
-      setSelectionEnd(coord);
-    });
+    // 2. startTransition を使わず、同一の単一セル座標として同期更新！
+    // startTransitionの遅延コミットとmouseupの通常優先度コミットの不整合（前セル〜今セルの一瞬の長方形選択）を完全根絶
+    setIsSelecting(true);
+    setSelectionStart(coord);
+    setSelectionEnd(coord);
   };
 
   // ドラッグ中はReactの再レンダリングを完全バイパスし、直接DOMクラスを0.1msで更新！
   const handleCellMouseEnter = (rowIndex: number, colIndex: number) => {
     if (!isSelectingRef.current || !selectionStartRef.current) return;
+    
+    // 起点セルと同一セルの場合はスキップ（クリック時のわずかなマウスブレによる誤ドラッグを完全防止）
+    if (selectionStartRef.current.rowIndex === rowIndex && selectionStartRef.current.colIndex === colIndex) {
+      return;
+    }
+
+    // 起点と異なるセルに入った時のみドラッグ確定
+    isDraggingRef.current = true;
     const endCoord = { rowIndex, colIndex };
     pendingCoordRef.current = endCoord;
 
     // ドラッグで複数セル選択になったら単一セル用青枠を解除して矩形描画へ
     if (activeCellElemRef.current) {
       activeCellElemRef.current.classList.remove('active-grid-cell');
+      activeCellElemRef.current = null;
     }
 
     applyDirectSelectionDom(selectionStartRef.current, endCoord);
@@ -603,10 +619,15 @@ export const GridView: React.FC<GridViewProps> = ({
         cancelAnimationFrame(dragRafRef.current);
         dragRafRef.current = null;
       }
-      if (pendingCoordRef.current && isSelectingRef.current) {
+      
+      // 実際に別セルへドラッグされた場合のみ selectionEnd を更新
+      // 単一クリック時は handleCellMouseDown で同一座標がセット済みのため何もしない
+      if (isDraggingRef.current && pendingCoordRef.current && isSelectingRef.current) {
         setSelectionEnd(pendingCoordRef.current);
-        pendingCoordRef.current = null;
       }
+      
+      pendingCoordRef.current = null;
+      isDraggingRef.current = false;
       setIsSelecting(false);
       isSelectingRef.current = false;
     };
@@ -632,6 +653,12 @@ export const GridView: React.FC<GridViewProps> = ({
           if (sortedSchedules.length > 0) {
             setSelectionStart({ rowIndex: 0, colIndex: 0 });
             setSelectionEnd({ rowIndex: 0, colIndex: 0 });
+            clearAllDomSelection();
+            const cellElem = document.getElementById('grid-cell-0-0');
+            if (cellElem) {
+              cellElem.classList.add('active-grid-cell');
+              activeCellElemRef.current = cellElem;
+            }
           }
           return;
         }
@@ -646,10 +673,12 @@ export const GridView: React.FC<GridViewProps> = ({
 
         setSelectionStart({ rowIndex: nextRow, colIndex: nextCol });
         setSelectionEnd({ rowIndex: nextRow, colIndex: nextCol });
+        clearAllDomSelection();
 
-        // 即時スクロール追従（behavior: 'auto' で遅延ゼロ）
         const cellElem = document.getElementById(`grid-cell-${nextRow}-${nextCol}`);
         if (cellElem) {
+          cellElem.classList.add('active-grid-cell');
+          activeCellElemRef.current = cellElem;
           cellElem.scrollIntoView({
             behavior: 'auto',
             block: 'nearest',
