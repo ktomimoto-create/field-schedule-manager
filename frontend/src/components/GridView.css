@@ -694,8 +694,32 @@
 
 .selected-grid-cell {
   background-color: rgba(37, 99, 235, 0.12) !important;
+  /* スプレッドシート同様に選択中セル同士の間の格子線をくっきり維持 */
+  border-right: 1px solid #93c5fd !important;
+  border-bottom: 1px solid #93c5fd !important;
   user-select: none;
   position: relative;
+}
+
+.dark-theme .selected-grid-cell {
+  border-right: 1px solid #3b82f6 !important;
+  border-bottom: 1px solid #3b82f6 !important;
+}
+
+/* 擬似要素によるフィルハンドル描画（DOM生成不要で超高速） */
+.selected-bottom-right::after {
+  content: '';
+  position: absolute;
+  bottom: -3px;
+  right: -3px;
+  width: 6px;
+  height: 6px;
+  background-color: #2563eb;
+  border: 1px solid #ffffff;
+  border-radius: 1px;
+  cursor: crosshair;
+  z-index: 20;
+  pointer-events: none;
 }
 
 /* 2pxの太さで境界線をシャープに強調 */

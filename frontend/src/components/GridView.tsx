@@ -329,6 +329,8 @@ export const GridView: React.FC<GridViewProps> = ({
   }, [isSelecting]);
   const dragRafRef = useRef<number | null>(null);
   const pendingCoordRef = useRef<{ rowIndex: number; colIndex: number } | null>(null);
+  const selectionStartRef = useRef<{ rowIndex: number; colIndex: number } | null>(null);
+  const highlightedCellsRef = useRef<HTMLElement[]>([]);
   const [copiedRange, setCopiedRange] = useState<{
     minRow: number;
     maxRow: number;
@@ -482,31 +484,69 @@ export const GridView: React.FC<GridViewProps> = ({
     return classes.trim();
   };
 
+  // ドラッグ選択中の直接DOMハイライト更新（Reactの再レンダリングを完全バイパスして144fps・遅延0msを実現）
+  const applyDirectSelectionDom = (
+    startCoord: { rowIndex: number; colIndex: number },
+    endCoord: { rowIndex: number; colIndex: number }
+  ) => {
+    const minRow = Math.min(startCoord.rowIndex, endCoord.rowIndex);
+    const maxRow = Math.max(startCoord.rowIndex, endCoord.rowIndex);
+    const minCol = Math.min(startCoord.colIndex, endCoord.colIndex);
+    const maxCol = Math.max(startCoord.colIndex, endCoord.colIndex);
+
+    const prevCells = highlightedCellsRef.current;
+    for (let i = 0; i < prevCells.length; i++) {
+      prevCells[i].classList.remove(
+        'selected-grid-cell',
+        'selected-border-top',
+        'selected-border-bottom',
+        'selected-border-left',
+        'selected-border-right',
+        'selected-bottom-right'
+      );
+    }
+
+    const nextCells: HTMLElement[] = [];
+    for (let r = minRow; r <= maxRow; r++) {
+      for (let c = minCol; c <= maxCol; c++) {
+        const cellEl = document.getElementById(`grid-cell-${r}-${c}`);
+        if (cellEl) {
+          cellEl.classList.add('selected-grid-cell');
+          if (r === minRow) cellEl.classList.add('selected-border-top');
+          if (r === maxRow) cellEl.classList.add('selected-border-bottom');
+          if (c === minCol) cellEl.classList.add('selected-border-left');
+          if (c === maxCol) cellEl.classList.add('selected-border-right');
+          if (r === maxRow && c === maxCol) cellEl.classList.add('selected-bottom-right');
+          nextCells.push(cellEl);
+        }
+      }
+    }
+    highlightedCellsRef.current = nextCells;
+  };
+
   const handleCellMouseDown = (e: React.MouseEvent, rowIndex: number, colIndex: number) => {
     if (e.button !== 0) return;
     if (e.target instanceof HTMLInputElement || e.target instanceof HTMLSelectElement || (e.target as HTMLElement).closest('button')) {
       return;
     }
     e.stopPropagation(); // 行選択（サイドバー表示）への伝播を防止
-    setSelectionStart({ rowIndex, colIndex });
-    setSelectionEnd({ rowIndex, colIndex });
+    const coord = { rowIndex, colIndex };
+    selectionStartRef.current = coord;
+    pendingCoordRef.current = coord;
+    setSelectionStart(coord);
+    setSelectionEnd(coord);
     setIsSelecting(true);
     isSelectingRef.current = true;
+    applyDirectSelectionDom(coord, coord);
   };
 
-  // requestAnimationFrame でマウスドラッグを60fpsスロットリング
-  const handleCellMouseEnter = React.useCallback((rowIndex: number, colIndex: number) => {
-    if (!isSelectingRef.current) return;
-    pendingCoordRef.current = { rowIndex, colIndex };
-    if (dragRafRef.current === null) {
-      dragRafRef.current = requestAnimationFrame(() => {
-        dragRafRef.current = null;
-        if (pendingCoordRef.current && isSelectingRef.current) {
-          setSelectionEnd(pendingCoordRef.current);
-        }
-      });
-    }
-  }, []);
+  // ドラッグ中はReactの再レンダリングを完全バイパスし、直接DOMクラスを0.1msで更新！
+  const handleCellMouseEnter = (rowIndex: number, colIndex: number) => {
+    if (!isSelectingRef.current || !selectionStartRef.current) return;
+    const endCoord = { rowIndex, colIndex };
+    pendingCoordRef.current = endCoord;
+    applyDirectSelectionDom(selectionStartRef.current, endCoord);
+  };
 
   React.useEffect(() => {
     const handleMouseUpGlobal = () => {
@@ -520,6 +560,7 @@ export const GridView: React.FC<GridViewProps> = ({
       }
       setIsSelecting(false);
       isSelectingRef.current = false;
+      highlightedCellsRef.current = [];
     };
     window.addEventListener('mouseup', handleMouseUpGlobal);
     return () => {

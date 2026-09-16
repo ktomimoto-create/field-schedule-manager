@@ -239,20 +239,21 @@
 }
 
 
-/* テーブル行 */
+/* テーブル行（スプレッドシート標準の横罫線） */
 .parallel-calendar-row {
-  border-bottom: 1px solid var(--border-cell);
+  border-bottom: 1px solid #e2e8f0;
   user-select: none;
 }
 
 .parallel-calendar-row:hover {
-  background: var(--bg-card-hover);
+  background: rgba(241, 245, 249, 0.6);
 }
 
-/* テーブルセル基本設計 */
+/* テーブルセル基本設計（スプレッドシート標準の格子状グリッド線） */
 .day-calendar-table td {
   padding: 0.35rem 0.4rem; /* 上下左右余白を最適化 */
-  border-right: 1px solid var(--border-cell);
+  border-right: 1px solid #e2e8f0;
+  border-bottom: 1px solid #e2e8f0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -262,7 +263,6 @@
   max-height: 58px;
   box-sizing: border-box;
   font-size: 12px; /* スプレッドシート同様の12px */
-  transition: background-color 0.12s ease;
 }
 
 /* 物件名、作業内容の常時折り返し（最大2〜3行）スタイル */
@@ -1134,8 +1134,32 @@
 
 .selected-grid-cell {
   background-color: rgba(37, 99, 235, 0.12) !important; /* スプレッドシート風の薄青ハイライト */
+  /* スプレッドシート同様に選択中セル同士の間の格子線をくっきり維持 */
+  border-right: 1px solid #93c5fd !important;
+  border-bottom: 1px solid #93c5fd !important;
   user-select: none;
   position: relative;
+}
+
+.dark-theme .selected-grid-cell {
+  border-right: 1px solid #3b82f6 !important;
+  border-bottom: 1px solid #3b82f6 !important;
+}
+
+/* 擬似要素によるフィルハンドル描画（DOM生成不要で超高速） */
+.selected-bottom-right::after {
+  content: '';
+  position: absolute;
+  bottom: -3px;
+  right: -3px;
+  width: 6px;
+  height: 6px;
+  background-color: #2563eb;
+  border: 1px solid #ffffff;
+  border-radius: 1px;
+  cursor: crosshair;
+  z-index: 20;
+  pointer-events: none;
 }
 
 /* 2pxの太さで境界線をシャープに強調 */
