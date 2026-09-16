@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import type { Schedule, Staff, WorkType, UserRole } from './types';
 import { GridView } from './components/GridView';
 import { CalendarView } from './components/CalendarView';
@@ -445,20 +445,56 @@ function App() {
     setZoomLevel(100);
   };
 
+  // ブラウザタブごとの一意なクライアントセッションID（別タブや同一アカウントでのテストでも確実に排他制御が動作するようにする）
+  const tabSessionIdRef = useRef<string>(
+    'tab-' + Math.random().toString(36).substring(2, 9) + '-' + Date.now().toString(36)
+  );
+
   // 同時編集排他ロック状態（キー: scheduleId, 値: 編集者情報）
-  const [activeLocks, setActiveLocks] = useState<Record<number, { userEmail: string; userName: string; startedAt: number }>>({});
+  const [activeLocks, setActiveLocks] = useState<Record<number, { userEmail: string; userName: string; startedAt: number; sessionId?: string; mode?: string }>>({});
   const presenceChannelRef = useRef<any>(null);
+  const currentLockedRef = useRef<{ id: number; mode: 'modal' | 'inline' } | null>(null);
+
+  // 編集ロックのブロードキャスト送信ヘルパー
+  const handleLockSchedule = useCallback((schedId: number | string, mode: 'modal' | 'inline' = 'modal') => {
+    const numId = typeof schedId === 'string' ? Number(schedId) : schedId;
+    if (isNaN(numId)) return;
+
+    currentLockedRef.current = { id: numId, mode };
+    if (presenceChannelRef.current && user) {
+      const currentUserName = user.user_metadata?.full_name || staff.find(s => s.email && s.email.toLowerCase() === (user.email || '').toLowerCase())?.name || user.email || 'ユーザー';
+      presenceChannelRef.current.track({
+        scheduleId: numId,
+        sessionId: tabSessionIdRef.current,
+        userEmail: user.email,
+        userName: currentUserName,
+        startedAt: Date.now(),
+        mode,
+      }).catch((err: any) => console.warn('Presence track error:', err));
+    }
+  }, [user, staff]);
+
+  // 編集ロックの解除ヘルパー
+  const handleUnlockSchedule = useCallback(() => {
+    currentLockedRef.current = null;
+    if (presenceChannelRef.current) {
+      presenceChannelRef.current.untrack().catch((err: any) => console.warn('Presence untrack error:', err));
+    }
+  }, []);
 
   useEffect(() => {
-    if (!user || isSandboxMode) {
+    // ユーザー未ログイン時は排他制御をリセット
+    if (!user) {
       setActiveLocks({});
       return;
     }
 
-    const channel = supabase.channel('schedules-presence', {
+    // お試しモード時も専用チャンネル名（schedules-presence-sandbox）で排他制御を完全に稼働させる！
+    const channelName = isSandboxMode ? 'schedules-presence-sandbox' : 'schedules-presence';
+    const channel = supabase.channel(channelName, {
       config: {
         presence: {
-          key: user.id || user.email || 'user-' + Math.random().toString(36).substring(2, 9),
+          key: tabSessionIdRef.current,
         },
       },
     });
@@ -466,20 +502,22 @@ function App() {
     channel
       .on('presence', { event: 'sync' }, () => {
         const state = channel.presenceState();
-        const locks: Record<number, { userEmail: string; userName: string; startedAt: number }> = {};
-        const myEmail = (user.email || '').toLowerCase().trim();
+        const locks: Record<number, { userEmail: string; userName: string; startedAt: number; sessionId?: string; mode?: string }> = {};
+        const mySessionId = tabSessionIdRef.current;
 
         Object.values(state).forEach((presences: any) => {
           if (Array.isArray(presences)) {
             presences.forEach((p) => {
               if (p && p.scheduleId) {
                 const schedIdNum = Number(p.scheduleId);
-                const pEmail = (p.userEmail || '').toLowerCase().trim();
-                if (pEmail !== myEmail) {
+                // 自身のタブ以外の presence を他者ロックとして認識（同一アカウントで別ブラウザ/別タブを開いたテストでも確実にロックが表示される！）
+                if (p.sessionId !== mySessionId) {
                   locks[schedIdNum] = {
+                    sessionId: p.sessionId,
                     userEmail: p.userEmail,
                     userName: p.userName || '他ユーザー',
                     startedAt: p.startedAt || Date.now(),
+                    mode: p.mode || 'modal',
                   };
                 }
               }
@@ -491,6 +529,19 @@ function App() {
       .subscribe((status) => {
         if (status === 'SUBSCRIBED') {
           presenceChannelRef.current = channel;
+          // チャンネル接続完了時に既に編集中の対象があれば即時 track
+          if (currentLockedRef.current && user) {
+            const cur = currentLockedRef.current;
+            const currentUserName = user.user_metadata?.full_name || staff.find(s => s.email && s.email.toLowerCase() === (user.email || '').toLowerCase())?.name || user.email || 'ユーザー';
+            channel.track({
+              scheduleId: cur.id,
+              sessionId: tabSessionIdRef.current,
+              userEmail: user.email,
+              userName: currentUserName,
+              startedAt: Date.now(),
+              mode: cur.mode,
+            }).catch((err: any) => console.warn('Presence initial track error:', err));
+          }
         }
       });
 
@@ -498,24 +549,16 @@ function App() {
       channel.unsubscribe();
       presenceChannelRef.current = null;
     };
-  }, [user, isSandboxMode]);
+  }, [user, isSandboxMode, staff]);
 
   // モーダル開閉に合わせて編集ロックをブロードキャスト / 解除
   useEffect(() => {
-    if (!presenceChannelRef.current || !user || isSandboxMode) return;
-
     if (isModalOpen && selectedSchedule && typeof selectedSchedule.id === 'number') {
-      const currentUserName = user.user_metadata?.full_name || staff.find(s => s.email && s.email.toLowerCase() === (user.email || '').toLowerCase())?.name || user.email || 'ユーザー';
-      presenceChannelRef.current.track({
-        scheduleId: selectedSchedule.id,
-        userEmail: user.email,
-        userName: currentUserName,
-        startedAt: Date.now(),
-      });
-    } else {
-      presenceChannelRef.current.untrack();
+      handleLockSchedule(selectedSchedule.id, 'modal');
+    } else if (!isModalOpen && currentLockedRef.current?.mode === 'modal') {
+      handleUnlockSchedule();
     }
-  }, [isModalOpen, selectedSchedule, user, staff, isSandboxMode]);
+  }, [isModalOpen, selectedSchedule, handleLockSchedule, handleUnlockSchedule]);
 
   const fetchData = async (silent = false) => {
     if (!silent) {
@@ -801,83 +844,88 @@ function App() {
 
       // お試しモード時はローカル配列のみ更新（本番SupabaseへのINSERT/UPDATEは行わない）
       if (isSandboxMode) {
-        const idVal = isEdit ? Number(payload.id) : Date.now() + Math.floor(Math.random() * 1000);
-        const existingRec = isEdit ? schedules.find(s => s.id === idVal) : null;
-        const nowIso = new Date().toISOString();
+        setSchedules(prev => {
+          const idVal = isEdit ? Number(payload.id) : (
+            Math.max(...prev.map(s => typeof s.id === 'number' ? s.id : 0), 10000) + 1 + Math.floor(Math.random() * 100)
+          );
+          const existingRec = isEdit ? prev.find(s => s.id === idVal) : null;
+          const nowIso = new Date().toISOString();
 
-        const recordToSave: Schedule = {
-          ...(existingRec || {}),
-          ...payload,
-          id: idVal,
-          created_by: existingRec?.created_by || editorName,
-          updated_by: editorName,
-          created_at: existingRec?.created_at || nowIso,
-          updated_at: nowIso
-        } as Schedule;
+          const recordToSave: Schedule = {
+            ...(existingRec || {}),
+            ...payload,
+            id: idVal,
+            created_by: existingRec?.created_by || editorName,
+            updated_by: editorName,
+            created_at: existingRec?.created_at || nowIso,
+            updated_at: nowIso
+          } as Schedule;
 
-        let updatedList = [...schedules];
-        if (isEdit) {
-          // 以前のこの予定に関連付けられていた同行子予定を削除
-          updatedList = updatedList.filter(s => !(s.notes && s.notes.includes(`[__parent_id:${idVal}__]`)));
-          const idx = updatedList.findIndex(s => s.id === idVal);
-          if (idx >= 0) {
-            updatedList[idx] = recordToSave;
+          let updatedList = [...prev];
+          if (isEdit) {
+            // 以前のこの予定に関連付けられていた同行子予定を削除
+            updatedList = updatedList.filter(s => !(s.notes && s.notes.includes(`[__parent_id:${idVal}__]`)));
+            const idx = updatedList.findIndex(s => s.id === idVal);
+            if (idx >= 0) {
+              updatedList[idx] = recordToSave;
+            } else {
+              updatedList.push(recordToSave);
+            }
           } else {
             updatedList.push(recordToSave);
           }
-        } else {
-          updatedList.push(recordToSave);
-        }
 
-        // 同行予定の自動同期処理
-        const parentNotes = recordToSave.notes || '';
-        const hasNoSync = parentNotes.includes('[__no_sync__]');
-        const coWorkersStr = recordToSave.co_worker || '';
-        if (!hasNoSync && coWorkersStr.trim() !== '') {
-          const names = coWorkersStr.split(/[,、]/).map((n: string) => n.trim()).filter((n: string) => n !== '');
-          for (const name of names) {
-            const matchedCoWorker = findStaffByName(staff, name);
-            if (matchedCoWorker) {
-              const defaultCourse = (matchedCoWorker.default_course || '').trim();
-              // コース番号が振られていない同行者は別途の行追加は不要
-              if (!defaultCourse) {
-                continue;
+          // 同行予定の自動同期処理
+          const parentNotes = recordToSave.notes || '';
+          const hasNoSync = parentNotes.includes('[__no_sync__]');
+          const coWorkersStr = recordToSave.co_worker || '';
+          if (!hasNoSync && coWorkersStr.trim() !== '') {
+            const names = coWorkersStr.split(/[,、]/).map((n: string) => n.trim()).filter((n: string) => n !== '');
+            for (let cIdx = 0; cIdx < names.length; cIdx++) {
+              const name = names[cIdx];
+              const matchedCoWorker = findStaffByName(staff, name);
+              if (matchedCoWorker) {
+                const defaultCourse = (matchedCoWorker.default_course || '').trim();
+                // コース番号が振られていない同行者は別途の行追加は不要
+                if (!defaultCourse) {
+                  continue;
+                }
+
+                const courseNum = Number(defaultCourse);
+                let coWorkerDivision = '委託';
+                if (defaultCourse !== '' && !isNaN(courseNum) && courseNum >= 1 && courseNum <= 26) {
+                  coWorkerDivision = 'FTS';
+                }
+
+                const parentName = recordToSave.staff_name || '';
+                const otherCoWorkers = names.filter(n => {
+                  const cleanedN = n.trim();
+                  return cleanedN !== name && cleanedN !== matchedCoWorker.name;
+                });
+                const childCoWorkers = [parentName, ...otherCoWorkers].filter(Boolean).join(', ');
+
+                const childPayload: Schedule = {
+                  ...recordToSave,
+                  id: idVal * 1000 + cIdx + 1,
+                  division: coWorkerDivision,
+                  staff_id: matchedCoWorker.id,
+                  staff_name: matchedCoWorker.name,
+                  co_worker: childCoWorkers || null,
+                  course: defaultCourse || null,
+                  notes: `${recordToSave.notes || ''}\n\n[__parent_id:${idVal}__]`,
+                  created_by: editorName,
+                  updated_by: editorName,
+                  created_at: nowIso,
+                  updated_at: nowIso
+                };
+                updatedList.push(childPayload);
               }
-
-              const courseNum = Number(defaultCourse);
-              let coWorkerDivision = '委託';
-              if (defaultCourse !== '' && !isNaN(courseNum) && courseNum >= 1 && courseNum <= 26) {
-                coWorkerDivision = 'FTS';
-              }
-
-              const parentName = recordToSave.staff_name || '';
-              const otherCoWorkers = names.filter(n => {
-                const cleanedN = n.trim();
-                return cleanedN !== name && cleanedN !== matchedCoWorker.name;
-              });
-              const childCoWorkers = [parentName, ...otherCoWorkers].filter(Boolean).join(', ');
-
-              const childPayload: Schedule = {
-                ...recordToSave,
-                id: Date.now() + Math.floor(Math.random() * 100000),
-                division: coWorkerDivision,
-                staff_id: matchedCoWorker.id,
-                staff_name: matchedCoWorker.name,
-                co_worker: childCoWorkers || null,
-                course: defaultCourse || null,
-                notes: `${recordToSave.notes || ''}\n\n[__parent_id:${idVal}__]`,
-                created_by: editorName,
-                updated_by: editorName,
-                created_at: nowIso,
-                updated_at: nowIso
-              };
-              updatedList.push(childPayload);
             }
           }
-        }
 
-        setSchedules(updatedList);
-        localStorage.setItem('field_app_sandbox_schedules', JSON.stringify(updatedList));
+          localStorage.setItem('field_app_sandbox_schedules', JSON.stringify(updatedList));
+          return updatedList;
+        });
         return;
       }
 
@@ -1328,6 +1376,8 @@ function App() {
                     currentStaffId={currentStaffId}
                     currentUserName={user?.user_metadata?.full_name || user?.user_metadata?.name || staff.find(s => s.id === currentStaffId)?.name || '担当者'}
                     activeLocks={activeLocks}
+                    onLockSchedule={handleLockSchedule}
+                    onUnlockSchedule={handleUnlockSchedule}
                     zoomLevel={zoomLevel}
                   />
                 )}
@@ -1357,6 +1407,8 @@ function App() {
                     currentUserRole={currentUserRole}
                     currentUserName={user?.user_metadata?.full_name || user?.user_metadata?.name || staff.find(s => s.id === currentStaffId)?.name || '担当者'}
                     activeLocks={activeLocks}
+                    onLockSchedule={handleLockSchedule}
+                    onUnlockSchedule={handleUnlockSchedule}
                     zoomLevel={zoomLevel}
                   />
                 )}

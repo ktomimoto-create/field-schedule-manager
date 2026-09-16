@@ -285,6 +285,28 @@ header {
   50% { opacity: 0.55; }
 }
 
+/* 他ユーザー編集中時の行ハイライト */
+.locked-by-other-row {
+  background-color: rgba(245, 158, 11, 0.12) !important;
+  outline: 1.5px dashed rgba(245, 158, 11, 0.7) !important;
+  outline-offset: -1px;
+  position: relative;
+  transition: background-color 0.2s ease;
+}
+
+.locked-by-other-row td {
+  background-color: rgba(245, 158, 11, 0.08) !important;
+}
+
+.dark-theme .locked-by-other-row {
+  background-color: rgba(245, 158, 11, 0.2) !important;
+  outline: 1.5px dashed rgba(251, 191, 36, 0.8) !important;
+}
+
+.dark-theme .locked-by-other-row td {
+  background-color: rgba(245, 158, 11, 0.15) !important;
+}
+
 /* モバイル・タブレットなどの小さい画面でのヘッダーレイアウト調整 */
 @media (max-width: 1200px) {
   header {

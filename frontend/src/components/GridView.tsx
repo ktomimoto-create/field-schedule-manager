@@ -100,7 +100,9 @@ interface GridViewProps {
   currentUserRole: UserRole;
   currentStaffId: number | null;
   currentUserName?: string;
-  activeLocks?: Record<number, { userEmail: string; userName: string; startedAt: number }>;
+  activeLocks?: Record<number, { userEmail: string; userName: string; startedAt: number; sessionId?: string; mode?: string }>;
+  onLockSchedule?: (id: number | string, mode?: 'modal' | 'inline') => void;
+  onUnlockSchedule?: () => void;
   zoomLevel?: number;
 }
 
@@ -113,6 +115,8 @@ export const GridView: React.FC<GridViewProps> = ({
   currentUserRole,
   currentStaffId,
   activeLocks = {},
+  onLockSchedule: _onLockSchedule,
+  onUnlockSchedule: _onUnlockSchedule,
   zoomLevel = 100,
 }) => {
   const dateInputRef = useRef<HTMLInputElement>(null);
@@ -982,12 +986,20 @@ export const GridView: React.FC<GridViewProps> = ({
                 const isCompleted = schedule.result === '完了';
 
                 const isAdmin = canManageSchedules(currentUserRole);
+                const isLocked = typeof schedule.id === 'number' && Boolean(activeLocks[schedule.id]);
+                const lockInfo = typeof schedule.id === 'number' ? activeLocks[schedule.id] : undefined;
 
                 return (
                   <tr 
                     key={schedule.id} 
-                    onDoubleClick={isAdmin ? () => onOpenEditModal(schedule) : undefined}
-                    className={`spreadsheet-row ${isCompleted ? 'row-completed' : ''}`}
+                    onDoubleClick={isAdmin ? () => {
+                      if (isLocked) {
+                        alert(`現在、${lockInfo?.userName} さんがこの予定を編集中です。\n同時に変更することはできません。`);
+                        return;
+                      }
+                      onOpenEditModal(schedule);
+                    } : undefined}
+                    className={`spreadsheet-row ${isCompleted ? 'row-completed' : ''} ${isLocked ? 'locked-by-other-row' : ''}`}
                   >
                     <td 
                       id={`grid-cell-${rowIndex}-0`}
@@ -1036,10 +1048,10 @@ export const GridView: React.FC<GridViewProps> = ({
                       <div className="property-cell-wrapper" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', gap: '4px' }}>
                         <div className="cell-clamp-2" style={{ flex: 1 }}>
                           {schedule.property_name}
-                          {typeof schedule.id === 'number' && activeLocks[schedule.id] && (
-                            <span className="editing-lock-badge" title={`${activeLocks[schedule.id].userName} さんが編集中`} style={{ marginLeft: '6px' }}>
+                          {isLocked && (
+                            <span className="editing-lock-badge" title={`${lockInfo?.userName} さんが編集中`} style={{ marginLeft: '6px' }}>
                               <Lock size={10} style={{ marginRight: '2px', verticalAlign: 'middle' }} />
-                              {getShortName(activeLocks[schedule.id].userName)}編集中
+                              {getShortName(lockInfo?.userName || '')}編集中
                             </span>
                           )}
                         </div>
@@ -1048,11 +1060,15 @@ export const GridView: React.FC<GridViewProps> = ({
                           className="cell-edit-modal-btn"
                           onClick={(e) => {
                             e.stopPropagation();
+                            if (isLocked) {
+                              alert(`現在、${lockInfo?.userName} さんがこの予定を編集中です。\n同時に変更することはできません。`);
+                              return;
+                            }
                             if (isAdmin) onOpenEditModal(schedule);
                           }}
-                          title="予定を編集"
+                          title={isLocked ? `${lockInfo?.userName} さんが編集中` : "予定を編集"}
                         >
-                          <Edit2 size={12} />
+                          {isLocked ? <Lock size={12} style={{ color: '#ef4444' }} /> : <Edit2 size={12} />}
                         </button>
                       </div>
                       {isBottomRightSelectedCell(rowIndex, 4) && <div className="cell-fill-handle" />}

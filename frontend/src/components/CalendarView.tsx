@@ -262,7 +262,9 @@ interface CalendarViewProps {
   onOpenPasteImportModal: () => void;
   currentUserRole?: UserRole;
   currentUserName?: string;
-  activeLocks?: Record<number, { userEmail: string; userName: string; startedAt: number }>;
+  activeLocks?: Record<number, { userEmail: string; userName: string; startedAt: number; sessionId?: string; mode?: string }>;
+  onLockSchedule?: (id: number | string, mode?: 'modal' | 'inline') => void;
+  onUnlockSchedule?: () => void;
   zoomLevel?: number;
 }
 
@@ -277,6 +279,8 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
   onTransferSchedules,
   onOpenPasteImportModal,
   activeLocks = {},
+  onLockSchedule,
+  onUnlockSchedule,
   zoomLevel = 100,
 }) => {
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -319,6 +323,21 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
 
   // === インライン編集・コピペ管理用のステート群 ===
   const [editingCell, setEditingCell] = useState<{ id: number | string; field: keyof Schedule } | null>(null);
+
+  const startEditingCell = React.useCallback((id: number | string, field: keyof Schedule) => {
+    if (typeof id === 'number' && onLockSchedule) {
+      onLockSchedule(id, 'inline');
+    }
+    setEditingCell({ id, field });
+  }, [onLockSchedule]);
+
+  const stopEditingCell = React.useCallback(() => {
+    if (onUnlockSchedule) {
+      onUnlockSchedule();
+    }
+    setEditingCell(null);
+  }, [onUnlockSchedule]);
+
   const [selectedCell, setSelectedCell] = useState<{ id: number | string; field: keyof Schedule } | null>(null);
 
   const [selectedScheduleId, setSelectedScheduleId] = useState<number | string | null>(null);
@@ -886,6 +905,16 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
       setSelectedScheduleIds([clickedId]);
       setSelectedScheduleId(clickedId);
       lastSelectedScheduleIdRef.current = clickedId;
+    }
+
+    // 行選択時はその行全体（0〜15列）をオーバーレイ枠として同期し、Ctrl+C で確実にその行がコピーされるようにする
+    const daySchedules = getSortedDaySchedules(schedule.date);
+    const rIdx = daySchedules.findIndex(s => s.id === schedule.id);
+    if (rIdx !== -1) {
+      updateCalendarSelectionOverlayDom(
+        schedule.date, rIdx, FIELD_ORDER[0],
+        schedule.date, rIdx, FIELD_ORDER[FIELD_ORDER.length - 1]
+      );
     }
   };
 
@@ -1728,6 +1757,18 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                 work_type: 'フリー',
                 property_name: '（物件名未定）',
                 is_transferred: 0,
+                type: '',
+                box: '',
+                unit_number: '',
+                description: '',
+                target_time: '',
+                area: '',
+                prefecture: '',
+                transport: '',
+                co_worker: '',
+                request_number: '',
+                time_limit: '',
+                notes: '',
                 ...rowData.updateFields,
                 staff_id: rowData.nextStaffId,
                 staff_name: rowData.nextStaffName,
@@ -1736,8 +1777,29 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
               };
               promises.push(onSave(payload));
             } else {
+              // 既存行への貼り付け時：
+              // もし1行全体の貼り付け（10列以上）の場合、コピー元で空欄だった項目も含めて綺麗に置換（キメラ化・古いゴミ残存防止）
+              const cleanBase = isFullRowPaste ? {
+                type: '',
+                box: '',
+                unit_number: '',
+                property_name: '（物件名未定）',
+                work_type: 'フリー',
+                description: '',
+                target_time: '',
+                area: '',
+                prefecture: '',
+                transport: '',
+                co_worker: '',
+                request_number: '',
+                time_limit: '',
+                notes: ''
+              } : {};
+
               const payload: Partial<Schedule> = {
                 id: Number(rowData.targetSched.id),
+                date: rowData.targetDateStr,
+                ...cleanBase,
                 ...rowData.updateFields,
                 staff_id: rowData.nextStaffId,
                 staff_name: rowData.nextStaffName,
@@ -1749,7 +1811,10 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
           }
 
           if (promises.length > 0) {
-            await Promise.all(promises);
+            // お試しモード・本番モードともにデータ競合を防ぐためシーケンシャルに実行
+            for (const p of promises) {
+              await p;
+            }
           }
 
           // ★貼り付け完了トースト（Undoボタン付き）
@@ -1910,7 +1975,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
             field={field}
             workTypes={workTypes}
             onSave={(val) => handleInlineSave(schedId, field, val)}
-            onCancel={() => setEditingCell(null)}
+            onCancel={() => stopEditingCell()}
           />
         </td>
       );
@@ -1939,7 +2004,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
               alert(`現在、${lockInfo?.userName} さんがこの予定を編集中です。\n同時に変更することはできません。`);
               return;
             }
-            setEditingCell({ id: schedId, field });
+            startEditingCell(schedId, field);
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: '5px', width: '100%' }}>
@@ -1971,9 +2036,15 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                 })()}
               </div>
             ) : null}
-            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
               {getShortName(cleanMetadata(value || ''))}
             </span>
+            {isLockedByOther && (
+              <span className="editing-lock-badge" title={`${lockInfo?.userName} さんが編集中`} style={{ marginLeft: '2px', padding: '1px 3px' }}>
+                <Lock size={9} style={{ marginRight: '1px' }} />
+                編集中
+              </span>
+            )}
           </div>
           {isBottomRightSelectedCell(schedule.date, rowIndex, field) && (
             <div className="cell-fill-handle" />
@@ -2000,7 +2071,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
               alert(`現在、${lockInfo?.userName} さんがこの予定を編集中です。\n同時に変更することはできません。`);
               return;
             }
-            setEditingCell({ id: schedId, field });
+            startEditingCell(schedId, field);
           }}
         >
           <div className="property-cell-wrapper" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', gap: '4px' }}>
@@ -2036,11 +2107,15 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                 className="cell-edit-modal-btn"
                 onClick={(e) => {
                   e.stopPropagation();
+                  if (isLockedByOther) {
+                    alert(`現在、${lockInfo?.userName} さんがこの予定を編集中です。\n同時に変更することはできません。`);
+                    return;
+                  }
                   onOpenEditModal(schedule);
                 }}
-                title="予定を編集"
+                title={isLockedByOther ? `${lockInfo?.userName} さんが編集中` : "予定を編集"}
               >
-                <Edit2 size={12} />
+                {isLockedByOther ? <Lock size={12} style={{ color: '#ef4444' }} /> : <Edit2 size={12} />}
               </button>
             )}
           </div>
@@ -2069,7 +2144,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
               alert(`現在、${lockInfo?.userName} さんがこの予定を編集中です。\n同時に変更することはできません。`);
               return;
             }
-            setEditingCell({ id: schedId, field });
+            startEditingCell(schedId, field);
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: '4px', width: '100%', flexWrap: 'wrap' }}>
@@ -2134,7 +2209,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
             alert(`現在、${lockInfo?.userName} さんがこの予定を編集中です。\n同時に変更することはできません。`);
             return;
           }
-          setEditingCell({ id: schedId, field });
+          startEditingCell(schedId, field);
         }}
       >
         {field === 'target_time' ? (
@@ -2945,11 +3020,12 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                                }
 
                               const isSelected = typeof schedule.id === 'number' && selectedScheduleIds.includes(schedule.id);
+                              const isLocked = typeof schedule.id === 'number' && Boolean(activeLocks[schedule.id]);
 
                               return (
                                 <tr 
                                   key={rowIndex} 
-                                  className={`parallel-calendar-row ${isSelected ? 'selected-row' : ''} ${searchClass}`}
+                                  className={`parallel-calendar-row ${isSelected ? 'selected-row' : ''} ${isLocked ? 'locked-by-other-row' : ''} ${searchClass}`}
                                   onClick={(e) => {
                                     // Ctrl または Shift キーが押されている時のみ、複数行一括操作用の行選択を発火
                                     if (e.ctrlKey || e.shiftKey || e.metaKey) {
@@ -3020,7 +3096,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                                             }
                                           }
 
-                                          setEditingCell(null);
+                                          stopEditingCell();
 
                                           // 保存処理の呼び出し
                                           const isTemp = typeof schedule.id === 'string' && schedule.id.startsWith('temp-');
@@ -3052,7 +3128,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                                             await onSave(payload);
                                           }
                                         }}
-                                        onBlur={() => setEditingCell(null)}
+                                        onBlur={() => stopEditingCell()}
                                         autoFocus
                                       >
                                         <option value="">- 未設定 -</option>
@@ -3065,6 +3141,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                                     (() => {
                                       const isStaffNameMatch = searchQuery && schedule.staff_name && schedule.staff_name.toLowerCase().includes(searchQuery.toLowerCase());
                                       const staffSearchClass = isStaffNameMatch ? 'cell-search-match' : '';
+                                      const isStaffLocked = typeof schedule.id === 'number' && Boolean(activeLocks[schedule.id]);
                                       return (
                                         <td 
                                           id={`cell-${day.dateStr}-${rowIndex}-staff_name`}
@@ -3075,7 +3152,12 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                                           onMouseDown={(e) => handleCellMouseDown(e, day.dateStr, rowIndex, 'staff_name', schedule.id)}
                                           onMouseEnter={() => handleCellMouseEnter(day.dateStr, rowIndex, 'staff_name')}
                                           onDoubleClick={() => {
-                                            setEditingCell({ id: schedule.id, field: 'staff_name' });
+                                            if (isStaffLocked) {
+                                              const lockInfo = activeLocks[Number(schedule.id)];
+                                              alert(`現在、${lockInfo?.userName} さんがこの予定を編集中です。\n同時に変更することはできません。`);
+                                              return;
+                                            }
+                                            startEditingCell(schedule.id, 'staff_name');
                                           }}
                                         >
                                           {staffMember ? (
