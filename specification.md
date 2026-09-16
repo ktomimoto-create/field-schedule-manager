@@ -1395,3 +1395,16 @@ FC依頼番号（11桁）および号機による物件・住所・BOX・タイ�
      - 曜日大ヘッダー（`matrix-day-header-super`）内で、従来の `position: absolute; right: 8px` による端っこ配置を廃止。
      - 曜日日付テキスト（例：「水曜日 (9/16)」）のすぐ右隣に `gap: 12px` でインライン flex 配置し、`whiteSpace: 'nowrap'` を指定。
      - テーブル幅（1395px）の右端ではなく、ヘッダー中央に曜日名とセットで美しく収まるため、どんな画面幅やスクロール状態でも絶対に見切れない構造へ是正。
+
+### 27.15 行選択（selected-row）残留バグの完全根絶 ＆ スプレッドシート格子状セル枠線の復元強化
+* **ユーザーからの指摘と背景**:
+  * セルを選択した際、別の行（過去に右クリック等を行った行）が青い枠線（`selected-row`）で全選択されたまま残ってしまっていた。
+  * また、カレンダーマトリクス表（`CalendarView`）のセル間の境界線が薄く、枠線が見えなくなっていた。
+* **原因と実施した改善仕様**:
+  1. **行選択（`selectedScheduleIds`）残留バグの根絶**:
+     - 単一予定の右クリック時に誤って `setSelectedScheduleIds([schedule.id])` が設定され、行全体に `selected-row`（青実線枠と背景）が付与されていた。
+     - 単一予定の右クリックでは `selectedScheduleIds` を空にし、セルクリック時（`handleCellMouseDown`）および `Esc` キー押下時にも `setSelectedScheduleIds([])` を確実に即時クリア。
+     - これにより、セルをクリックした際に行が勝手に全選択されたまま残る現象を完全撲滅。
+  2. **スプレッドシート格子状セル枠線（`#cbd5e1 !important`）の復元強化**:
+     - `CalendarView.css` の `day-calendar-table td` および `parallel-calendar-row` のボーダーを、くっきりと明瞭な `1px solid #cbd5e1 !important` に強化。
+     - ヘッダー（`th`）およびダークテーマ（`#334155 !important`）にも適用し、セルとセルの間のグリッド枠線を完全復元。

@@ -727,6 +727,9 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
     updateCalendarSelectionOverlayDom(dateStr, rowIndex, field, dateStr, rowIndex, field);
 
     setSelectedCell({ id: scheduleId, field });
+    if (selectedScheduleIds.length > 0) {
+      setSelectedScheduleIds([]);
+    }
   };
 
   // ドラッグ中はReactの再レンダリングを完全バイパスし、直接オーバーレイを更新！
@@ -1198,6 +1201,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
           clearCalendarSelectionOverlay();
           setSelectedCell(null);
           setSelectedScheduleId(null);
+          setSelectedScheduleIds([]);
         }
       }
 
@@ -2776,19 +2780,14 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                                       y = Math.max(0, window.innerHeight - menuHeight - 10);
                                     }
 
-                                    let currentSelectedIds = selectedScheduleIds;
-                                    if (typeof schedule.id === 'number') {
-                                      if (!selectedScheduleIds.includes(schedule.id)) {
-                                        currentSelectedIds = [schedule.id];
-                                        setSelectedScheduleIds([schedule.id]);
-                                        setSelectedScheduleId(schedule.id);
-                                        lastSelectedScheduleIdRef.current = schedule.id;
-                                      }
+                                    let currentSelectedIds: number[] = [];
+                                    if (selectedScheduleIds.length > 1 && typeof schedule.id === 'number' && selectedScheduleIds.includes(schedule.id)) {
+                                      currentSelectedIds = selectedScheduleIds;
                                     } else {
-                                      currentSelectedIds = [];
+                                      currentSelectedIds = typeof schedule.id === 'number' ? [schedule.id] : [];
                                       setSelectedScheduleIds([]);
                                       setSelectedScheduleId(schedule.id);
-                                      lastSelectedScheduleIdRef.current = null;
+                                      lastSelectedScheduleIdRef.current = typeof schedule.id === 'number' ? schedule.id : null;
                                     }
 
                                     setContextMenu({

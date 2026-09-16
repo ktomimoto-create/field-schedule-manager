@@ -228,8 +228,8 @@
   color: var(--text-secondary);
   font-weight: 600;
   padding: 0.4rem 0.35rem; /* 左右余白をわずかに調整して見切れをさらに防ぐ */
-  border-right: 1px solid var(--border-cell);
-  border-bottom: 2px solid var(--border-glass);
+  border-right: 1px solid #cbd5e1 !important;
+  border-bottom: 2px solid #94a3b8 !important;
   z-index: 15;
   text-align: left;
   user-select: none;
@@ -241,7 +241,7 @@
 
 /* テーブル行（スプレッドシート標準の横罫線） */
 .parallel-calendar-row {
-  border-bottom: 1px solid #e2e8f0;
+  border-bottom: 1px solid #cbd5e1 !important;
   user-select: none;
 }
 
@@ -249,11 +249,11 @@
   background: rgba(241, 245, 249, 0.6);
 }
 
-/* テーブルセル基本設計（スプレッドシート標準の格子状グリッド線） */
+/* テーブルセル基本設計（スプレッドシート標準のくっきり格子状グリッド線） */
 .day-calendar-table td {
   padding: 0.35rem 0.4rem; /* 上下左右余白を最適化 */
-  border-right: 1px solid #e2e8f0;
-  border-bottom: 1px solid #e2e8f0;
+  border-right: 1px solid #cbd5e1 !important; /* スプレッドシート同様にくっきりとした縦線 */
+  border-bottom: 1px solid #cbd5e1 !important; /* スプレッドシート同様にくっきりとした横線 */
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -263,6 +263,16 @@
   max-height: 58px;
   box-sizing: border-box;
   font-size: 12px; /* スプレッドシート同様の12px */
+}
+
+/* ダークテーマ時の境界線カラー */
+.dark-theme .day-calendar-table th:not(.matrix-day-header-super) {
+  border-right: 1px solid #475569 !important;
+  border-bottom: 2px solid #64748b !important;
+}
+.dark-theme .day-calendar-table td {
+  border-right: 1px solid #334155 !important;
+  border-bottom: 1px solid #334155 !important;
 }
 
 /* 物件名、作業内容の常時折り返し（最大2〜3行）スタイル */
