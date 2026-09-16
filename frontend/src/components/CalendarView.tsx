@@ -363,6 +363,15 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
   const [copyToast, setCopyToast] = useState<string | null>(null);
   const copyToastTimerRef = useRef<any>(null);
 
+  // ペースト後の Undo（元に戻す）管理
+  const [pasteToast, setPasteToast] = useState<{
+    message: string;
+  } | null>(null);
+  const pasteToastTimerRef = useRef<any>(null);
+  const lastPasteBackupRef = useRef<{
+    overwrittenSchedules: Schedule[];
+  } | null>(null);
+
   const [contextMenu, setContextMenu] = useState<{
     x: number;
     y: number;
@@ -798,6 +807,30 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
     }
   };
 
+  // 貼り付け直前の状態に復元する Undo 処理
+  const handleUndoPaste = React.useCallback(async () => {
+    if (!lastPasteBackupRef.current) return;
+    const backup = lastPasteBackupRef.current;
+    lastPasteBackupRef.current = null;
+    setPasteToast(null);
+
+    try {
+      const promises: Promise<void>[] = [];
+      for (const orig of backup.overwrittenSchedules) {
+        promises.push(onSave(orig));
+      }
+      if (promises.length > 0) {
+        await Promise.all(promises);
+      }
+      setCopyToast('↩️ 貼り付け前の状態に戻しました');
+      if (copyToastTimerRef.current) clearTimeout(copyToastTimerRef.current);
+      copyToastTimerRef.current = setTimeout(() => setCopyToast(null), 2500);
+    } catch (err) {
+      console.error('Failed to undo paste:', err);
+      alert('元に戻す処理に失敗しました。');
+    }
+  }, [onSave]);
+
   // 行選択ハンドラ（通常クリック、Ctrl+クリック、Shift+クリック）
   const handleSelectRow = (e: React.MouseEvent, schedule: Schedule) => {
     if (typeof schedule.id !== 'number') {
@@ -1215,6 +1248,15 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
         return;
       }
 
+      // Ctrl + Z (元に戻す)
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z' && !e.shiftKey) {
+        if (lastPasteBackupRef.current) {
+          e.preventDefault();
+          handleUndoPaste();
+          return;
+        }
+      }
+
       // 矢印キー移動（0.001ms・React再レンダリング0回）
       if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
         if (!calendarSelectionRangeRef.current) {
@@ -1422,6 +1464,15 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
               break;
             }
           }
+        } else if (selectedScheduleId) {
+          for (const dateStr of calendarDates) {
+            const daySchedules = getSortedDaySchedules(dateStr);
+            const rIdx = daySchedules.findIndex(s => s.id === selectedScheduleId);
+            if (rIdx !== -1) {
+              startCoord = { dateStr, rowIndex: rIdx, field: 'type' };
+              break;
+            }
+          }
         }
 
         if (!startCoord) {
@@ -1429,10 +1480,49 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
           return;
         }
 
-        const startColAbs = getColAbsoluteIndex(startCoord.dateStr, startCoord.field);
+        const parsedRows = parseTSV(text);
+        if (parsedRows.length === 0) return;
+
+        // ★列ズレ根絶ガード（スマート整列）:
+        // 貼り付けデータが1行全体（10列以上の予定データ）の場合、
+        // 選択されたセルが途中（BOXや物件名など）であっても、必ずその行の先頭列（type）を起点として貼り付ける
+        const maxColsInPaste = Math.max(...parsedRows.map(r => r.length));
+        const isFullRowPaste = maxColsInPaste >= 10;
+        const effectiveStartField = isFullRowPaste ? 'type' : startCoord.field;
+
+        const startColAbs = getColAbsoluteIndex(startCoord.dateStr, effectiveStartField);
         const startRowIndex = startCoord.rowIndex;
 
-        const parsedRows = parseTSV(text);
+        // ★既存予定の上書き事故防止ガード:
+        // 貼り付け対象の行に、すでに既存の実データ（空行・未割当ではない予定）が存在するか確認
+        const overwrittenRealSchedules: Schedule[] = [];
+        for (let rOffset = 0; rOffset < parsedRows.length; rOffset++) {
+          const targetRowIndex = startRowIndex + rOffset;
+          const blended = getSortedDaySchedules(startCoord.dateStr);
+          const targetSched = blended[targetRowIndex];
+          if (targetSched && !isTempSchedule(targetSched)) {
+            if (targetSched.property_name || targetSched.staff_name) {
+              overwrittenRealSchedules.push(targetSched);
+            }
+          }
+        }
+
+        if (overwrittenRealSchedules.length > 0) {
+          const sampleList = overwrittenRealSchedules
+            .slice(0, 3)
+            .map(s => `・${s.property_name || '（物件名なし）'} (${s.staff_name || '担当未設定'})`)
+            .join('\n');
+          const extraMsg = overwrittenRealSchedules.length > 3 ? `\n...他 ${overwrittenRealSchedules.length - 3} 件` : '';
+          const confirmMsg = `⚠️ 【既存予定への上書き警告】\n貼り付け先のセルに既存の予定が ${overwrittenRealSchedules.length} 件含まれています。\n\n${sampleList}${extraMsg}\n\nこの既存予定を上書きして貼り付けを実行しますか？\n（※誤って貼り付けた場合でも、直後に Ctrl + Z で元に戻せます）`;
+          if (!window.confirm(confirmMsg)) {
+            return;
+          }
+        }
+
+        // ★Undo用に変更前の実データをバックアップ
+        lastPasteBackupRef.current = {
+          overwrittenSchedules: overwrittenRealSchedules.map(s => ({ ...s }))
+        };
 
         const promises: Promise<void>[] = [];
         const rowUpdates: Record<string, {
@@ -1594,6 +1684,14 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
           if (promises.length > 0) {
             await Promise.all(promises);
           }
+
+          // ★貼り付け完了トースト（Undoボタン付き）
+          const pasteCount = Object.keys(rowUpdates).length;
+          setPasteToast({
+            message: `📋 ${pasteCount}件の予定を貼り付けました`
+          });
+          if (pasteToastTimerRef.current) clearTimeout(pasteToastTimerRef.current);
+          pasteToastTimerRef.current = setTimeout(() => setPasteToast(null), 8000);
         } catch (err) {
           console.error('Failed to paste cells:', err);
           alert('貼り付けに失敗しました。');
@@ -1616,15 +1714,41 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
               break;
             }
           }
+        } else if (!startCoord && selectedScheduleId) {
+          for (const dateStr of calendarDates) {
+            const daySchedules = getSortedDaySchedules(dateStr);
+            const rIdx = daySchedules.findIndex(s => s.id === selectedScheduleId);
+            if (rIdx !== -1) {
+              startCoord = { dateStr, rowIndex: rIdx, field: 'type' };
+              break;
+            }
+          }
         }
 
         if (startCoord) {
           const blended = getSortedDaySchedules(startCoord.dateStr);
           const targetSched = blended[startCoord.rowIndex];
           if (targetSched) {
+            // 既存の実データが存在する場合は上書き警告
+            if (!isTempSchedule(targetSched) && (targetSched.property_name || targetSched.staff_name)) {
+              const confirmMsg = `⚠️ 【既存予定への上書き警告】\n貼り付け先に「${targetSched.property_name || '名称未設定'} (${targetSched.staff_name || '担当未設定'})」が存在します。\n上書きして貼り付けますか？\n（※誤って貼り付けた場合でも Ctrl+Z で元に戻せます）`;
+              if (!window.confirm(confirmMsg)) {
+                return;
+              }
+              lastPasteBackupRef.current = {
+                overwrittenSchedules: [{ ...targetSched }]
+              };
+            }
+
             const matchedStaff = staff.find(st => st.id === targetSched.staff_id) || findStaffByName(staff, targetSched.staff_name);
             const tStaffId = matchedStaff ? matchedStaff.id : (targetSched.staff_id || 0);
             await handlePaste(startCoord.dateStr, tStaffId);
+
+            setPasteToast({
+              message: `📋 1件の予定を貼り付けました`
+            });
+            if (pasteToastTimerRef.current) clearTimeout(pasteToastTimerRef.current);
+            pasteToastTimerRef.current = setTimeout(() => setPasteToast(null), 8000);
           }
         }
       }
@@ -3060,9 +3184,18 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
               <button 
                 type="button" 
                 onClick={() => {
-                  setCopiedSchedule(contextMenu.schedule!);
-                  setSelectedScheduleId(contextMenu.schedule!.id);
+                  const sched = contextMenu.schedule!;
+                  setCopiedSchedule(sched);
+                  setSelectedScheduleId(sched.id);
                   setContextMenu(null);
+
+                  const rowText = FIELD_ORDER.map(field => String(sched[field] || '')).join('\t');
+                  navigator.clipboard.writeText(rowText).catch(err => {
+                    console.error('Failed to write to clipboard:', err);
+                  });
+                  setCopyToast('📋 予定をコピーしました');
+                  if (copyToastTimerRef.current) clearTimeout(copyToastTimerRef.current);
+                  copyToastTimerRef.current = setTimeout(() => setCopyToast(null), 2000);
                 }}
               >
                 予定をコピー
@@ -3381,6 +3514,49 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
       {copyToast && (
         <div className="spreadsheet-copy-toast">
           <span>{copyToast}</span>
+        </div>
+      )}
+
+      {/* 貼り付け後のUndo（元に戻す）トースト通知 */}
+      {pasteToast && (
+        <div 
+          className="spreadsheet-copy-toast spreadsheet-paste-toast"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '14px',
+            backgroundColor: '#1e293b',
+            color: '#ffffff',
+            padding: '10px 18px',
+            borderRadius: '8px',
+            boxShadow: '0 8px 24px rgba(0,0,0,0.3)',
+            zIndex: 9999,
+            border: '1px solid #334155'
+          }}
+        >
+          <span style={{ fontSize: '0.9rem', fontWeight: 500 }}>{pasteToast.message}</span>
+          <button
+            type="button"
+            onClick={handleUndoPaste}
+            style={{
+              backgroundColor: '#3b82f6',
+              color: '#ffffff',
+              border: 'none',
+              borderRadius: '4px',
+              padding: '5px 12px',
+              fontSize: '0.82rem',
+              fontWeight: 'bold',
+              cursor: 'pointer',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '4px',
+              transition: 'all 0.15s ease'
+            }}
+            onMouseOver={(e) => (e.currentTarget.style.backgroundColor = '#2563eb')}
+            onMouseOut={(e) => (e.currentTarget.style.backgroundColor = '#3b82f6')}
+          >
+            ↩️ 元に戻す (Ctrl+Z)
+          </button>
         </div>
       )}
     </div>
