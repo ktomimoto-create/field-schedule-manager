@@ -4,7 +4,6 @@ import { X, Mail, Lock } from 'lucide-react';
 import { resolveAddress } from '../utils/addressResolver';
 import { supabase } from '../supabaseClient';
 import { findStaffByName, getShortName, toHalfWidth, normalizeTargetTime, splitCoWorkers, canManageSchedules } from '../types';
-import { PropertyAutocomplete, type PropertyCandidate } from './PropertyAutocomplete';
 
 interface ScheduleModalProps {
   isOpen: boolean;
@@ -27,7 +26,6 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
   isOpen,
   onClose,
   staff,
-  schedules = [],
   selectedDate,
   selectedSchedule,
   onSave,
@@ -154,25 +152,6 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
     setSearchTimeout(timeout);
   };
 
-  const handleSelectPropertyCandidate = (candidate: PropertyCandidate) => {
-    setPropertyName(candidate.property_name);
-    if (!unitNumber && candidate.unit_number) {
-      setUnitNumber(candidate.unit_number);
-    }
-    if (!type && candidate.type) {
-      setType(candidate.type);
-    }
-    if (!box && candidate.box) {
-      setBox(candidate.box);
-    }
-    if (!area && candidate.area) {
-      setArea(candidate.area);
-    }
-    if (!propertyAddress && candidate.address) {
-      setPropertyAddress(candidate.address);
-    }
-    triggerAutofillFlash();
-  };
 
   /** 号機をキーに物件マスタを引き、未入力の項目だけ補完する。
    *  fallback: マスタに号機が無いときに使う FC 同期データ（物件名・住所）。
@@ -782,13 +761,15 @@ ${description || ''}
             {/* 物件名 */}
             <div className="form-group" style={{ marginBottom: '0.85rem' }}>
               <label htmlFor="property_name">物件名 *</label>
-              <PropertyAutocomplete
+              <input
+                type="text"
+                id="property_name"
+                className="form-control"
                 value={propertyName}
-                onChange={setPropertyName}
-                onSelectCandidate={handleSelectPropertyCandidate}
-                schedules={schedules}
-                placeholder="物件名を入力（候補選択で号機・タイプ・BOX・エリア自動補完）"
+                onChange={(e) => setPropertyName(e.target.value)}
+                placeholder="物件名を入力"
                 disabled={isInputDisabled}
+                required
               />
             </div>
 

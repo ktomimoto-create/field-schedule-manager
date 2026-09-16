@@ -2395,13 +2395,13 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                             >
                               <div className="day-header-content-super" style={{ 
                                 display: 'flex', 
-                                flexDirection: 'column', 
                                 alignItems: 'center', 
                                 justifyContent: 'center', 
-                                padding: '4px 8px',
-                                position: 'relative',
+                                gap: '12px',
+                                padding: '4px 12px',
                                 width: '100%',
-                                minHeight: '38px'
+                                minHeight: '38px',
+                                boxSizing: 'border-box'
                               }}>
                                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}>
                                   <span className="day-name-super" style={{ color: '#000000', fontWeight: 'bold' }}>
@@ -2410,13 +2410,12 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                                   <span className="day-date-super" style={{ fontSize: '0.75rem', color: '#000000', fontWeight: 'bold', opacity: 0.9 }}>({day.date.getMonth() + 1}/{day.date.getDate()})</span>
                                 </div>
                                 <div className="transfer-action-area" style={{
-                                  position: 'absolute',
-                                  right: '8px',
-                                  top: '50%',
-                                  transform: 'translateY(-50%)'
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  flexShrink: 0
                                 }}>
                                   {isAllTransferred && (
-                                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', background: 'rgba(22, 163, 74, 0.15)', color: '#16a34a', padding: '2px 6px', borderRadius: '4px', fontSize: '0.7rem', fontWeight: 'bold' }}>
+                                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', background: 'rgba(22, 163, 74, 0.15)', color: '#16a34a', padding: '2px 8px', borderRadius: '4px', fontSize: '0.72rem', fontWeight: 'bold', whiteSpace: 'nowrap' }}>
                                       ✓ 移行済み
                                     </span>
                                   )}
@@ -2433,10 +2432,11 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                                       }}
                                       className="btn btn-primary"
                                       style={{ 
-                                        padding: '2px 6px', 
-                                        fontSize: '0.7rem', 
-                                        height: '22px', 
+                                        padding: '3px 10px', 
+                                        fontSize: '0.75rem', 
+                                        height: '24px', 
                                         lineHeight: 1,
+                                        whiteSpace: 'nowrap',
                                         backgroundColor: isPartiallyTransferred ? '#ea580c' : 'var(--primary)',
                                         borderColor: isPartiallyTransferred ? '#ea580c' : 'var(--primary)'
                                       }}
