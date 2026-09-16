@@ -4,7 +4,7 @@ import type { Schedule, Staff, UserRole, WorkType } from '../types';
 import { getShortName, cleanMetadata, splitCoWorkers, canManageSchedules, normalizeTargetTime, compareSchedules, toHalfWidth, findStaffByName } from '../types';
 import { buildFcAutofillPatch } from '../utils/fcAutofill';
 
-import { Plus, ChevronLeft, ChevronRight, Calendar as CalendarIcon, Filter, CheckCircle2, Download, Eye, EyeOff, Printer, Lock, ArrowUpDown, RotateCcw } from 'lucide-react';
+import { Plus, ChevronLeft, ChevronRight, Calendar as CalendarIcon, Filter, CheckCircle2, Download, Eye, EyeOff, Printer, Lock, ArrowUpDown, RotateCcw, Edit2 } from 'lucide-react';
 import { PrintPreviewModal } from './PrintPreviewModal';
 import { ScheduleSidePanel } from './ScheduleSidePanel';
 import './GridView.css';
@@ -528,6 +528,15 @@ export const GridView: React.FC<GridViewProps> = ({
         return;
       }
 
+      // スプレッドシート完全準拠: Escapeキーでコピー破線マーキー枠を解除
+      if (e.key === 'Escape') {
+        if (copiedRange) {
+          setCopiedRange(null);
+          e.preventDefault();
+          return;
+        }
+      }
+
       // Ctrl + C (コピー)
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'c') {
         if (!selectionStart) return;
@@ -882,21 +891,14 @@ export const GridView: React.FC<GridViewProps> = ({
                 return (
                   <tr 
                     key={schedule.id} 
-                    onClick={() => setSelectedScheduleForPanel(schedule)}
                     onDoubleClick={isAdmin ? () => onOpenEditModal(schedule) : undefined}
                     className={`spreadsheet-row ${isCompleted ? 'row-completed' : ''} ${isSelected ? 'row-selected' : ''}`}
-                    style={{ cursor: 'pointer' }}
                   >
                     <td 
                       className={getCellClassName(rowIndex, 0, '')}
-                      style={{ textAlign: 'center', fontWeight: '500', cursor: 'pointer' }}
+                      style={{ textAlign: 'center', fontWeight: '500' }}
                       onMouseDown={(e) => handleCellMouseDown(e, rowIndex, 0)}
                       onMouseEnter={() => handleCellMouseEnter(rowIndex, 0)}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setSelectedScheduleForPanel(schedule);
-                      }}
-                      title="クリックで行詳細・クイック編集パネルを開く"
                     >
                       {schedule.division}
                       {isBottomRightSelectedCell(rowIndex, 0) && <div className="cell-fill-handle" />}
@@ -931,14 +933,31 @@ export const GridView: React.FC<GridViewProps> = ({
                       onMouseDown={(e) => handleCellMouseDown(e, rowIndex, 4)}
                       onMouseEnter={() => handleCellMouseEnter(rowIndex, 4)}
                     >
-                      <div className="cell-clamp-2">
-                        {schedule.property_name}
-                        {typeof schedule.id === 'number' && activeLocks[schedule.id] && (
-                          <span className="editing-lock-badge" title={`${activeLocks[schedule.id].userName} さんが編集中`} style={{ marginLeft: '6px' }}>
-                            <Lock size={10} style={{ marginRight: '2px', verticalAlign: 'middle' }} />
-                            {getShortName(activeLocks[schedule.id].userName)}編集中
-                          </span>
-                        )}
+                      <div className="property-cell-wrapper" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', gap: '4px' }}>
+                        <div className="cell-clamp-2" style={{ flex: 1 }}>
+                          {schedule.property_name}
+                          {typeof schedule.id === 'number' && activeLocks[schedule.id] && (
+                            <span className="editing-lock-badge" title={`${activeLocks[schedule.id].userName} さんが編集中`} style={{ marginLeft: '6px' }}>
+                              <Lock size={10} style={{ marginRight: '2px', verticalAlign: 'middle' }} />
+                              {getShortName(activeLocks[schedule.id].userName)}編集中
+                            </span>
+                          )}
+                        </div>
+                        <button
+                          type="button"
+                          className="cell-edit-modal-btn"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedScheduleForPanel(schedule);
+                          }}
+                          onDoubleClick={(e) => {
+                            e.stopPropagation();
+                            if (isAdmin) onOpenEditModal(schedule);
+                          }}
+                          title="鉛筆マーク: 予定を編集（右側パネルを開く） / ダブルクリックで詳細モーダル"
+                        >
+                          <Edit2 size={12} />
+                        </button>
                       </div>
                       {isBottomRightSelectedCell(rowIndex, 4) && <div className="cell-fill-handle" />}
                     </td>

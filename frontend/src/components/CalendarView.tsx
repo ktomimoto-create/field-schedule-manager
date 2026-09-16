@@ -753,11 +753,10 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
         lastSelectedScheduleIdRef.current = clickedId;
       }
     } else {
-      // 通常クリック: 単一選択
+      // 通常クリック: 単一選択（行選択状態の更新のみ行い、サイドバーは勝手に開かない）
       setSelectedScheduleIds([clickedId]);
       setSelectedScheduleId(clickedId);
       lastSelectedScheduleIdRef.current = clickedId;
-      setSelectedScheduleForPanel(schedule);
     }
   };
 
@@ -1120,6 +1119,16 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
 
       if (editingCell) {
         return;
+      }
+
+      // スプレッドシート完全準拠: Escapeキーでコピー破線マーキー枠を解除
+      if (e.key === 'Escape') {
+        if (copiedRange || copiedSchedule) {
+          setCopiedRange(null);
+          setCopiedSchedule(null);
+          e.preventDefault();
+          return;
+        }
       }
 
       // Ctrl + F
@@ -1752,9 +1761,13 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                 className="cell-edit-modal-btn"
                 onClick={(e) => {
                   e.stopPropagation();
+                  setSelectedScheduleForPanel(schedule);
+                }}
+                onDoubleClick={(e) => {
+                  e.stopPropagation();
                   onOpenEditModal(schedule);
                 }}
-                title="詳細を編集 (モーダル)"
+                title="鉛筆マーク: 予定を編集（右側パネルを開く） / ダブルクリックで詳細モーダル"
               >
                 <Edit2 size={12} />
               </button>
@@ -2965,6 +2978,15 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                 }}
               >
                 予定をコピー
+              </button>
+              <button 
+                type="button" 
+                onClick={() => {
+                  setSelectedScheduleForPanel(contextMenu.schedule!);
+                  setContextMenu(null);
+                }}
+              >
+                ✏️ 予定を編集 (サイドバー)
               </button>
               <button 
                 type="button" 
