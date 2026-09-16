@@ -1,9 +1,10 @@
 import React, { useState, useRef } from 'react';
-import type { Schedule, Staff, WorkType } from '../types';
+import type { Schedule, Staff, WorkType, UserRole } from '../types';
 import { getShortName, findStaffByName, toHalfWidth, normalizeTargetTime, splitCoWorkers, compareSchedules } from '../types';
 import { buildFcAutofillPatch } from '../utils/fcAutofill';
 
 import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Edit2, Plus, Search, Lock, Eye, EyeOff } from 'lucide-react';
+import { ScheduleSidePanel } from './ScheduleSidePanel';
 import './CalendarView.css';
 
 // ローカルタイムゾーン基準で YYYY-MM-DD 形式の日付文字列を生成する
@@ -250,6 +251,8 @@ interface CalendarViewProps {
   workTypes: WorkType[];
   onTransferSchedules?: (date: string) => Promise<void>;
   onOpenPasteImportModal: () => void;
+  currentUserRole?: UserRole;
+  currentUserName?: string;
   activeLocks?: Record<number, { userEmail: string; userName: string; startedAt: number }>;
   zoomLevel?: number;
 }
@@ -264,6 +267,8 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
   workTypes,
   onTransferSchedules,
   onOpenPasteImportModal,
+  currentUserRole,
+  currentUserName = '担当者',
   activeLocks = {},
   zoomLevel = 100,
 }) => {
@@ -316,6 +321,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
   // === 複数行選択用のステート ===
   const [selectedScheduleIds, setSelectedScheduleIds] = useState<number[]>([]);
   const lastSelectedScheduleIdRef = useRef<number | null>(null);
+  const [selectedScheduleForPanel, setSelectedScheduleForPanel] = useState<Schedule | null>(null);
 
   // === 別日へ移動モーダル用のステート ===
   const [isMoveModalOpen, setIsMoveModalOpen] = useState(false);
@@ -697,6 +703,40 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
       setSelectedScheduleIds([clickedId]);
       setSelectedScheduleId(clickedId);
       lastSelectedScheduleIdRef.current = clickedId;
+      setSelectedScheduleForPanel(schedule);
+    }
+  };
+
+  // パネルでの前後の行送り
+  const currentPanelScheduleDate = selectedScheduleForPanel?.date || '';
+  const currentDaySchedules = currentPanelScheduleDate 
+    ? (sortedSchedulesMap[currentPanelScheduleDate] || []).filter(s => typeof s.id === 'number') 
+    : [];
+  const currentPanelIndex = selectedScheduleForPanel 
+    ? currentDaySchedules.findIndex(s => s.id === selectedScheduleForPanel.id) 
+    : -1;
+  const hasPanelPrev = currentPanelIndex > 0;
+  const hasPanelNext = currentPanelIndex >= 0 && currentPanelIndex < currentDaySchedules.length - 1;
+
+  const handlePanelSelectPrev = () => {
+    if (hasPanelPrev) {
+      const prevSched = currentDaySchedules[currentPanelIndex - 1];
+      if (typeof prevSched.id === 'number') {
+        setSelectedScheduleForPanel(prevSched);
+        setSelectedScheduleIds([prevSched.id]);
+        setSelectedScheduleId(prevSched.id);
+      }
+    }
+  };
+
+  const handlePanelSelectNext = () => {
+    if (hasPanelNext) {
+      const nextSched = currentDaySchedules[currentPanelIndex + 1];
+      if (typeof nextSched.id === 'number') {
+        setSelectedScheduleForPanel(nextSched);
+        setSelectedScheduleIds([nextSched.id]);
+        setSelectedScheduleId(nextSched.id);
+      }
     }
   };
 
@@ -3145,6 +3185,31 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
           </div>
         </div>
       )}
+
+      {/* 右側詳細・クイック入力サイドバー */}
+      <ScheduleSidePanel
+        schedule={selectedScheduleForPanel}
+        isOpen={selectedScheduleForPanel !== null}
+        onClose={() => {
+          setSelectedScheduleForPanel(null);
+        }}
+        onSave={async (data) => {
+          await onSave(data);
+          if (selectedScheduleForPanel) {
+            setSelectedScheduleForPanel(prev => prev ? { ...prev, ...data } : null);
+          }
+        }}
+        onDelete={onDelete}
+        staff={staff}
+        schedules={schedules}
+        workTypes={workTypes}
+        currentUserRole={currentUserRole}
+        currentUserName={currentUserName}
+        onSelectPrev={handlePanelSelectPrev}
+        onSelectNext={handlePanelSelectNext}
+        hasPrev={hasPanelPrev}
+        hasNext={hasPanelNext}
+      />
     </div>
   );
 };

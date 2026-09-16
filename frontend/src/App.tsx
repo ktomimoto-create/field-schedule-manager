@@ -1354,6 +1354,8 @@ function App() {
                     workTypes={workTypes}
                     onTransferSchedules={handleTransferSchedules}
                     onOpenPasteImportModal={() => setIsImportOpen(true)}
+                    currentUserRole={currentUserRole}
+                    currentUserName={user?.user_metadata?.full_name || user?.user_metadata?.name || staff.find(s => s.id === currentStaffId)?.name || '担当者'}
                     activeLocks={activeLocks}
                     zoomLevel={zoomLevel}
                   />
