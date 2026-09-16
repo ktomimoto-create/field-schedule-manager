@@ -187,6 +187,16 @@ const parseTSV = (text: string): string[][] => {
     .filter(r => r.some(cell => cell !== ''));
 };
 
+// TSVコピー時にセル内改行・タブ・ダブルクォートを適切にエスケープするヘルパー
+const formatTsvCell = (val: any): string => {
+  if (val === null || val === undefined) return '';
+  const str = String(val);
+  if (str.includes('\t') || str.includes('\n') || str.includes('\r') || str.includes('"')) {
+    return `"${str.replace(/"/g, '""')}"`;
+  }
+  return str;
+};
+
 // インライン直接入力用の軽量コンポーネント (キー入力による親全体の再レンダリングを防止)
 interface InlineInputProps {
   initialValue: string;
@@ -1386,7 +1396,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
               if (copyToastTimerRef.current) clearTimeout(copyToastTimerRef.current);
               copyToastTimerRef.current = setTimeout(() => setCopyToast(null), 2000);
 
-              const rowText = FIELD_ORDER.map(field => String(sched[field] || '')).join('\t');
+              const rowText = FIELD_ORDER.map(field => formatTsvCell(sched[field])).join('\t');
               navigator.clipboard.writeText(rowText).catch(err => {
                 console.error('Failed to write to clipboard:', err);
               });
@@ -1424,7 +1434,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
               const daySchedules = getSortedDaySchedules(dateStr);
               const sched = daySchedules[r];
 
-              const val = sched ? String(sched[field] || '') : '';
+              const val = sched ? formatTsvCell(sched[field]) : '';
               rowText += (rowText ? '\t' : '') + val;
             }
             clipboardText += (clipboardText ? '\n' : '') + rowText;
@@ -1434,6 +1444,53 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
             console.error('Failed to write to clipboard:', err);
           });
           e.preventDefault();
+          return;
+        } else if (selectedScheduleIds.length > 0 || selectedScheduleId) {
+          // ★行クリック選択からの Ctrl+C コピー対応:
+          // セル範囲選択がない場合でも、行選択されていればその予定全体を行データ（横1行TSV）としてコピーする
+          const targetIds = selectedScheduleIds.length > 0
+            ? selectedScheduleIds
+            : (typeof selectedScheduleId === 'number' ? [selectedScheduleId] : []);
+
+          let targetSchedules: Schedule[] = [];
+          if (targetIds.length > 0) {
+            targetSchedules = targetIds
+              .map(id => schedules.find(s => s.id === id))
+              .filter((s): s is Schedule => !!s && !isTempSchedule(s));
+          } else if (typeof selectedScheduleId === 'string') {
+            for (const d of calendarDates) {
+              const daySchedules = getSortedDaySchedules(d);
+              const found = daySchedules.find(s => s.id === selectedScheduleId);
+              if (found) {
+                targetSchedules = [found];
+                break;
+              }
+            }
+          }
+
+          if (targetSchedules.length > 0) {
+            const lines = targetSchedules.map(sched => {
+              return FIELD_ORDER.map(field => formatTsvCell(sched[field])).join('\t');
+            });
+            const tsvText = lines.join('\n');
+
+            navigator.clipboard.writeText(tsvText).catch(err => {
+              console.error('Failed to write to clipboard:', err);
+            });
+
+            if (targetSchedules.length === 1) {
+              setCopiedSchedule(targetSchedules[0]);
+              setCopyToast('📋 予定全体をコピーしました');
+            } else {
+              setCopiedSchedule(null);
+              setCopyToast(`📋 ${targetSchedules.length}件の予定をコピーしました`);
+            }
+            if (copyToastTimerRef.current) clearTimeout(copyToastTimerRef.current);
+            copyToastTimerRef.current = setTimeout(() => setCopyToast(null), 2000);
+
+            e.preventDefault();
+            return;
+          }
         }
       }
     };
@@ -1480,8 +1537,18 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
           return;
         }
 
-        const parsedRows = parseTSV(text);
+        let parsedRows = parseTSV(text);
         if (parsedRows.length === 0) return;
+
+        // ★縦並びデータのスマート救済（横展開ガード）:
+        // もしクリップボードの内容が「1列 × 10〜20行」の縦並びデータであり、
+        // かつ各行に1つのセルしか入っていない場合：
+        // （ブラウザの標準コピーや改行区切りで行コピーが縦になってしまったケース）
+        // これを横1行の予定データ（1行 × N列）として自動変換して救済する！
+        if (parsedRows.length >= 10 && parsedRows.length <= 20 && parsedRows.every(r => r.length === 1)) {
+          const horizontalCols = parsedRows.map(r => r[0]);
+          parsedRows = [horizontalCols];
+        }
 
         // ★列ズレ根絶ガード（スマート整列）:
         // 貼り付けデータが1行全体（10列以上の予定データ）の場合、
@@ -3189,7 +3256,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                   setSelectedScheduleId(sched.id);
                   setContextMenu(null);
 
-                  const rowText = FIELD_ORDER.map(field => String(sched[field] || '')).join('\t');
+                  const rowText = FIELD_ORDER.map(field => formatTsvCell(sched[field])).join('\t');
                   navigator.clipboard.writeText(rowText).catch(err => {
                     console.error('Failed to write to clipboard:', err);
                   });

@@ -62,6 +62,15 @@ const parseTSV = (text: string): string[][] => {
     .filter(r => r.some(cell => cell !== ''));
 };
 
+const formatTsvCell = (val: any): string => {
+  if (val === null || val === undefined) return '';
+  const str = String(val);
+  if (str.includes('\t') || str.includes('\n') || str.includes('\r') || str.includes('"')) {
+    return `"${str.replace(/"/g, '""')}"`;
+  }
+  return str;
+};
+
 const GRID_COLUMNS: (keyof Schedule)[] = [
   'division',
   'type',
@@ -613,36 +622,37 @@ export const GridView: React.FC<GridViewProps> = ({
 
       // Ctrl + C (コピー)
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'c') {
-        if (!selectionRangeRef.current) return;
-        const { minRow, maxRow, minCol, maxCol } = selectionRangeRef.current;
+        if (selectionRangeRef.current) {
+          const { minRow, maxRow, minCol, maxCol } = selectionRangeRef.current;
 
-        let clipboardText = '';
-        for (let r = minRow; r <= maxRow; r++) {
-          const sched = sortedSchedules[r];
-          let rowText = '';
-          for (let c = minCol; c <= maxCol; c++) {
-            const field = GRID_COLUMNS[c];
-            const val = sched ? String(sched[field] || '') : '';
-            rowText += (rowText ? '\t' : '') + val;
+          let clipboardText = '';
+          for (let r = minRow; r <= maxRow; r++) {
+            const sched = sortedSchedules[r];
+            let rowText = '';
+            for (let c = minCol; c <= maxCol; c++) {
+              const field = GRID_COLUMNS[c];
+              const val = sched ? formatTsvCell(sched[field]) : '';
+              rowText += (rowText ? '\t' : '') + val;
+            }
+            clipboardText += (clipboardText ? '\n' : '') + rowText;
           }
-          clipboardText += (clipboardText ? '\n' : '') + rowText;
+
+          navigator.clipboard.writeText(clipboardText).catch(err => {
+            console.error('Failed to copy to clipboard:', err);
+          });
+
+          copiedRangeRef.current = { minRow, maxRow, minCol, maxCol };
+          updateCopyOverlayDom();
+
+          const rCount = maxRow - minRow + 1;
+          const cCount = maxCol - minCol + 1;
+          const countDesc = (rCount > 1 || cCount > 1) ? ` (${rCount}行×${cCount}列)` : '';
+          setCopyToast(`📋 クリップボードにコピーしました${countDesc}`);
+          if (copyToastTimerRef.current) clearTimeout(copyToastTimerRef.current);
+          copyToastTimerRef.current = setTimeout(() => setCopyToast(null), 2000);
+          e.preventDefault();
+          return;
         }
-
-        navigator.clipboard.writeText(clipboardText).catch(err => {
-          console.error('Failed to copy to clipboard:', err);
-        });
-
-        copiedRangeRef.current = { minRow, maxRow, minCol, maxCol };
-        updateCopyOverlayDom();
-
-        const rCount = maxRow - minRow + 1;
-        const cCount = maxCol - minCol + 1;
-        const countDesc = (rCount > 1 || cCount > 1) ? ` (${rCount}行×${cCount}列)` : '';
-        setCopyToast(`📋 クリップボードにコピーしました${countDesc}`);
-        if (copyToastTimerRef.current) clearTimeout(copyToastTimerRef.current);
-        copyToastTimerRef.current = setTimeout(() => setCopyToast(null), 2000);
-        e.preventDefault();
-        return;
       }
     };
 
@@ -654,9 +664,17 @@ export const GridView: React.FC<GridViewProps> = ({
       if (!text || text.trim() === '' || !selectionRangeRef.current) return;
 
       e.preventDefault();
-      const parsedRows = parseTSV(text);
+      let parsedRows = parseTSV(text);
+
+      // ★縦並びデータのスマート救済（横展開ガード）:
+      if (parsedRows.length >= 10 && parsedRows.length <= 20 && parsedRows.every(r => r.length === 1)) {
+        const horizontalCols = parsedRows.map(r => r[0]);
+        parsedRows = [horizontalCols];
+      }
+
+      const isFullRowPaste = Math.max(...parsedRows.map(r => r.length)) >= 10;
       const startRow = selectionRangeRef.current.minRow;
-      const startCol = selectionRangeRef.current.minCol;
+      const startCol = isFullRowPaste ? 0 : selectionRangeRef.current.minCol;
 
       for (let rOffset = 0; rOffset < parsedRows.length; rOffset++) {
         const targetRow = startRow + rOffset;
