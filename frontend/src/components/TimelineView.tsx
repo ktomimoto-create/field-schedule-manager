@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect, useLayoutEffect } from 'react';
 import type { Schedule, Staff, UserRole } from '../types';
 import { getShortName, canManageSchedules } from '../types';
 
@@ -41,6 +41,89 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
   });
   const [draggedItem, setDraggedItem] = useState<Schedule | null>(null);
   const [reportSchedule, setReportSchedule] = useState<Schedule | null>(null);
+
+  // スクロールコンテナ参照および表示倍率変更時の中央位置維持（Center-anchored Zoom）用Ref
+  const tableWrapperRef = useRef<HTMLDivElement | null>(null);
+  const prevZoomRef = useRef<number>(zoomLevel);
+  const lastScrollPosRef = useRef<{ left: number; top: number }>({ left: 0, top: 0 });
+  const isZoomingRef = useRef<boolean>(false);
+
+  // スクロールコンテナ監視および表示倍率変更時の中央位置維持（Center-anchored Zoom）
+  useEffect(() => {
+    const wrapper = tableWrapperRef.current;
+    if (!wrapper) return;
+
+    const handleScroll = () => {
+      if (!isZoomingRef.current) {
+        lastScrollPosRef.current = {
+          left: wrapper.scrollLeft,
+          top: wrapper.scrollTop,
+        };
+      }
+    };
+
+    wrapper.addEventListener('scroll', handleScroll, { passive: true });
+    lastScrollPosRef.current = {
+      left: wrapper.scrollLeft,
+      top: wrapper.scrollTop,
+    };
+
+    return () => {
+      wrapper.removeEventListener('scroll', handleScroll);
+    };
+  }, []);
+
+  useLayoutEffect(() => {
+    const wrapper = tableWrapperRef.current;
+    const prevZoom = prevZoomRef.current;
+    const newZoom = zoomLevel;
+    prevZoomRef.current = newZoom;
+
+    if (!wrapper || prevZoom === newZoom) return;
+
+    isZoomingRef.current = true;
+
+    // ズーム変更前のスクロール位置とクライアントサイズ
+    const prevLeft = lastScrollPosRef.current.left;
+    const prevTop = lastScrollPosRef.current.top;
+    const clientW = wrapper.clientWidth;
+    const clientH = wrapper.clientHeight;
+
+    // 拡大縮小比率
+    const ratio = newZoom / prevZoom;
+
+    // ズーム前に画面中央にあったコンテンツ位置（未ズーム比率換算）を、ズーム後の画面中央に再配置
+    const targetLeft = Math.max(0, (prevLeft + clientW / 2) * ratio - clientW / 2);
+    const targetTop = Math.max(0, (prevTop + clientH / 2) * ratio - clientH / 2);
+
+    // 1. 同期的に即時適用
+    wrapper.scrollLeft = targetLeft;
+    wrapper.scrollTop = targetTop;
+    lastScrollPosRef.current = { left: targetLeft, top: targetTop };
+
+    // 2. ブラウザのスタイル再計算・レイアウト確定後にも確実に再適用
+    const animId = requestAnimationFrame(() => {
+      if (tableWrapperRef.current) {
+        tableWrapperRef.current.scrollLeft = targetLeft;
+        tableWrapperRef.current.scrollTop = targetTop;
+        lastScrollPosRef.current = { left: targetLeft, top: targetTop };
+      }
+
+      setTimeout(() => {
+        if (tableWrapperRef.current) {
+          tableWrapperRef.current.scrollLeft = targetLeft;
+          tableWrapperRef.current.scrollTop = targetTop;
+          lastScrollPosRef.current = { left: targetLeft, top: targetTop };
+        }
+        isZoomingRef.current = false;
+      }, 50);
+    });
+
+    return () => {
+      cancelAnimationFrame(animId);
+      isZoomingRef.current = false;
+    };
+  }, [zoomLevel]);
 
   const changeDate = (days: number) => {
     const d = new Date(targetDateStr);
@@ -228,7 +311,7 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
         </div>
       )}
 
-      <div className="card-board-wrapper">
+      <div ref={tableWrapperRef} className="card-board-wrapper">
         <div
           className="card-board-zoom-inner"
           style={zoomLevel !== 100 ? {

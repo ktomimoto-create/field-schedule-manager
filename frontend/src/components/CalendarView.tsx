@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect, useLayoutEffect } from 'react';
 import type { Schedule, Staff, WorkType, UserRole } from '../types';
 import { getShortName, findStaffByName, toHalfWidth, normalizeTargetTime, splitCoWorkers, compareSchedules } from '../types';
 import { buildFcAutofillPatch } from '../utils/fcAutofill';
@@ -364,6 +364,12 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
   const calendarContainerRef = useRef<HTMLDivElement | null>(null);
   const calendarSelectionOverlayRef = useRef<HTMLDivElement | null>(null);
   const calendarCopyOverlayRef = useRef<HTMLDivElement | null>(null);
+
+  // スクロールコンテナ参照および表示倍率変更時の中央位置維持（Center-anchored Zoom）用Ref
+  const tableWrapperRef = useRef<HTMLDivElement | null>(null);
+  const prevZoomRef = useRef<number>(zoomLevel);
+  const lastScrollPosRef = useRef<{ left: number; top: number }>({ left: 0, top: 0 });
+  const isZoomingRef = useRef<boolean>(false);
 
   const calendarSelectionRangeRef = useRef<{
     startDateStr: string;
@@ -739,6 +745,100 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
     }
     calendarSelectionRangeRef.current = null;
   };
+
+  // スクロールコンテナ監視および表示倍率変更時の中央位置維持（Center-anchored Zoom）
+  useEffect(() => {
+    const wrapper = tableWrapperRef.current;
+    if (!wrapper) return;
+
+    const handleScroll = () => {
+      if (!isZoomingRef.current) {
+        lastScrollPosRef.current = {
+          left: wrapper.scrollLeft,
+          top: wrapper.scrollTop,
+        };
+      }
+    };
+
+    wrapper.addEventListener('scroll', handleScroll, { passive: true });
+    lastScrollPosRef.current = {
+      left: wrapper.scrollLeft,
+      top: wrapper.scrollTop,
+    };
+
+    return () => {
+      wrapper.removeEventListener('scroll', handleScroll);
+    };
+  }, []);
+
+  useLayoutEffect(() => {
+    const wrapper = tableWrapperRef.current;
+    const prevZoom = prevZoomRef.current;
+    const newZoom = zoomLevel;
+    prevZoomRef.current = newZoom;
+
+    if (!wrapper || prevZoom === newZoom) return;
+
+    isZoomingRef.current = true;
+
+    // ズーム変更前のスクロール位置とクライアントサイズ
+    const prevLeft = lastScrollPosRef.current.left;
+    const prevTop = lastScrollPosRef.current.top;
+    const clientW = wrapper.clientWidth;
+    const clientH = wrapper.clientHeight;
+
+    // 拡大縮小比率
+    const ratio = newZoom / prevZoom;
+
+    // ズーム前に画面中央にあったコンテンツ位置（未ズーム比率換算）を、ズーム後の画面中央に再配置
+    const targetLeft = Math.max(0, (prevLeft + clientW / 2) * ratio - clientW / 2);
+    const targetTop = Math.max(0, (prevTop + clientH / 2) * ratio - clientH / 2);
+
+    // 1. 同期的に即時適用
+    wrapper.scrollLeft = targetLeft;
+    wrapper.scrollTop = targetTop;
+    lastScrollPosRef.current = { left: targetLeft, top: targetTop };
+
+    // 2. ブラウザのスタイル再計算・レイアウト確定後にも確実に再適用＆枠線再描画
+    const animId = requestAnimationFrame(() => {
+      if (tableWrapperRef.current) {
+        tableWrapperRef.current.scrollLeft = targetLeft;
+        tableWrapperRef.current.scrollTop = targetTop;
+        lastScrollPosRef.current = { left: targetLeft, top: targetTop };
+      }
+
+      // 選択枠・コピー枠のDOMを新ズーム倍率に合わせて再描画
+      if (calendarSelectionRangeRef.current) {
+        const sel = calendarSelectionRangeRef.current;
+        updateCalendarSelectionOverlayDom(
+          sel.startDateStr,
+          sel.startRow,
+          sel.startField,
+          sel.endDateStr,
+          sel.endRow,
+          sel.endField
+        );
+      }
+      if (calendarCopiedRangeRef.current) {
+        updateCalendarCopyOverlayDom();
+      }
+
+      // 少し遅延させてズーム完了フラグを戻す（ブラウザの惰性スクロールイベントによる位置誤認防止）
+      setTimeout(() => {
+        if (tableWrapperRef.current) {
+          tableWrapperRef.current.scrollLeft = targetLeft;
+          tableWrapperRef.current.scrollTop = targetTop;
+          lastScrollPosRef.current = { left: targetLeft, top: targetTop };
+        }
+        isZoomingRef.current = false;
+      }, 50);
+    });
+
+    return () => {
+      cancelAnimationFrame(animId);
+      isZoomingRef.current = false;
+    };
+  }, [zoomLevel]);
 
   // セル描画の超軽量化: クラス計算を全廃し、テーブル再描画コストを完全ゼロ化
   const getSelectionClassName = (_dateStr: string, _rowIndex: number, _field: keyof Schedule) => '';
@@ -2493,7 +2593,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
         </div>
       </div>
 
-      <div className="matrix-table-wrapper">
+      <div ref={tableWrapperRef} className="matrix-table-wrapper">
         <div
           ref={calendarContainerRef}
           className="matrix-table-zoom-inner calendar-zoom-inner"

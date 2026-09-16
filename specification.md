@@ -1482,3 +1482,29 @@ FC依頼番号（11桁）および号機による物件・住所・BOX・タイ�
      - 1行丸ごとのコピペ時、貼り付け先が既存行であっても、空欄項目を含めてコピー元データでクリーンに上書き。古いデータのゴミが残らない。
      - 貼り付け先の日付（`date: targetDateStr`）を確実に同期。
      - 保存処理を順次（シーケンシャル）に実行することで、API負荷とデータ競合をゼロ化。
+
+### 27.19 表示倍率（ズーム）変更時の画面中心位置維持（Center-anchored Zoom）機能（2026-09-16改修）
+* **背景と課題**:
+  - 画面右上のズーム倍率ボタン（80%, 90%, 100%, 110%, 125%）で拡大・縮小を行うと、テーブルコンテナの左上（原点(0, 0)）を基準として拡大縮小されるため、ユーザーが見ていた画面中央や右側の日付（例: 水曜や木曜、下の方の現場名など）が画面外へ大きく吹き飛んで消えてしまったり、縮小時に左上へ寄って視界が飛んでしまう問題があった。
+  - GoogleマップやExcel、スプレッドシートのように「いま画面中央に見えている部分が、倍率を変えてもそのまま画面中央に維持され続ける」動作が求められた。
+* **実施した改善仕様**:
+  1. **Center-anchored Zoom アルゴリズムの導出と導入**:
+     - 親スクロール要素（`.matrix-table-wrapper`, `.grid-table-wrapper`, `.card-board-wrapper`）のスクロール位置を常に追跡。
+     - ズーム倍率変更時、変更前の画面中心描画位置：
+       $$\text{centerX} = \text{scrollLeft} + \frac{\text{clientWidth}}{2}$$
+       $$\text{centerY} = \text{scrollTop} + \frac{\text{clientHeight}}{2}$$
+     - 拡大縮小比率：
+       $$\text{ratio} = \frac{\text{newZoom}}{\text{prevZoom}}$$
+     - 変更後の目標スクロール位置：
+       $$\text{targetScrollLeft} = \max\left(0, \text{centerX} \times \text{ratio} - \frac{\text{clientWidth}}{2}\right)$$
+       $$\text{targetScrollTop} = \max\left(0, \text{centerY} \times \text{ratio} - \frac{\text{clientHeight}}{2}\right)$$
+     - これにより、拡大・縮小どちらを行っても画面中央のコンテンツが寸分違わず（誤差0px）維持される。
+  2. **ブラウザレイアウト確定に合わせた2段階同期**:
+     - Reactの `useLayoutEffect` で即座に目標位置へスクロールを適用。
+     - ブラウザの非同期スタイル再計算による戻りを防ぐため、`requestAnimationFrame` および 50ms タイマーにて再確定。
+  3. **ズーム処理中のスクロールリスナー一時保護（`isZoomingRef`）**:
+     - ブラウザがサイズ伸縮時に勝手に発火するスクロールイベントによる位置誤認・上書きを防止。
+  4. **選択枠（Selection Overlay）およびコピー枠（Copy Overlay）の即時再描画**:
+     - ズーム変更直後に青い選択枠と破線コピー枠の位置・サイズを自動再計算し、セルとの位置ズレを解消。
+  5. **全ビュー（月間カレンダー・日別グリッド・タイムライン）への一貫適用**:
+     - カレンダービュー（`CalendarView.tsx`）、日別グリッドビュー（`GridView.tsx`）、タイムラインビュー（`TimelineView.tsx`）のすべてで同一のアルゴリズムを完全実装。
