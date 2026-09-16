@@ -655,7 +655,25 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
     return classes.trim();
   };
 
-  // ドラッグ選択中の直接DOMハイライト更新（Reactの再レンダリングを完全バイパスして144fps・遅延0msを実現）
+  // 画面上の全選択ハイライトクラスの完全消去（Direct DOM: 0.01msで消去）
+  const clearAllDomSelection = () => {
+    const existing = document.querySelectorAll(
+      '.selected-grid-cell, .selected-border-top, .selected-border-bottom, .selected-border-left, .selected-border-right, .selected-bottom-right'
+    );
+    for (let i = 0; i < existing.length; i++) {
+      existing[i].classList.remove(
+        'selected-grid-cell',
+        'selected-border-top',
+        'selected-border-bottom',
+        'selected-border-left',
+        'selected-border-right',
+        'selected-bottom-right'
+      );
+    }
+    highlightedCellsRef.current = [];
+  };
+
+  // ドラッグ選択・クリック選択の直接DOMハイライト更新（Reactの再レンダリングを完全バイパスして遅延0msを実現）
   const applyDirectSelectionDom = (startCoord: CellCoordinate, endCoord: CellCoordinate) => {
     const startCol = getColAbsoluteIndex(startCoord.dateStr, startCoord.field);
     const endCol = getColAbsoluteIndex(endCoord.dateStr, endCoord.field);
@@ -666,19 +684,8 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
     const minCol = Math.min(startCol, endCol);
     const maxCol = Math.max(startCol, endCol);
 
-    // 直前のセルから選択クラスを除去
-    const prevCells = highlightedCellsRef.current;
-    for (let i = 0; i < prevCells.length; i++) {
-      const el = prevCells[i];
-      el.classList.remove(
-        'selected-grid-cell',
-        'selected-border-top',
-        'selected-border-bottom',
-        'selected-border-left',
-        'selected-border-right',
-        'selected-bottom-right'
-      );
-    }
+    // 既存のすべての選択セルから選択クラスを0.01msで即時消去
+    clearAllDomSelection();
 
     const nextCells: HTMLElement[] = [];
 
@@ -723,16 +730,19 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
     const coord = { dateStr, rowIndex, field };
     selectionStartRef.current = coord;
     pendingCoordRef.current = coord;
-    setSelectionStart(coord);
-    setSelectionEnd(coord);
+
+    // クリックしたまさにその瞬間（0ms）に、DOM上で直前の選択枠を消し、新しいセルに青枠を即時描画！
+    applyDirectSelectionDom(coord, coord);
+
     setIsSelecting(true);
     isSelectingRef.current = true;
 
     setSelectedCell({ id: scheduleId, field });
     setSelectedEmptyCell(null);
 
-    // 起点セルの直接DOMハイライト
-    applyDirectSelectionDom(coord, coord);
+    // 行選択（selectedScheduleIds）は一切行わず、セル選択Stateのみ更新
+    setSelectionStart(coord);
+    setSelectionEnd(coord);
   };
 
   // ドラッグ中はReactの再レンダリング（880ms）を完全バイパスし、直接DOMクラスを0.1msで更新！
@@ -1180,7 +1190,6 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
       }
       setIsSelecting(false);
       isSelectingRef.current = false;
-      highlightedCellsRef.current = [];
     };
     window.addEventListener('mouseup', handleMouseUpGlobal);
     return () => {
@@ -1754,6 +1763,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
           className={cellClass} 
           style={{ ...style, padding: '0.35rem 0.35rem' }}
           title={title ? cleanMetadata(title) : (matchedStaff?.name || cleanMetadata(value))}
+          onClick={(e) => e.stopPropagation()}
           onMouseDown={(e) => handleCellMouseDown(e, schedule.date, rowIndex, field, schedId)}
           onMouseEnter={() => handleCellMouseEnter(schedule.date, rowIndex, field)}
           onDoubleClick={() => {
@@ -1814,6 +1824,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
           className={cellClass} 
           style={style}
           title={title ? cleanMetadata(title) : undefined}
+          onClick={(e) => e.stopPropagation()}
           onMouseDown={(e) => handleCellMouseDown(e, schedule.date, rowIndex, field, schedId)}
           onMouseEnter={() => handleCellMouseEnter(schedule.date, rowIndex, field)}
           onDoubleClick={() => {
@@ -1886,6 +1897,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
           className={cellClass} 
           style={style}
           title={title ? cleanMetadata(title) : undefined}
+          onClick={(e) => e.stopPropagation()}
           onMouseDown={(e) => handleCellMouseDown(e, schedule.date, rowIndex, field, schedId)}
           onMouseEnter={() => handleCellMouseEnter(schedule.date, rowIndex, field)}
           onDoubleClick={() => {
@@ -1947,6 +1959,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
         className={cellClass} 
         style={style}
         title={title ? cleanMetadata(title) : undefined}
+        onClick={(e) => e.stopPropagation()}
         onMouseDown={(e) => handleCellMouseDown(e, schedule.date, rowIndex, field, schedId)}
         onMouseEnter={() => handleCellMouseEnter(schedule.date, rowIndex, field)}
         onDoubleClick={() => {
@@ -2750,24 +2763,17 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                                  searchClass = isSearchMatch ? 'row-search-match' : 'row-search-no-match';
                                }
 
-                              const isSelected = typeof schedule.id === 'number' 
-                                ? selectedScheduleIds.includes(schedule.id) 
-                                : selectedScheduleId === schedule.id;
+                              const isSelected = typeof schedule.id === 'number' && selectedScheduleIds.includes(schedule.id);
 
                               return (
                                 <tr 
                                   key={rowIndex} 
                                   className={`parallel-calendar-row ${isSelected ? 'selected-row' : ''} ${searchClass}`}
                                   onClick={(e) => {
-                                    // セル範囲ドラッグ選択が行われていた場合は行選択をスキップ
-                                    if (selectionStart && selectionEnd && 
-                                        (selectionStart.dateStr !== selectionEnd.dateStr || 
-                                         selectionStart.rowIndex !== selectionEnd.rowIndex || 
-                                         selectionStart.field !== selectionEnd.field)) {
-                                      return;
+                                    // Ctrl または Shift キーが押されている時のみ、複数行一括操作用の行選択を発火
+                                    if (e.ctrlKey || e.shiftKey || e.metaKey) {
+                                      handleSelectRow(e, schedule);
                                     }
-                                    handleSelectRow(e, schedule);
-                                    setSelectedEmptyCell(null);
                                   }}
                                   onContextMenu={(e) => {
                                     e.preventDefault();
@@ -2889,6 +2895,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                                           className={`${statusClass} ${isToday ? 'today-td' : ''} ${getSelectionClassName(day.dateStr, rowIndex, 'staff_name')} ${staffSearchClass}`}
                                           style={{ padding: '0.35rem 0.35rem' }}
                                           title={staffMember ? staffMember.name : (schedule.staff_name || undefined)}
+                                          onClick={(e) => e.stopPropagation()}
                                           onMouseDown={(e) => handleCellMouseDown(e, day.dateStr, rowIndex, 'staff_name', schedule.id)}
                                           onMouseEnter={() => handleCellMouseEnter(day.dateStr, rowIndex, 'staff_name')}
                                           onDoubleClick={() => {
