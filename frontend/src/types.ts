@@ -375,84 +375,94 @@ export const getScheduleSortCategory = (s: Partial<Schedule>): number => {
 };
 
 /**
+ * 空欄（null, undefined, 空文字）を常に末尾（最下部）に配置し、数値を自然順比較する比較関数
+ */
+export const compareValuesWithEmptyLast = (
+  valA: any,
+  valB: any,
+  preferNumeric: boolean = true
+): number => {
+  const strA = valA !== null && valA !== undefined ? String(valA).trim() : '';
+  const strB = valB !== null && valB !== undefined ? String(valB).trim() : '';
+
+  const isEmptyA = strA === '';
+  const isEmptyB = strB === '';
+
+  // 空欄は常に末尾
+  if (isEmptyA && !isEmptyB) return 1;
+  if (!isEmptyA && isEmptyB) return -1;
+  if (isEmptyA && isEmptyB) return 0;
+
+  if (preferNumeric) {
+    const numA = Number(strA);
+    const numB = Number(strB);
+    const isNumA = !isNaN(numA);
+    const isNumB = !isNaN(numB);
+
+    if (isNumA && isNumB) {
+      if (numA !== numB) return numA - numB;
+    } else if (isNumA && !isNumB) {
+      return -1; // 数値ありを優先
+    } else if (!isNumA && isNumB) {
+      return 1;
+    }
+  }
+
+  // 自然順（文字・数字混在の比較、例: "1号機", "2号機", "10号機"）
+  return strA.localeCompare(strB, 'ja', { numeric: true, sensitivity: 'base' });
+};
+
+/**
  * 月間予定表・予定表グリッド共通のスケジュールソート比較関数
- * 並び順:
- *   1. コース番号順（最優先: コース1〜26、90番台などコース番号の昇順）
- *   2. コースなし「設置」グループ (時間順 -> 号機順)
- *   3. コースなし「委託」グループ (時間順 -> 号機順)
- *   4. コースなし「その他」グループ (時間順 -> 号機順)
- *   5. 未割当仮想空行 (末尾)
- *   6. キャンセル (最下部)
+ * スプレッドシート運用準拠の並び順:
+ *   1. キャンセル予定は最下部
+ *   2. 未割当仮想空行（temp-unassigned）は最下部直前
+ *   3. 第1ソートキー: 号機（unit_number）昇順（空欄は末尾）
+ *   4. 第2ソートキー: エリア（area）昇順（空欄は末尾）
+ *   5. 第3ソートキー: コース（course）昇順（空欄は末尾）
+ *   6. タイブレーク: 指定時間（target_time / time_limit）昇順
+ *   7. タイブレーク: 物件名（property_name）昇順
+ *   8. タイブレーク: ID昇順
  */
 export const compareSchedules = (a: Schedule, b: Schedule): number => {
-  // キャンセルは最下部
+  // 1. キャンセルは最下部
   const aCancelled = a.status === 'cancelled';
   const bCancelled = b.status === 'cancelled';
   if (aCancelled !== bCancelled) {
     return aCancelled ? 1 : -1;
   }
 
-  // カテゴリ比較 (1: コースあり, 2: コースなし設置, 3: コースなし委託, 4: コースなしその他, 90: 未割当空行)
-  const aCat = getScheduleSortCategory(a);
-  const bCat = getScheduleSortCategory(b);
-  if (aCat !== bCat) {
-    return aCat - bCat;
+  // 2. 仮想空行（temp-unassigned）は最下部直前
+  const aTemp = typeof a.id === 'string' && a.id.startsWith('temp-unassigned');
+  const bTemp = typeof b.id === 'string' && b.id.startsWith('temp-unassigned');
+  if (aTemp !== bTemp) {
+    return aTemp ? 1 : -1;
   }
 
-  // カテゴリ1: コース番号順（最優先）
-  if (aCat === 1) {
-    const aCourse = Number(a.course);
-    const bCourse = Number(b.course);
-    if (aCourse !== bCourse) return aCourse - bCourse;
+  // 3. 第1キー: 号機（unit_number）昇順（空欄は末尾）
+  const unitCmp = compareValuesWithEmptyLast(a.unit_number, b.unit_number, true);
+  if (unitCmp !== 0) return unitCmp;
 
-    const aTime = a.target_time || a.time_limit || '';
-    const bTime = b.target_time || b.time_limit || '';
-    if (aTime !== bTime) return aTime.localeCompare(bTime, 'ja');
+  // 4. 第2キー: エリア（area）昇順（空欄は末尾）
+  const areaCmp = compareValuesWithEmptyLast(a.area, b.area, false);
+  if (areaCmp !== 0) return areaCmp;
 
-    const aUnit = Number(a.unit_number);
-    const bUnit = Number(b.unit_number);
-    if (!isNaN(aUnit) && !isNaN(bUnit) && aUnit !== bUnit) return aUnit - bUnit;
-  }
+  // 5. 第3キー: コース（course）昇順（空欄は末尾）
+  const courseCmp = compareValuesWithEmptyLast(a.course, b.course, true);
+  if (courseCmp !== 0) return courseCmp;
 
-  // カテゴリ2: コースなし「設置」
-  if (aCat === 2) {
-    const aTime = a.target_time || a.time_limit || '';
-    const bTime = b.target_time || b.time_limit || '';
-    if (aTime !== bTime) return aTime.localeCompare(bTime, 'ja');
+  // 6. タイブレーク: 指定時間（target_time または time_limit）昇順
+  const aTime = a.target_time || a.time_limit || '';
+  const bTime = b.target_time || b.time_limit || '';
+  const timeCmp = compareValuesWithEmptyLast(aTime, bTime, false);
+  if (timeCmp !== 0) return timeCmp;
 
-    const aUnit = Number(a.unit_number);
-    const bUnit = Number(b.unit_number);
-    if (!isNaN(aUnit) && !isNaN(bUnit) && aUnit !== bUnit) return aUnit - bUnit;
-  }
+  // 7. タイブレーク: 物件名（property_name）昇順
+  const propCmp = compareValuesWithEmptyLast(a.property_name, b.property_name, false);
+  if (propCmp !== 0) return propCmp;
 
-  // カテゴリ3: コースなし「委託」
-  if (aCat === 3) {
-    const aTime = a.target_time || a.time_limit || '';
-    const bTime = b.target_time || b.time_limit || '';
-    if (aTime !== bTime) return aTime.localeCompare(bTime, 'ja');
-
-    const aUnit = Number(a.unit_number);
-    const bUnit = Number(b.unit_number);
-    if (!isNaN(aUnit) && !isNaN(bUnit) && aUnit !== bUnit) return aUnit - bUnit;
-  }
-
-  // カテゴリ4: コースなし「その他」
-  if (aCat === 4) {
-    const aTime = a.target_time || a.time_limit || '';
-    const bTime = b.target_time || b.time_limit || '';
-    if (aTime !== bTime) return aTime.localeCompare(bTime, 'ja');
-
-    const aUnit = Number(a.unit_number);
-    const bUnit = Number(b.unit_number);
-    if (!isNaN(aUnit) && !isNaN(bUnit) && aUnit !== bUnit) return aUnit - bUnit;
-  }
-
-  // デフォルト
-  const aUnit = Number(a.unit_number);
-  const bUnit = Number(b.unit_number);
-  if (!isNaN(aUnit) && !isNaN(bUnit) && aUnit !== bUnit) return aUnit - bUnit;
-
-  return 0;
+  // 8. タイブレーク: ID昇順
+  return compareValuesWithEmptyLast(a.id, b.id, true);
 };
 
 
