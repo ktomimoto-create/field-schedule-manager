@@ -1132,6 +1132,29 @@
   transition: none !important;
 }
 
+/* Googleスプレッドシート完全準拠: 単一セル選択（遅延0ms・2px青枠・フィルハンドル・背景色なし） */
+.active-grid-cell {
+  outline: 2px solid #2563eb !important;
+  outline-offset: -2px !important;
+  position: relative !important;
+  z-index: 10 !important;
+}
+
+.active-grid-cell::after {
+  content: '';
+  position: absolute;
+  bottom: -3px;
+  right: -3px;
+  width: 6px;
+  height: 6px;
+  background-color: #2563eb;
+  border: 1px solid #ffffff;
+  border-radius: 1px;
+  cursor: crosshair;
+  z-index: 20;
+  pointer-events: none;
+}
+
 .selected-grid-cell {
   background-color: rgba(37, 99, 235, 0.12) !important; /* スプレッドシート風の薄青ハイライト */
   /* スプレッドシート同様に選択中セル同士の間の格子線をくっきり維持 */

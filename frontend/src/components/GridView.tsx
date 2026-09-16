@@ -331,6 +331,7 @@ export const GridView: React.FC<GridViewProps> = ({
   const pendingCoordRef = useRef<{ rowIndex: number; colIndex: number } | null>(null);
   const selectionStartRef = useRef<{ rowIndex: number; colIndex: number } | null>(null);
   const highlightedCellsRef = useRef<HTMLElement[]>([]);
+  const activeCellElemRef = useRef<HTMLElement | null>(null);
   const [copiedRange, setCopiedRange] = useState<{
     minRow: number;
     maxRow: number;
@@ -486,11 +487,16 @@ export const GridView: React.FC<GridViewProps> = ({
 
   // 画面上の全選択ハイライトクラスの完全消去（Direct DOM: 0.01msで消去）
   const clearAllDomSelection = () => {
+    if (activeCellElemRef.current) {
+      activeCellElemRef.current.classList.remove('active-grid-cell');
+      activeCellElemRef.current = null;
+    }
     const existing = document.querySelectorAll(
-      '.selected-grid-cell, .selected-border-top, .selected-border-bottom, .selected-border-left, .selected-border-right, .selected-bottom-right'
+      '.active-grid-cell, .selected-grid-cell, .selected-border-top, .selected-border-bottom, .selected-border-left, .selected-border-right, .selected-bottom-right'
     );
     for (let i = 0; i < existing.length; i++) {
       existing[i].classList.remove(
+        'active-grid-cell',
         'selected-grid-cell',
         'selected-border-top',
         'selected-border-bottom',
@@ -539,17 +545,42 @@ export const GridView: React.FC<GridViewProps> = ({
       return;
     }
     e.stopPropagation(); // 行選択（サイドバー表示）への伝播を防止
+
+    const targetTd = (e.target as HTMLElement).closest('td') || (e.currentTarget as HTMLElement).closest('td');
+
+    // 1. 直前の青枠を0.0001msで消去し、クリックされたセルに即座に青枠（2px実線＋フィルハンドル）をDirect DOMで付与！
+    if (activeCellElemRef.current && activeCellElemRef.current !== targetTd) {
+      activeCellElemRef.current.classList.remove('active-grid-cell');
+    }
+    const prevCells = highlightedCellsRef.current;
+    for (let i = 0; i < prevCells.length; i++) {
+      prevCells[i].classList.remove(
+        'selected-grid-cell',
+        'selected-border-top',
+        'selected-border-bottom',
+        'selected-border-left',
+        'selected-border-right',
+        'selected-bottom-right'
+      );
+    }
+    highlightedCellsRef.current = [];
+
+    if (targetTd) {
+      targetTd.classList.add('active-grid-cell');
+      activeCellElemRef.current = targetTd;
+    }
+
     const coord = { rowIndex, colIndex };
     selectionStartRef.current = coord;
     pendingCoordRef.current = coord;
-
-    // クリックしたまさにその瞬間（0ms）に、DOM上で直前の選択枠を消し、新しいセルに青枠を即時描画！
-    applyDirectSelectionDom(coord, coord);
-
-    setIsSelecting(true);
     isSelectingRef.current = true;
-    setSelectionStart(coord);
-    setSelectionEnd(coord);
+
+    // 2. React 18 の startTransition で内部ステートを非同期更新し、ブラウザの描画フレーム（0ms）を絶対にブロックしない！
+    React.startTransition(() => {
+      setIsSelecting(true);
+      setSelectionStart(coord);
+      setSelectionEnd(coord);
+    });
   };
 
   // ドラッグ中はReactの再レンダリングを完全バイパスし、直接DOMクラスを0.1msで更新！
@@ -557,6 +588,12 @@ export const GridView: React.FC<GridViewProps> = ({
     if (!isSelectingRef.current || !selectionStartRef.current) return;
     const endCoord = { rowIndex, colIndex };
     pendingCoordRef.current = endCoord;
+
+    // ドラッグで複数セル選択になったら単一セル用青枠を解除して矩形描画へ
+    if (activeCellElemRef.current) {
+      activeCellElemRef.current.classList.remove('active-grid-cell');
+    }
+
     applyDirectSelectionDom(selectionStartRef.current, endCoord);
   };
 
