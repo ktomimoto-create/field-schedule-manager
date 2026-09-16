@@ -1,12 +1,85 @@
 import React, { useState, useRef } from 'react';
 import XLSX from 'xlsx-js-style';
 import type { Schedule, Staff, UserRole, WorkType } from '../types';
-import { getShortName, cleanMetadata, splitCoWorkers, canManageSchedules, normalizeTargetTime, compareSchedules } from '../types';
+import { getShortName, cleanMetadata, splitCoWorkers, canManageSchedules, normalizeTargetTime, compareSchedules, toHalfWidth, findStaffByName } from '../types';
+import { buildFcAutofillPatch } from '../utils/fcAutofill';
 
 import { Plus, ChevronLeft, ChevronRight, Calendar as CalendarIcon, Filter, CheckCircle2, Download, Eye, EyeOff, Printer, Lock, ArrowUpDown, RotateCcw } from 'lucide-react';
 import { PrintPreviewModal } from './PrintPreviewModal';
 import { ScheduleSidePanel } from './ScheduleSidePanel';
 import './GridView.css';
+
+const parseTSV = (text: string): string[][] => {
+  const result: string[][] = [];
+  let row: string[] = [];
+  let field = '';
+  let inQuotes = false;
+
+  for (let i = 0; i < text.length; i++) {
+    const char = text[i];
+    const nextChar = text[i + 1];
+
+    if (inQuotes) {
+      if (char === '"') {
+        if (nextChar === '"') {
+          field += '"';
+          i++;
+        } else {
+          inQuotes = false;
+        }
+      } else {
+        field += char;
+      }
+    } else {
+      if (char === '"') {
+        inQuotes = true;
+      } else if (char === '\t') {
+        row.push(field);
+        field = '';
+      } else if (char === '\r') {
+        if (nextChar === '\n') i++;
+        row.push(field);
+        result.push(row);
+        row = [];
+        field = '';
+      } else if (char === '\n') {
+        row.push(field);
+        result.push(row);
+        row = [];
+        field = '';
+      } else {
+        field += char;
+      }
+    }
+  }
+
+  if (field !== '' || row.length > 0) {
+    row.push(field);
+    result.push(row);
+  }
+
+  return result
+    .map(r => r.map(cell => cell.trim()))
+    .filter(r => r.some(cell => cell !== ''));
+};
+
+const GRID_COLUMNS: (keyof Schedule)[] = [
+  'division',
+  'type',
+  'box',
+  'unit_number',
+  'property_name',
+  'work_type',
+  'description',
+  'target_time',
+  'staff_name',
+  'area',
+  'transport',
+  'co_worker',
+  'request_number',
+  'result',
+  'notes'
+];
 
 interface GridViewProps {
   schedules: Schedule[];
@@ -246,6 +319,19 @@ export const GridView: React.FC<GridViewProps> = ({
   const [sortColumn, setSortColumn] = useState<'default' | 'unit_number' | 'property_name' | 'target_time' | 'staff_name'>('default');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
 
+  // スプレッドシート完全準拠: セル選択・ドラッグ・コピペステート
+  const [selectionStart, setSelectionStart] = useState<{ rowIndex: number; colIndex: number } | null>(null);
+  const [selectionEnd, setSelectionEnd] = useState<{ rowIndex: number; colIndex: number } | null>(null);
+  const [isSelecting, setIsSelecting] = useState<boolean>(false);
+  const [copiedRange, setCopiedRange] = useState<{
+    minRow: number;
+    maxRow: number;
+    minCol: number;
+    maxCol: number;
+  } | null>(null);
+  const [copyToast, setCopyToast] = useState<string | null>(null);
+  const copyToastTimerRef = useRef<any>(null);
+
   const sortedSchedules = [...cleansedSchedules].sort((a, b) => {
     if (sortColumn === 'default') {
       return compareSchedules(a, b);
@@ -313,6 +399,237 @@ export const GridView: React.FC<GridViewProps> = ({
       console.error('Failed to quick update status:', error);
     }
   };
+
+  // スプレッドシート完全準拠: セル選択状態の判定
+  const getCellSelectionStatus = (rowIndex: number, colIndex: number) => {
+    if (!selectionStart) {
+      return { isSelected: false, borderTop: false, borderBottom: false, borderLeft: false, borderRight: false };
+    }
+    const end = selectionEnd || selectionStart;
+    const minRow = Math.min(selectionStart.rowIndex, end.rowIndex);
+    const maxRow = Math.max(selectionStart.rowIndex, end.rowIndex);
+    const minCol = Math.min(selectionStart.colIndex, end.colIndex);
+    const maxCol = Math.max(selectionStart.colIndex, end.colIndex);
+
+    const isSelected = rowIndex >= minRow && rowIndex <= maxRow && colIndex >= minCol && colIndex <= maxCol;
+    if (!isSelected) {
+      return { isSelected: false, borderTop: false, borderBottom: false, borderLeft: false, borderRight: false };
+    }
+    return {
+      isSelected,
+      borderTop: rowIndex === minRow,
+      borderBottom: rowIndex === maxRow,
+      borderLeft: colIndex === minCol,
+      borderRight: colIndex === maxCol
+    };
+  };
+
+  const getCopiedCellStatus = (rowIndex: number, colIndex: number) => {
+    if (!copiedRange) {
+      return { isCopied: false, borderTop: false, borderBottom: false, borderLeft: false, borderRight: false };
+    }
+    const isCopied = rowIndex >= copiedRange.minRow && rowIndex <= copiedRange.maxRow && colIndex >= copiedRange.minCol && colIndex <= copiedRange.maxCol;
+    if (!isCopied) {
+      return { isCopied: false, borderTop: false, borderBottom: false, borderLeft: false, borderRight: false };
+    }
+    return {
+      isCopied,
+      borderTop: rowIndex === copiedRange.minRow,
+      borderBottom: rowIndex === copiedRange.maxRow,
+      borderLeft: colIndex === copiedRange.minCol,
+      borderRight: colIndex === copiedRange.maxCol
+    };
+  };
+
+  const isBottomRightSelectedCell = (rowIndex: number, colIndex: number) => {
+    if (!selectionStart) return false;
+    const end = selectionEnd || selectionStart;
+    const maxRow = Math.max(selectionStart.rowIndex, end.rowIndex);
+    const maxCol = Math.max(selectionStart.colIndex, end.colIndex);
+    return rowIndex === maxRow && colIndex === maxCol;
+  };
+
+  const getCellClassName = (rowIndex: number, colIndex: number, extraClass: string = '') => {
+    const sel = getCellSelectionStatus(rowIndex, colIndex);
+    const copy = getCopiedCellStatus(rowIndex, colIndex);
+    let classes = extraClass;
+
+    if (sel.isSelected) {
+      classes += ' selected-grid-cell';
+      if (sel.borderTop) classes += ' selected-border-top';
+      if (sel.borderBottom) classes += ' selected-border-bottom';
+      if (sel.borderLeft) classes += ' selected-border-left';
+      if (sel.borderRight) classes += ' selected-border-right';
+    }
+
+    if (copy.isCopied) {
+      classes += ' copied-grid-cell';
+      if (copy.borderTop) classes += ' copied-border-top';
+      if (copy.borderBottom) classes += ' copied-border-bottom';
+      if (copy.borderLeft) classes += ' copied-border-left';
+      if (copy.borderRight) classes += ' copied-border-right';
+    }
+
+    return classes.trim();
+  };
+
+  const handleCellMouseDown = (e: React.MouseEvent, rowIndex: number, colIndex: number) => {
+    if (e.button !== 0) return;
+    if (e.target instanceof HTMLInputElement || e.target instanceof HTMLSelectElement || (e.target as HTMLElement).closest('button')) {
+      return;
+    }
+    e.stopPropagation(); // 行選択（サイドバー表示）への伝播を防止
+    setSelectionStart({ rowIndex, colIndex });
+    setSelectionEnd({ rowIndex, colIndex });
+    setIsSelecting(true);
+  };
+
+  const handleCellMouseEnter = (rowIndex: number, colIndex: number) => {
+    if (!isSelecting) return;
+    setSelectionEnd({ rowIndex, colIndex });
+  };
+
+  React.useEffect(() => {
+    const handleMouseUpGlobal = () => {
+      setIsSelecting(false);
+    };
+    window.addEventListener('mouseup', handleMouseUpGlobal);
+    return () => {
+      window.removeEventListener('mouseup', handleMouseUpGlobal);
+    };
+  }, []);
+
+  React.useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLSelectElement || e.target instanceof HTMLTextAreaElement) {
+        return;
+      }
+
+      // 矢印キー移動
+      if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+        if (!selectionStart) {
+          if (sortedSchedules.length > 0) {
+            setSelectionStart({ rowIndex: 0, colIndex: 0 });
+            setSelectionEnd({ rowIndex: 0, colIndex: 0 });
+          }
+          return;
+        }
+        e.preventDefault();
+        let nextRow = selectionStart.rowIndex;
+        let nextCol = selectionStart.colIndex;
+
+        if (e.key === 'ArrowUp') nextRow = Math.max(0, nextRow - 1);
+        if (e.key === 'ArrowDown') nextRow = Math.min(sortedSchedules.length - 1, nextRow + 1);
+        if (e.key === 'ArrowLeft') nextCol = Math.max(0, nextCol - 1);
+        if (e.key === 'ArrowRight') nextCol = Math.min(GRID_COLUMNS.length - 1, nextCol + 1);
+
+        setSelectionStart({ rowIndex: nextRow, colIndex: nextCol });
+        setSelectionEnd({ rowIndex: nextRow, colIndex: nextCol });
+        return;
+      }
+
+      // Ctrl + C (コピー)
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'c') {
+        if (!selectionStart) return;
+        const end = selectionEnd || selectionStart;
+        const minRow = Math.min(selectionStart.rowIndex, end.rowIndex);
+        const maxRow = Math.max(selectionStart.rowIndex, end.rowIndex);
+        const minCol = Math.min(selectionStart.colIndex, end.colIndex);
+        const maxCol = Math.max(selectionStart.colIndex, end.colIndex);
+
+        let clipboardText = '';
+        for (let r = minRow; r <= maxRow; r++) {
+          const sched = sortedSchedules[r];
+          let rowText = '';
+          for (let c = minCol; c <= maxCol; c++) {
+            const field = GRID_COLUMNS[c];
+            const val = sched ? String(sched[field] || '') : '';
+            rowText += (rowText ? '\t' : '') + val;
+          }
+          clipboardText += (clipboardText ? '\n' : '') + rowText;
+        }
+
+        navigator.clipboard.writeText(clipboardText).catch(err => {
+          console.error('Failed to copy to clipboard:', err);
+        });
+
+        setCopiedRange({ minRow, maxRow, minCol, maxCol });
+        const rCount = maxRow - minRow + 1;
+        const cCount = maxCol - minCol + 1;
+        const countDesc = (rCount > 1 || cCount > 1) ? ` (${rCount}行×${cCount}列)` : '';
+        setCopyToast(`📋 クリップボードにコピーしました${countDesc}`);
+        if (copyToastTimerRef.current) clearTimeout(copyToastTimerRef.current);
+        copyToastTimerRef.current = setTimeout(() => setCopyToast(null), 2000);
+        e.preventDefault();
+        return;
+      }
+    };
+
+    const handlePaste = async (e: ClipboardEvent) => {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLSelectElement || e.target instanceof HTMLTextAreaElement) {
+        return;
+      }
+      const text = e.clipboardData?.getData('text/plain');
+      if (!text || text.trim() === '' || !selectionStart) return;
+
+      e.preventDefault();
+      const parsedRows = parseTSV(text);
+      const startRow = selectionStart.rowIndex;
+      const startCol = selectionStart.colIndex;
+
+      for (let rOffset = 0; rOffset < parsedRows.length; rOffset++) {
+        const targetRow = startRow + rOffset;
+        if (targetRow >= sortedSchedules.length) break;
+        const targetSched = sortedSchedules[targetRow];
+        if (!targetSched || typeof targetSched.id !== 'number') continue;
+
+        const cols = parsedRows[rOffset];
+        const updatePayload: Partial<Schedule> = { id: targetSched.id };
+
+        for (let cOffset = 0; cOffset < cols.length; cOffset++) {
+          const targetCol = startCol + cOffset;
+          if (targetCol >= GRID_COLUMNS.length) break;
+          const field = GRID_COLUMNS[targetCol];
+          let val = cols[cOffset];
+
+          if (field === 'target_time') val = normalizeTargetTime(val);
+          if (field === 'time_limit') val = toHalfWidth(val);
+          if (field === 'staff_name' && val) {
+            const matchedStaff = findStaffByName(staff, val);
+            if (matchedStaff) {
+              (updatePayload as any).staff_id = matchedStaff.id;
+              val = matchedStaff.name;
+            }
+          }
+
+          (updatePayload as any)[field] = val;
+        }
+
+        // ミス防止: 依頼番号入力時はFC自動補完
+        if (updatePayload.request_number) {
+          const patch = await buildFcAutofillPatch(updatePayload.request_number, { ...targetSched, ...updatePayload });
+          if (patch) Object.assign(updatePayload, patch);
+        }
+
+        try {
+          await onSave(updatePayload);
+        } catch (err) {
+          console.error('Failed to paste schedule in GridView:', err);
+        }
+      }
+
+      setCopyToast('📋 貼り付けが完了しました');
+      if (copyToastTimerRef.current) clearTimeout(copyToastTimerRef.current);
+      copyToastTimerRef.current = setTimeout(() => setCopyToast(null), 2000);
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('paste', handlePaste);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('paste', handlePaste);
+    };
+  }, [selectionStart, selectionEnd, sortedSchedules, staff, onSave]);
 
   const formatJapaneseDate = (dateStr: string) => {
     const d = new Date(dateStr);
@@ -554,7 +871,7 @@ export const GridView: React.FC<GridViewProps> = ({
                 </td>
               </tr>
             ) : (
-              sortedSchedules.map((schedule) => {
+              sortedSchedules.map((schedule, rowIndex) => {
                 const staffMember = staff.find(st => st.id === schedule.staff_id);
                 const isCompleted = schedule.result === '完了';
 
@@ -570,13 +887,50 @@ export const GridView: React.FC<GridViewProps> = ({
                     className={`spreadsheet-row ${isCompleted ? 'row-completed' : ''} ${isSelected ? 'row-selected' : ''}`}
                     style={{ cursor: 'pointer' }}
                   >
-                    <td style={{ textAlign: 'center', fontWeight: '500' }}>
+                    <td 
+                      className={getCellClassName(rowIndex, 0, '')}
+                      style={{ textAlign: 'center', fontWeight: '500', cursor: 'pointer' }}
+                      onMouseDown={(e) => handleCellMouseDown(e, rowIndex, 0)}
+                      onMouseEnter={() => handleCellMouseEnter(rowIndex, 0)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedScheduleForPanel(schedule);
+                      }}
+                      title="クリックで行詳細・クイック編集パネルを開く"
+                    >
                       {schedule.division}
+                      {isBottomRightSelectedCell(rowIndex, 0) && <div className="cell-fill-handle" />}
                     </td>
-                    <td>{schedule.type}</td>
-                    <td>{schedule.box}</td>
-                    <td>{schedule.unit_number}</td>
-                    <td className="bold-cell" title={schedule.property_name}>
+                    <td 
+                      className={getCellClassName(rowIndex, 1, '')}
+                      onMouseDown={(e) => handleCellMouseDown(e, rowIndex, 1)}
+                      onMouseEnter={() => handleCellMouseEnter(rowIndex, 1)}
+                    >
+                      {schedule.type}
+                      {isBottomRightSelectedCell(rowIndex, 1) && <div className="cell-fill-handle" />}
+                    </td>
+                    <td 
+                      className={getCellClassName(rowIndex, 2, '')}
+                      onMouseDown={(e) => handleCellMouseDown(e, rowIndex, 2)}
+                      onMouseEnter={() => handleCellMouseEnter(rowIndex, 2)}
+                    >
+                      {schedule.box}
+                      {isBottomRightSelectedCell(rowIndex, 2) && <div className="cell-fill-handle" />}
+                    </td>
+                    <td 
+                      className={getCellClassName(rowIndex, 3, '')}
+                      onMouseDown={(e) => handleCellMouseDown(e, rowIndex, 3)}
+                      onMouseEnter={() => handleCellMouseEnter(rowIndex, 3)}
+                    >
+                      {schedule.unit_number}
+                      {isBottomRightSelectedCell(rowIndex, 3) && <div className="cell-fill-handle" />}
+                    </td>
+                    <td 
+                      className={getCellClassName(rowIndex, 4, 'bold-cell')}
+                      title={schedule.property_name}
+                      onMouseDown={(e) => handleCellMouseDown(e, rowIndex, 4)}
+                      onMouseEnter={() => handleCellMouseEnter(rowIndex, 4)}
+                    >
                       <div className="cell-clamp-2">
                         {schedule.property_name}
                         {typeof schedule.id === 'number' && activeLocks[schedule.id] && (
@@ -586,17 +940,41 @@ export const GridView: React.FC<GridViewProps> = ({
                           </span>
                         )}
                       </div>
+                      {isBottomRightSelectedCell(rowIndex, 4) && <div className="cell-fill-handle" />}
                     </td>
-                    <td>{schedule.work_type}</td>
-                    <td className="description-cell" title={schedule.description || ''}>
+                    <td 
+                      className={getCellClassName(rowIndex, 5, '')}
+                      onMouseDown={(e) => handleCellMouseDown(e, rowIndex, 5)}
+                      onMouseEnter={() => handleCellMouseEnter(rowIndex, 5)}
+                    >
+                      {schedule.work_type}
+                      {isBottomRightSelectedCell(rowIndex, 5) && <div className="cell-fill-handle" />}
+                    </td>
+                    <td 
+                      className={getCellClassName(rowIndex, 6, 'description-cell')}
+                      title={schedule.description || ''}
+                      onMouseDown={(e) => handleCellMouseDown(e, rowIndex, 6)}
+                      onMouseEnter={() => handleCellMouseEnter(rowIndex, 6)}
+                    >
                       <div className="cell-clamp-3">
                         {schedule.description}
                       </div>
+                      {isBottomRightSelectedCell(rowIndex, 6) && <div className="cell-fill-handle" />}
                     </td>
-                    <td className="time-cell">
+                    <td 
+                      className={getCellClassName(rowIndex, 7, 'time-cell')}
+                      onMouseDown={(e) => handleCellMouseDown(e, rowIndex, 7)}
+                      onMouseEnter={() => handleCellMouseEnter(rowIndex, 7)}
+                    >
                       {normalizeTargetTime(schedule.target_time)}
+                      {isBottomRightSelectedCell(rowIndex, 7) && <div className="cell-fill-handle" />}
                     </td>
-                    <td style={{ verticalAlign: 'middle' }}>
+                    <td 
+                      className={getCellClassName(rowIndex, 8, '')}
+                      style={{ verticalAlign: 'middle' }}
+                      onMouseDown={(e) => handleCellMouseDown(e, rowIndex, 8)}
+                      onMouseEnter={() => handleCellMouseEnter(rowIndex, 8)}
+                    >
                       {staffMember ? (
                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', width: '100%' }}>
                           {staffMember.avatar_url ? (
@@ -635,10 +1013,29 @@ export const GridView: React.FC<GridViewProps> = ({
                           <span style={{ color: '#94a3b8', fontStyle: 'italic', fontSize: '0.85rem' }}>未設定</span>
                         )
                       )}
+                      {isBottomRightSelectedCell(rowIndex, 8) && <div className="cell-fill-handle" />}
                     </td>
-                    <td>{schedule.area}</td>
-                    <td>{schedule.transport}</td>
-                    <td>
+                    <td 
+                      className={getCellClassName(rowIndex, 9, '')}
+                      onMouseDown={(e) => handleCellMouseDown(e, rowIndex, 9)}
+                      onMouseEnter={() => handleCellMouseEnter(rowIndex, 9)}
+                    >
+                      {schedule.area}
+                      {isBottomRightSelectedCell(rowIndex, 9) && <div className="cell-fill-handle" />}
+                    </td>
+                    <td 
+                      className={getCellClassName(rowIndex, 10, '')}
+                      onMouseDown={(e) => handleCellMouseDown(e, rowIndex, 10)}
+                      onMouseEnter={() => handleCellMouseEnter(rowIndex, 10)}
+                    >
+                      {schedule.transport}
+                      {isBottomRightSelectedCell(rowIndex, 10) && <div className="cell-fill-handle" />}
+                    </td>
+                    <td 
+                      className={getCellClassName(rowIndex, 11, '')}
+                      onMouseDown={(e) => handleCellMouseDown(e, rowIndex, 11)}
+                      onMouseEnter={() => handleCellMouseEnter(rowIndex, 11)}
+                    >
                       {(() => {
                         const coWorkersStr = schedule.co_worker || '';
                         const coWorkersList = splitCoWorkers(coWorkersStr, staff);
@@ -652,10 +1049,23 @@ export const GridView: React.FC<GridViewProps> = ({
                           </div>
                         );
                       })()}
+                      {isBottomRightSelectedCell(rowIndex, 11) && <div className="cell-fill-handle" />}
                     </td>
-                    <td>{schedule.request_number}</td>
+                    <td 
+                      className={getCellClassName(rowIndex, 12, '')}
+                      onMouseDown={(e) => handleCellMouseDown(e, rowIndex, 12)}
+                      onMouseEnter={() => handleCellMouseEnter(rowIndex, 12)}
+                    >
+                      {schedule.request_number}
+                      {isBottomRightSelectedCell(rowIndex, 12) && <div className="cell-fill-handle" />}
+                    </td>
                     
-                    <td style={{ textAlign: 'center', verticalAlign: 'middle' }}>
+                    <td 
+                      className={getCellClassName(rowIndex, 13, '')}
+                      style={{ textAlign: 'center', verticalAlign: 'middle' }}
+                      onMouseDown={(e) => handleCellMouseDown(e, rowIndex, 13)}
+                      onMouseEnter={() => handleCellMouseEnter(rowIndex, 13)}
+                    >
                       {isAdmin ? (
                         isCompleted ? (
                           <button
@@ -697,12 +1107,19 @@ export const GridView: React.FC<GridViewProps> = ({
                           )}
                         </div>
                       )}
+                      {isBottomRightSelectedCell(rowIndex, 13) && <div className="cell-fill-handle" />}
                     </td>
 
-                    <td className="notes-cell" title={cleanMetadata(schedule.notes)}>
+                    <td 
+                      className={getCellClassName(rowIndex, 14, 'notes-cell')}
+                      title={cleanMetadata(schedule.notes)}
+                      onMouseDown={(e) => handleCellMouseDown(e, rowIndex, 14)}
+                      onMouseEnter={() => handleCellMouseEnter(rowIndex, 14)}
+                    >
                       <div className="cell-clamp-2">
                         {cleanMetadata(schedule.notes)}
                       </div>
+                      {isBottomRightSelectedCell(rowIndex, 14) && <div className="cell-fill-handle" />}
                     </td>
                   </tr>
                 );
@@ -761,6 +1178,13 @@ export const GridView: React.FC<GridViewProps> = ({
         hasPrev={hasPrev}
         hasNext={hasNext}
       />
+
+      {/* スプレッドシート風コピートースト通知 */}
+      {copyToast && (
+        <div className="spreadsheet-copy-toast">
+          <span>{copyToast}</span>
+        </div>
+      )}
     </div>
   );
 };

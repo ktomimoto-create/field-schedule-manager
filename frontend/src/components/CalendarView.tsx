@@ -340,6 +340,16 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
   const [selectionEnd, setSelectionEnd] = useState<CellCoordinate | null>(null);
   const [isSelecting, setIsSelecting] = useState<boolean>(false);
 
+  // スプレッドシート完全準拠: コピー範囲（破線マーキー枠）とトースト通知
+  const [copiedRange, setCopiedRange] = useState<{
+    minCol: number;
+    maxCol: number;
+    minRow: number;
+    maxRow: number;
+  } | null>(null);
+  const [copyToast, setCopyToast] = useState<string | null>(null);
+  const copyToastTimerRef = useRef<any>(null);
+
   const [contextMenu, setContextMenu] = useState<{
     x: number;
     y: number;
@@ -579,16 +589,59 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
     };
   };
 
+  const getCopiedCellStatus = (
+    dateStr: string,
+    rowIndex: number,
+    field: keyof Schedule
+  ) => {
+    if (!copiedRange) {
+      return { isCopied: false, borderTop: false, borderBottom: false, borderLeft: false, borderRight: false };
+    }
+    const curCol = getColAbsoluteIndex(dateStr, field);
+    const isCopied = rowIndex >= copiedRange.minRow && rowIndex <= copiedRange.maxRow && curCol >= copiedRange.minCol && curCol <= copiedRange.maxCol;
+    if (!isCopied) {
+      return { isCopied: false, borderTop: false, borderBottom: false, borderLeft: false, borderRight: false };
+    }
+    return {
+      isCopied,
+      borderTop: rowIndex === copiedRange.minRow,
+      borderBottom: rowIndex === copiedRange.maxRow,
+      borderLeft: curCol === copiedRange.minCol,
+      borderRight: curCol === copiedRange.maxCol
+    };
+  };
+
+  const isBottomRightSelectedCell = (dateStr: string, rowIndex: number, field: keyof Schedule) => {
+    if (!selectionStart) return false;
+    const end = selectionEnd || selectionStart;
+    const startCol = getColAbsoluteIndex(selectionStart.dateStr, selectionStart.field);
+    const endCol = getColAbsoluteIndex(end.dateStr, end.field);
+    const maxCol = Math.max(startCol, endCol);
+    const maxRow = Math.max(selectionStart.rowIndex, end.rowIndex);
+    const curCol = getColAbsoluteIndex(dateStr, field);
+    return rowIndex === maxRow && curCol === maxCol;
+  };
+
   const getSelectionClassName = (dateStr: string, rowIndex: number, field: keyof Schedule) => {
-    const status = getCellSelectionStatus(dateStr, rowIndex, field);
-    if (!status.isSelected) return '';
+    const selStatus = getCellSelectionStatus(dateStr, rowIndex, field);
+    const copyStatus = getCopiedCellStatus(dateStr, rowIndex, field);
     
-    let classes = 'selected-grid-cell';
-    if (status.borderTop) classes += ' selected-border-top';
-    if (status.borderBottom) classes += ' selected-border-bottom';
-    if (status.borderLeft) classes += ' selected-border-left';
-    if (status.borderRight) classes += ' selected-border-right';
-    return classes;
+    let classes = '';
+    if (selStatus.isSelected) {
+      classes += ' selected-grid-cell';
+      if (selStatus.borderTop) classes += ' selected-border-top';
+      if (selStatus.borderBottom) classes += ' selected-border-bottom';
+      if (selStatus.borderLeft) classes += ' selected-border-left';
+      if (selStatus.borderRight) classes += ' selected-border-right';
+    }
+    if (copyStatus.isCopied) {
+      classes += ' copied-grid-cell';
+      if (copyStatus.borderTop) classes += ' copied-border-top';
+      if (copyStatus.borderBottom) classes += ' copied-border-bottom';
+      if (copyStatus.borderLeft) classes += ' copied-border-left';
+      if (copyStatus.borderRight) classes += ' copied-border-right';
+    }
+    return classes.trim();
   };
 
   const handleCellMouseDown = (
@@ -599,9 +652,10 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
     scheduleId: number | string
   ) => {
     if (e.button !== 0) return; // 左クリックのみ
-    if (e.target instanceof HTMLInputElement || e.target instanceof HTMLSelectElement) {
+    if (e.target instanceof HTMLInputElement || e.target instanceof HTMLSelectElement || (e.target as HTMLElement).closest('button')) {
       return;
     }
+    e.stopPropagation(); // tr 行選択イベントへの伝播を完全に防止
     const coord = { dateStr, rowIndex, field };
     setSelectionStart(coord);
     setSelectionEnd(coord);
@@ -1200,6 +1254,16 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
             const sched = daySchedules[minRow];
             if (sched && !isTempSchedule(sched)) {
               setCopiedSchedule(sched);
+              setCopiedRange({
+                minCol,
+                maxCol,
+                minRow,
+                maxRow
+              });
+              setCopyToast('📋 予定全体をコピーしました');
+              if (copyToastTimerRef.current) clearTimeout(copyToastTimerRef.current);
+              copyToastTimerRef.current = setTimeout(() => setCopyToast(null), 2000);
+
               const rowText = FIELD_ORDER.map(field => String(sched[field] || '')).join('\t');
               navigator.clipboard.writeText(rowText).catch(err => {
                 console.error('Failed to write to clipboard:', err);
@@ -1211,6 +1275,19 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
 
           // 一部セルのコピー（行全体のコピーは解除）
           setCopiedSchedule(null);
+          setCopiedRange({
+            minCol,
+            maxCol,
+            minRow,
+            maxRow
+          });
+
+          const rCount = maxRow - minRow + 1;
+          const cCount = maxCol - minCol + 1;
+          const countDesc = (rCount > 1 || cCount > 1) ? ` (${rCount}行×${cCount}列)` : '';
+          setCopyToast(`📋 クリップボードにコピーしました${countDesc}`);
+          if (copyToastTimerRef.current) clearTimeout(copyToastTimerRef.current);
+          copyToastTimerRef.current = setTimeout(() => setCopyToast(null), 2000);
 
           let clipboardText = '';
           for (let r = minRow; r <= maxRow; r++) {
@@ -1615,6 +1692,9 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
               {getShortName(cleanMetadata(value || ''))}
             </span>
           </div>
+          {isBottomRightSelectedCell(schedule.date, rowIndex, field) && (
+            <div className="cell-fill-handle" />
+          )}
         </td>
       );
     }
@@ -1680,6 +1760,9 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
               </button>
             )}
           </div>
+          {isBottomRightSelectedCell(schedule.date, rowIndex, field) && (
+            <div className="cell-fill-handle" />
+          )}
         </td>
       );
     }
@@ -1742,6 +1825,9 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
               );
             })}
           </div>
+          {isBottomRightSelectedCell(schedule.date, rowIndex, field) && (
+            <div className="cell-fill-handle" />
+          )}
         </td>
       );
     }
@@ -1775,6 +1861,9 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
           <div className="cell-clamp-2">{cleanMetadata(value)}</div>
         ) : (
           cleanMetadata(value)
+        )}
+        {isBottomRightSelectedCell(schedule.date, rowIndex, field) && (
+          <div className="cell-fill-handle" />
         )}
       </td>
     );
@@ -3210,6 +3299,13 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
         hasPrev={hasPanelPrev}
         hasNext={hasPanelNext}
       />
+
+      {/* スプレッドシート風コピートースト通知 */}
+      {copyToast && (
+        <div className="spreadsheet-copy-toast">
+          <span>{copyToast}</span>
+        </div>
+      )}
     </div>
   );
 };
