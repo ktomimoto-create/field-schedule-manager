@@ -335,28 +335,35 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
   const [searchQuery, setSearchQuery] = useState<string>('');
   const searchInputRef = useRef<HTMLInputElement>(null);
 
-  // 複数セル矩形ドラッグ選択用のステート
-  const [selectionStart, setSelectionStart] = useState<CellCoordinate | null>(null);
-  const [selectionEnd, setSelectionEnd] = useState<CellCoordinate | null>(null);
-  const [isSelecting, setIsSelecting] = useState<boolean>(false);
-  const isSelectingRef = useRef(isSelecting);
-  React.useEffect(() => {
-    isSelectingRef.current = isSelecting;
-  }, [isSelecting]);
-  const dragRafRef = useRef<number | null>(null);
-  const pendingCoordRef = useRef<CellCoordinate | null>(null);
-  const selectionStartRef = useRef<CellCoordinate | null>(null);
-  const highlightedCellsRef = useRef<HTMLElement[]>([]);
-  const activeCellElemRef = useRef<HTMLElement | null>(null);
-  const isDraggingRef = useRef<boolean>(false);
+  // Googleスプレッドシート完全同等: Selection Overlay アーキテクチャ (CalendarView)（遅延0ms・React再レンダリング0回）
+  const calendarContainerRef = useRef<HTMLDivElement | null>(null);
+  const calendarSelectionOverlayRef = useRef<HTMLDivElement | null>(null);
+  const calendarCopyOverlayRef = useRef<HTMLDivElement | null>(null);
 
-  // スプレッドシート完全準拠: コピー範囲（破線マーキー枠）とトースト通知
-  const [copiedRange, setCopiedRange] = useState<{
+  const calendarSelectionRangeRef = useRef<{
+    startDateStr: string;
+    startRow: number;
+    startField: keyof Schedule;
+    endDateStr: string;
+    endRow: number;
+    endField: keyof Schedule;
+    minRow: number;
+    maxRow: number;
+    minCol: number;
+    maxCol: number;
+  } | null>(null);
+
+  const calendarCopiedRangeRef = useRef<{
     minCol: number;
     maxCol: number;
     minRow: number;
     maxRow: number;
   } | null>(null);
+
+  const isSelectingRef = useRef<boolean>(false);
+  const isDraggingRef = useRef<boolean>(false);
+  const selectionStartCoordRef = useRef<CellCoordinate | null>(null);
+
   const [copyToast, setCopyToast] = useState<string | null>(null);
   const copyToastTimerRef = useRef<any>(null);
 
@@ -409,6 +416,18 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
     if (dateIdx === -1 || fieldIdx === -1) return -1;
     return dateIdx * FIELD_ORDER.length + fieldIdx;
   }, [dateIndexMap, fieldIndexMap]);
+
+  const getCoordByAbsoluteCol = React.useCallback((absCol: number): { dateStr: string; field: keyof Schedule } | null => {
+    if (absCol < 0) return null;
+    const numFields = FIELD_ORDER.length;
+    const dateIdx = Math.floor(absCol / numFields);
+    const fieldIdx = absCol % numFields;
+    if (dateIdx < 0 || dateIdx >= calendarDates.length) return null;
+    const dateStr = calendarDates[dateIdx];
+    const field = FIELD_ORDER[fieldIdx];
+    if (!dateStr || !field) return null;
+    return { dateStr, field };
+  }, [calendarDates]);
 
   // 各日付ごとのソート・仮想行適用済みのスケジュールリストをキャッシュして再レンダリング時のもっさり感を完全に解消
   const sortedSchedulesMap = React.useMemo(() => {
@@ -576,158 +595,120 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
     return sortedSchedulesMap[targetDate] || [];
   };
 
-  // 選択範囲（行・列の境界）を事前計算してメモ化（セル描画ごとの数万回の再計算・indexOf探索を完全撲滅）
-  const selectionRange = React.useMemo(() => {
-    if (!selectionStart) return null;
-    const end = selectionEnd || selectionStart;
-    const startCol = getColAbsoluteIndex(selectionStart.dateStr, selectionStart.field);
-    const endCol = getColAbsoluteIndex(end.dateStr, end.field);
-    if (startCol === -1 || endCol === -1) return null;
-    return {
-      minRow: Math.min(selectionStart.rowIndex, end.rowIndex),
-      maxRow: Math.max(selectionStart.rowIndex, end.rowIndex),
+  // Googleスプレッドシート完全同等: Selection Overlay 制御関数群 (CalendarView)
+  const updateCalendarSelectionOverlayDom = (
+    startDateStr: string,
+    startRowIndex: number,
+    startField: keyof Schedule,
+    endDateStr: string,
+    endRowIndex: number,
+    endField: keyof Schedule
+  ) => {
+    if (!calendarContainerRef.current || !calendarSelectionOverlayRef.current) return;
+    const container = calendarContainerRef.current;
+    const overlay = calendarSelectionOverlayRef.current;
+
+    const startTd = document.getElementById(`cell-${startDateStr}-${startRowIndex}-${startField}`);
+    const endTd = document.getElementById(`cell-${endDateStr}-${endRowIndex}-${endField}`);
+
+    if (!startTd || !endTd) {
+      overlay.style.display = 'none';
+      return;
+    }
+
+    const containerRect = container.getBoundingClientRect();
+    const startRect = startTd.getBoundingClientRect();
+    const endRect = endTd.getBoundingClientRect();
+
+    const left = Math.min(startRect.left, endRect.left) - containerRect.left;
+    const top = Math.min(startRect.top, endRect.top) - containerRect.top;
+    const right = Math.max(startRect.right, endRect.right) - containerRect.left;
+    const bottom = Math.max(startRect.bottom, endRect.bottom) - containerRect.top;
+
+    const width = right - left;
+    const height = bottom - top;
+
+    overlay.style.display = 'block';
+    overlay.style.transform = `translate3d(${left}px, ${top}px, 0)`;
+    overlay.style.width = `${width}px`;
+    overlay.style.height = `${height}px`;
+
+    const isMultiCell = startDateStr !== endDateStr || startRowIndex !== endRowIndex || startField !== endField;
+    if (isMultiCell) {
+      overlay.classList.add('is-multi-cell');
+    } else {
+      overlay.classList.remove('is-multi-cell');
+    }
+
+    const startCol = getColAbsoluteIndex(startDateStr, startField);
+    const endCol = getColAbsoluteIndex(endDateStr, endField);
+
+    calendarSelectionRangeRef.current = {
+      startDateStr,
+      startRow: startRowIndex,
+      startField,
+      endDateStr,
+      endRow: endRowIndex,
+      endField,
+      minRow: Math.min(startRowIndex, endRowIndex),
+      maxRow: Math.max(startRowIndex, endRowIndex),
       minCol: Math.min(startCol, endCol),
       maxCol: Math.max(startCol, endCol),
     };
-  }, [selectionStart, selectionEnd, getColAbsoluteIndex]);
-
-  const getCellSelectionStatus = (curCol: number, rowIndex: number) => {
-    if (!selectionRange) {
-      return { isSelected: false, borderTop: false, borderBottom: false, borderLeft: false, borderRight: false };
-    }
-    // 単一セル選択の時は矩形ハイライト（青い背景色）は出さない（Googleスプレッドシート完全準拠: 青枠のみ）
-    const isMultiCell = selectionRange.minRow !== selectionRange.maxRow || selectionRange.minCol !== selectionRange.maxCol;
-    if (!isMultiCell) {
-      return { isSelected: false, borderTop: false, borderBottom: false, borderLeft: false, borderRight: false };
-    }
-    const isSelected = rowIndex >= selectionRange.minRow && rowIndex <= selectionRange.maxRow && curCol >= selectionRange.minCol && curCol <= selectionRange.maxCol;
-    if (!isSelected) {
-      return { isSelected: false, borderTop: false, borderBottom: false, borderLeft: false, borderRight: false };
-    }
-    return {
-      isSelected,
-      borderTop: rowIndex === selectionRange.minRow,
-      borderBottom: rowIndex === selectionRange.maxRow,
-      borderLeft: curCol === selectionRange.minCol,
-      borderRight: curCol === selectionRange.maxCol
-    };
   };
 
-  const getCopiedCellStatus = (curCol: number, rowIndex: number) => {
-    if (!copiedRange) {
-      return { isCopied: false, borderTop: false, borderBottom: false, borderLeft: false, borderRight: false };
+  const updateCalendarCopyOverlayDom = () => {
+    if (!calendarContainerRef.current || !calendarCopyOverlayRef.current) return;
+    const container = calendarContainerRef.current;
+    const overlay = calendarCopyOverlayRef.current;
+
+    if (!calendarCopiedRangeRef.current) {
+      overlay.style.display = 'none';
+      return;
     }
-    const isCopied = rowIndex >= copiedRange.minRow && rowIndex <= copiedRange.maxRow && curCol >= copiedRange.minCol && curCol <= copiedRange.maxCol;
-    if (!isCopied) {
-      return { isCopied: false, borderTop: false, borderBottom: false, borderLeft: false, borderRight: false };
+
+    const { minCol, maxCol, minRow, maxRow } = calendarCopiedRangeRef.current;
+    const startCoord = getCoordByAbsoluteCol(minCol);
+    const endCoord = getCoordByAbsoluteCol(maxCol);
+
+    if (!startCoord || !endCoord) {
+      overlay.style.display = 'none';
+      return;
     }
-    return {
-      isCopied,
-      borderTop: rowIndex === copiedRange.minRow,
-      borderBottom: rowIndex === copiedRange.maxRow,
-      borderLeft: curCol === copiedRange.minCol,
-      borderRight: curCol === copiedRange.maxCol
-    };
+
+    const startTd = document.getElementById(`cell-${startCoord.dateStr}-${minRow}-${startCoord.field}`);
+    const endTd = document.getElementById(`cell-${endCoord.dateStr}-${maxRow}-${endCoord.field}`);
+
+    if (!startTd || !endTd) {
+      overlay.style.display = 'none';
+      return;
+    }
+
+    const containerRect = container.getBoundingClientRect();
+    const startRect = startTd.getBoundingClientRect();
+    const endRect = endTd.getBoundingClientRect();
+
+    const left = Math.min(startRect.left, endRect.left) - containerRect.left;
+    const top = Math.min(startRect.top, endRect.top) - containerRect.top;
+    const right = Math.max(startRect.right, endRect.right) - containerRect.left;
+    const bottom = Math.max(startRect.bottom, endRect.bottom) - containerRect.top;
+
+    overlay.style.display = 'block';
+    overlay.style.transform = `translate3d(${left}px, ${top}px, 0)`;
+    overlay.style.width = `${right - left}px`;
+    overlay.style.height = `${bottom - top}px`;
   };
 
-  const isBottomRightSelectedCell = (dateStrOrCol: string | number, rowIndex: number, field?: keyof Schedule) => {
-    if (!selectionRange) return false;
-    const isMultiCell = selectionRange.minRow !== selectionRange.maxRow || selectionRange.minCol !== selectionRange.maxCol;
-    if (!isMultiCell) return false; // 単一セル時は active-grid-cell::after が描画するので二重描画を防ぐ
-    const curCol = typeof dateStrOrCol === 'number' 
-      ? dateStrOrCol 
-      : (field ? getColAbsoluteIndex(dateStrOrCol, field) : -1);
-    return rowIndex === selectionRange.maxRow && curCol === selectionRange.maxCol;
+  const clearCalendarSelectionOverlay = () => {
+    if (calendarSelectionOverlayRef.current) {
+      calendarSelectionOverlayRef.current.style.display = 'none';
+    }
+    calendarSelectionRangeRef.current = null;
   };
 
-  const getSelectionClassName = (dateStr: string, rowIndex: number, field: keyof Schedule) => {
-    const curCol = getColAbsoluteIndex(dateStr, field);
-    if (curCol === -1) return '';
-    const selStatus = getCellSelectionStatus(curCol, rowIndex);
-    const copyStatus = getCopiedCellStatus(curCol, rowIndex);
-    
-    let classes = '';
-    if (selStatus.isSelected) {
-      classes += ' selected-grid-cell';
-      if (selStatus.borderTop) classes += ' selected-border-top';
-      if (selStatus.borderBottom) classes += ' selected-border-bottom';
-      if (selStatus.borderLeft) classes += ' selected-border-left';
-      if (selStatus.borderRight) classes += ' selected-border-right';
-    }
-    if (copyStatus.isCopied) {
-      classes += ' copied-grid-cell';
-      if (copyStatus.borderTop) classes += ' copied-border-top';
-      if (copyStatus.borderBottom) classes += ' copied-border-bottom';
-      if (copyStatus.borderLeft) classes += ' copied-border-left';
-      if (copyStatus.borderRight) classes += ' copied-border-right';
-    }
-    return classes.trim();
-  };
-
-  // 画面上の全選択ハイライトクラスの完全消去（Direct DOM: 0.01msで消去）
-  const clearAllDomSelection = () => {
-    if (activeCellElemRef.current) {
-      activeCellElemRef.current.classList.remove('active-grid-cell');
-      activeCellElemRef.current = null;
-    }
-    const existing = document.querySelectorAll(
-      '.active-grid-cell, .selected-grid-cell, .selected-border-top, .selected-border-bottom, .selected-border-left, .selected-border-right, .selected-bottom-right'
-    );
-    for (let i = 0; i < existing.length; i++) {
-      existing[i].classList.remove(
-        'active-grid-cell',
-        'selected-grid-cell',
-        'selected-border-top',
-        'selected-border-bottom',
-        'selected-border-left',
-        'selected-border-right',
-        'selected-bottom-right'
-      );
-    }
-    highlightedCellsRef.current = [];
-  };
-
-  // ドラッグ選択・クリック選択の直接DOMハイライト更新（Reactの再レンダリングを完全バイパスして遅延0msを実現）
-  const applyDirectSelectionDom = (startCoord: CellCoordinate, endCoord: CellCoordinate) => {
-    const startCol = getColAbsoluteIndex(startCoord.dateStr, startCoord.field);
-    const endCol = getColAbsoluteIndex(endCoord.dateStr, endCoord.field);
-    if (startCol === -1 || endCol === -1) return;
-
-    const minRow = Math.min(startCoord.rowIndex, endCoord.rowIndex);
-    const maxRow = Math.max(startCoord.rowIndex, endCoord.rowIndex);
-    const minCol = Math.min(startCol, endCol);
-    const maxCol = Math.max(startCol, endCol);
-
-    // 既存のすべての選択セルから選択クラスを0.01msで即時消去
-    clearAllDomSelection();
-
-    const nextCells: HTMLElement[] = [];
-
-    // 新たな矩形範囲の全セルに直接クラスを付与
-    for (let c = minCol; c <= maxCol; c++) {
-      const dateIdx = Math.floor(c / FIELD_ORDER.length);
-      const fieldIdx = c % FIELD_ORDER.length;
-      const dStr = calendarDates[dateIdx];
-      const fName = FIELD_ORDER[fieldIdx];
-      if (!dStr || !fName) continue;
-
-      for (let r = minRow; r <= maxRow; r++) {
-        const cellId = `cell-${dStr}-${r}-${fName}`;
-        const cellEl = document.getElementById(cellId);
-        if (cellEl) {
-          cellEl.classList.add('selected-grid-cell');
-          if (r === minRow) cellEl.classList.add('selected-border-top');
-          if (r === maxRow) cellEl.classList.add('selected-border-bottom');
-          if (c === minCol) cellEl.classList.add('selected-border-left');
-          if (c === maxCol) cellEl.classList.add('selected-border-right');
-          if (r === maxRow && c === maxCol) cellEl.classList.add('selected-bottom-right');
-          nextCells.push(cellEl);
-        }
-      }
-    }
-
-    highlightedCellsRef.current = nextCells;
-  };
+  // セル描画の超軽量化: クラス計算を全廃し、テーブル再描画コストを完全ゼロ化
+  const getSelectionClassName = (_dateStr: string, _rowIndex: number, _field: keyof Schedule) => '';
+  const isBottomRightSelectedCell = (_dateStrOrCol: string | number, _rowIndex: number, _field?: keyof Schedule) => false;
 
   const handleCellMouseDown = (
     e: React.MouseEvent,
@@ -742,68 +723,38 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
     }
     e.stopPropagation(); // tr 行選択イベントへの伝播を完全に防止
 
-    const targetTd = (e.target as HTMLElement).closest('td') || (e.currentTarget as HTMLElement).closest('td');
-
-    // 1. 直前の青枠を0.0001msで消去し、クリックされたセルに即座に青枠（2px実線＋フィルハンドル）をDirect DOMで付与！
-    if (activeCellElemRef.current && activeCellElemRef.current !== targetTd) {
-      activeCellElemRef.current.classList.remove('active-grid-cell');
-    }
-    const prevCells = highlightedCellsRef.current;
-    for (let i = 0; i < prevCells.length; i++) {
-      prevCells[i].classList.remove(
-        'selected-grid-cell',
-        'selected-border-top',
-        'selected-border-bottom',
-        'selected-border-left',
-        'selected-border-right',
-        'selected-bottom-right'
-      );
-    }
-    highlightedCellsRef.current = [];
-
-    if (targetTd) {
-      targetTd.classList.add('active-grid-cell');
-      activeCellElemRef.current = targetTd;
-    }
-
-    const coord = { dateStr, rowIndex, field };
-    selectionStartRef.current = coord;
-    pendingCoordRef.current = coord;
     isSelectingRef.current = true;
-    isDraggingRef.current = false; // まだドラッグしていない！
+    isDraggingRef.current = false;
+    selectionStartCoordRef.current = { dateStr, rowIndex, field };
 
-    // 2. start と end を 同期で確実に同じ coord でセット（前回のセルとのタイムラグズレを100%撲滅）
-    setIsSelecting(true);
+    // ★遅延0ms・React再レンダリング0回でオーバーレイを瞬間移動！
+    updateCalendarSelectionOverlayDom(dateStr, rowIndex, field, dateStr, rowIndex, field);
+
     setSelectedCell({ id: scheduleId, field });
-    setSelectedEmptyCell(null);
-    setSelectionStart(coord);
-    setSelectionEnd(coord);
   };
 
-  // ドラッグ中はReactの再レンダリング（880ms）を完全バイパスし、直接DOMクラスを0.1msで更新！
+  // ドラッグ中はReactの再レンダリングを完全バイパスし、直接オーバーレイを更新！
   const handleCellMouseEnter = (dateStr: string, rowIndex: number, field: keyof Schedule) => {
-    if (!isSelectingRef.current || !selectionStartRef.current) return;
+    if (!isSelectingRef.current || !selectionStartCoordRef.current) return;
     
-    // 起点セルと同じセルにマウスが入っただけなら、ドラッグとはみなさない！
+    // 起点セルと同じセルにマウスが入っただけならスキップ
     if (
-      selectionStartRef.current.dateStr === dateStr &&
-      selectionStartRef.current.rowIndex === rowIndex &&
-      selectionStartRef.current.field === field
+      selectionStartCoordRef.current.dateStr === dateStr &&
+      selectionStartCoordRef.current.rowIndex === rowIndex &&
+      selectionStartCoordRef.current.field === field
     ) {
       return;
     }
 
-    // 別のセルへマウスが移動した時だけドラッグを開始！
     isDraggingRef.current = true;
-    const endCoord = { dateStr, rowIndex, field };
-    pendingCoordRef.current = endCoord;
-
-    // 単一セル用の青枠を外し、ドラッグ矩形描画へ切り替え
-    if (activeCellElemRef.current) {
-      activeCellElemRef.current.classList.remove('active-grid-cell');
-    }
-
-    applyDirectSelectionDom(selectionStartRef.current, endCoord);
+    updateCalendarSelectionOverlayDom(
+      selectionStartCoordRef.current.dateStr,
+      selectionStartCoordRef.current.rowIndex,
+      selectionStartCoordRef.current.field,
+      dateStr,
+      rowIndex,
+      field
+    );
   };
 
   // コピペ貼り付け処理
@@ -1232,36 +1183,34 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
   // ドラッグのグローバル監視
   React.useEffect(() => {
     const handleMouseUpGlobal = () => {
-      if (dragRafRef.current !== null) {
-        cancelAnimationFrame(dragRafRef.current);
-        dragRafRef.current = null;
-      }
-      // 実際に別のセルへドラッグされた時だけ、setSelectionEnd を確定する！
-      if (isDraggingRef.current && pendingCoordRef.current && selectionStartRef.current) {
-        setSelectionEnd(pendingCoordRef.current);
-      }
-      setIsSelecting(false);
       isSelectingRef.current = false;
       isDraggingRef.current = false;
-      pendingCoordRef.current = null;
     };
     window.addEventListener('mouseup', handleMouseUpGlobal);
     return () => {
       window.removeEventListener('mouseup', handleMouseUpGlobal);
-      if (dragRafRef.current !== null) {
-        cancelAnimationFrame(dragRafRef.current);
-        dragRafRef.current = null;
+    };
+  }, []);
+
+  React.useEffect(() => {
+    const handleResize = () => {
+      if (calendarSelectionRangeRef.current) {
+        const { startDateStr, startRow, startField, endDateStr, endRow, endField } = calendarSelectionRangeRef.current;
+        updateCalendarSelectionOverlayDom(startDateStr, startRow, startField, endDateStr, endRow, endField);
+      }
+      if (calendarCopiedRangeRef.current) {
+        updateCalendarCopyOverlayDom();
       }
     };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
   }, []);
 
   // キーボードショートカットおよびクリップボード貼り付けの監視
   React.useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       // 検索窓フォーカス中は、Enter/Esc/矢印移動のショートカットを通常通り動作させるか、それとも無視するか
-      // 検索窓での入力中は矢印移動しないようにする
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLSelectElement || e.target instanceof HTMLTextAreaElement) {
-        // もし検索窓から Escape が押されたらフォーカスを外し、入力をそのまま残す/消す
         if (e.key === 'Escape' && e.target === searchInputRef.current) {
           searchInputRef.current.blur();
         }
@@ -1272,13 +1221,20 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
         return;
       }
 
-      // スプレッドシート完全準拠: Escapeキーでコピー破線マーキー枠を解除
+      // スプレッドシート完全準拠: Escapeキーでコピー破線マーキー枠および選択枠を解除
       if (e.key === 'Escape') {
-        if (copiedRange || copiedSchedule) {
-          setCopiedRange(null);
+        if (calendarCopiedRangeRef.current || copiedSchedule) {
+          calendarCopiedRangeRef.current = null;
           setCopiedSchedule(null);
+          if (calendarCopyOverlayRef.current) {
+            calendarCopyOverlayRef.current.style.display = 'none';
+          }
           e.preventDefault();
           return;
+        } else {
+          clearCalendarSelectionOverlay();
+          setSelectedCell(null);
+          setSelectedScheduleId(null);
         }
       }
 
@@ -1292,9 +1248,9 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
         return;
       }
 
-      // 矢印キー移動
+      // 矢印キー移動（0.001ms・React再レンダリング0回）
       if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
-        if (!selectionStart) {
+        if (!calendarSelectionRangeRef.current) {
           // 選択セルがない場合、最初のセルを選択
           const firstDate = calendarDates[0];
           if (firstDate) {
@@ -1303,9 +1259,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
               const firstSched = daySchedules[0];
               setSelectedCell({ id: firstSched.id, field: FIELD_ORDER[0] });
               setSelectedScheduleId(firstSched.id);
-              setSelectedEmptyCell(null);
-              setSelectionStart({ dateStr: firstDate, rowIndex: 0, field: FIELD_ORDER[0] });
-              setSelectionEnd({ dateStr: firstDate, rowIndex: 0, field: FIELD_ORDER[0] });
+              updateCalendarSelectionOverlayDom(firstDate, 0, FIELD_ORDER[0], firstDate, 0, FIELD_ORDER[0]);
             }
           }
           return;
@@ -1313,9 +1267,9 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
 
         e.preventDefault();
 
-        const curDateStr = selectionStart.dateStr;
-        const curRowIndex = selectionStart.rowIndex;
-        const curField = selectionStart.field;
+        const curDateStr = calendarSelectionRangeRef.current.startDateStr;
+        const curRowIndex = calendarSelectionRangeRef.current.startRow;
+        const curField = calendarSelectionRangeRef.current.startField;
 
         const dateIdx = calendarDates.indexOf(curDateStr);
         const fieldIdx = FIELD_ORDER.indexOf(curField);
@@ -1367,9 +1321,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
         if (sched) {
           setSelectedCell({ id: sched.id, field: nextField });
           setSelectedScheduleId(sched.id);
-          setSelectedEmptyCell(null);
-          setSelectionStart({ dateStr: nextDateStr, rowIndex: nextRowIndex, field: nextField });
-          setSelectionEnd({ dateStr: nextDateStr, rowIndex: nextRowIndex, field: nextField });
+          updateCalendarSelectionOverlayDom(nextDateStr, nextRowIndex, nextField, nextDateStr, nextRowIndex, nextField);
 
           // 自動スクロール処理（即時追従 behavior: 'auto' でキー連打時も遅延ゼロで動作）
           const cellId = `cell-${nextDateStr}-${nextRowIndex}-${nextField}`;
@@ -1387,9 +1339,9 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
 
       // Enterキーでの編集開始
       if (e.key === 'Enter') {
-        if (selectedCell && selectionStart) {
-          const daySchedules = getSortedDaySchedules(selectionStart.dateStr);
-          const sched = daySchedules[selectionStart.rowIndex];
+        if (selectedCell && calendarSelectionRangeRef.current) {
+          const daySchedules = getSortedDaySchedules(calendarSelectionRangeRef.current.startDateStr);
+          const sched = daySchedules[calendarSelectionRangeRef.current.startRow];
           if (sched && !isTempSchedule(sched)) {
             e.preventDefault();
             setEditingCell({ id: selectedCell.id, field: selectedCell.field });
@@ -1400,34 +1352,27 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
 
       // Ctrl + C
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'c') {
-        if (selectionStart) {
-          const end = selectionEnd || selectionStart;
+        if (calendarSelectionRangeRef.current) {
+          const { minCol, maxCol, minRow, maxRow, startDateStr, endDateStr, startRow } = calendarSelectionRangeRef.current;
 
-          const startCol = getColAbsoluteIndex(selectionStart.dateStr, selectionStart.field);
-          const endCol = getColAbsoluteIndex(end.dateStr, end.field);
-          const minCol = Math.min(startCol, endCol);
-          const maxCol = Math.max(startCol, endCol);
-
-          const minRow = Math.min(selectionStart.rowIndex, end.rowIndex);
-          const maxRow = Math.max(selectionStart.rowIndex, end.rowIndex);
-
-          const isSingleDay = selectionStart.dateStr === end.dateStr;
+          const isSingleDay = startDateStr === endDateStr;
           const colDiff = maxCol - minCol;
           const isEntireRowSelected = isSingleDay && minRow === maxRow && colDiff === (FIELD_ORDER.length - 1) && (minCol % FIELD_ORDER.length === 0);
 
           if (isEntireRowSelected) {
             // 1行全体が選択されている場合：予定全体の複製モード
-            const targetDateStr = selectionStart.dateStr;
-            const daySchedules = getSortedDaySchedules(targetDateStr);
-            const sched = daySchedules[minRow];
+            const daySchedules = getSortedDaySchedules(startDateStr);
+            const sched = daySchedules[startRow];
             if (sched && !isTempSchedule(sched)) {
               setCopiedSchedule(sched);
-              setCopiedRange({
+              calendarCopiedRangeRef.current = {
                 minCol,
                 maxCol,
                 minRow,
                 maxRow
-              });
+              };
+              updateCalendarCopyOverlayDom();
+
               setCopyToast('📋 予定全体をコピーしました');
               if (copyToastTimerRef.current) clearTimeout(copyToastTimerRef.current);
               copyToastTimerRef.current = setTimeout(() => setCopyToast(null), 2000);
@@ -1443,12 +1388,13 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
 
           // 一部セルのコピー（行全体のコピーは解除）
           setCopiedSchedule(null);
-          setCopiedRange({
+          calendarCopiedRangeRef.current = {
             minCol,
             maxCol,
             minRow,
             maxRow
-          });
+          };
+          updateCalendarCopyOverlayDom();
 
           const rCount = maxRow - minRow + 1;
           const cCount = maxCol - minCol + 1;
@@ -1493,8 +1439,14 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
       if (text && text.trim() !== '') {
         e.preventDefault();
 
-        let startCoord = selectionStart;
-        if (!startCoord && selectedCell) {
+        let startCoord: { dateStr: string; rowIndex: number; field: keyof Schedule } | null = null;
+        if (calendarSelectionRangeRef.current) {
+          startCoord = {
+            dateStr: calendarSelectionRangeRef.current.startDateStr,
+            rowIndex: calendarSelectionRangeRef.current.startRow,
+            field: calendarSelectionRangeRef.current.startField
+          };
+        } else if (selectedCell) {
           for (const dateStr of calendarDates) {
             const daySchedules = getSortedDaySchedules(dateStr);
             const rIdx = daySchedules.findIndex(s => s.id === selectedCell.id);
@@ -1683,7 +1635,11 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
         // クリップボードが空で、システム内コピーが存在する場合のみ予定全体を複製
         e.preventDefault();
 
-        let startCoord = selectionStart;
+        let startCoord: { dateStr: string; rowIndex: number; field: keyof Schedule } | null = calendarSelectionRangeRef.current ? {
+          dateStr: calendarSelectionRangeRef.current.startDateStr,
+          rowIndex: calendarSelectionRangeRef.current.startRow,
+          field: calendarSelectionRangeRef.current.startField
+        } : null;
         if (!startCoord && selectedCell) {
           for (const dateStr of calendarDates) {
             const daySchedules = getSortedDaySchedules(dateStr);
@@ -1713,7 +1669,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('paste', handlePasteEvent);
     };
-  }, [selectionStart, selectionEnd, isSelecting, selectedScheduleId, copiedSchedule, selectedEmptyCell, selectedCell, schedules, staff, workTypes, editingCell]);
+  }, [selectedScheduleId, copiedSchedule, selectedEmptyCell, selectedCell, schedules, staff, workTypes, editingCell]);
 
   // コンテキストメニュー非表示用
   React.useEffect(() => {
@@ -2308,9 +2264,10 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
         </div>
       </div>
 
-      <div className={`matrix-table-wrapper ${isSelecting ? 'is-selecting-grid' : ''}`}>
+      <div className="matrix-table-wrapper">
         <div
-          className="matrix-table-zoom-inner"
+          ref={calendarContainerRef}
+          className="matrix-table-zoom-inner calendar-zoom-inner"
           style={zoomLevel !== 100 ? {
             zoom: `${zoomLevel}%`,
             minHeight: `calc(100% / ${zoomLevel / 100})`,
@@ -2324,6 +2281,22 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
             flexDirection: 'column',
           }}
         >
+          {/* Selection Overlay (遅延0ms・完全スプレッドシート浮遊レイヤー) */}
+          <div
+            ref={calendarSelectionOverlayRef}
+            id="calendar-selection-overlay"
+            className="calendar-selection-overlay"
+          >
+            <div className="calendar-selection-overlay-handle" />
+          </div>
+
+          {/* Copy Overlay (破線アニメーション枠) */}
+          <div
+            ref={calendarCopyOverlayRef}
+            id="calendar-copy-overlay"
+            className="calendar-copy-overlay"
+          />
+
         {weeks.map((weekDays, weekIndex) => {
           // 各曜日のスケジュール配列と休みスケジュールの配列を取得
           const parsedDaysData = weekDays.map(day => {

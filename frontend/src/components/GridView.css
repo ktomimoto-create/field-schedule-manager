@@ -682,6 +682,62 @@
   will-change: background-color, box-shadow;
 }
 
+/* ========================================================
+   Googleスプレッドシート完全同等: Selection Overlay アーキテクチャ
+   ======================================================== */
+.grid-table-zoom-inner {
+  position: relative !important;
+}
+
+/* 青枠オーバーレイ（単一選択・複数選択共通） */
+.selection-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  border: 2px solid #2563eb;
+  pointer-events: none; /* 下のセルへのクリックや操作を一切妨害しない */
+  z-index: 25;
+  box-sizing: border-box;
+  will-change: transform, width, height;
+  transition: none !important;
+  display: none;
+}
+
+/* 複数セルドラッグ選択時のみ薄青背景色を付与 */
+.selection-overlay.is-multi-cell {
+  background-color: rgba(37, 99, 235, 0.12);
+}
+
+/* 右下フィルハンドル（小さな青い正方形 ■） */
+.selection-overlay-handle {
+  position: absolute;
+  bottom: -4px;
+  right: -4px;
+  width: 7px;
+  height: 7px;
+  background-color: #2563eb;
+  border: 1px solid #ffffff;
+  border-radius: 1px;
+  pointer-events: none;
+  z-index: 30;
+}
+
+/* コピー時の破線マーキー枠オーバーレイ */
+.copy-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  border: 2px dashed #2563eb;
+  background-color: rgba(37, 99, 235, 0.08);
+  pointer-events: none;
+  z-index: 24;
+  box-sizing: border-box;
+  animation: marqueeBlink 1.2s infinite ease-in-out;
+  display: none;
+  will-change: transform, width, height;
+  transition: none !important;
+}
+
 /* ドラッグ選択中のテーブル全体最適化（不要なCSSトランジションやテキスト選択の完全抑止で60fpsを維持） */
 .spreadsheet-table.is-selecting-grid,
 .spreadsheet-table.is-selecting-grid * {

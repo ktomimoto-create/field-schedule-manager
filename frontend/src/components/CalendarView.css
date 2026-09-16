@@ -1693,5 +1693,59 @@
   background: var(--bg-header, #f8fafc);
 }
 
+/* ========================================================
+   Googleスプレッドシート完全同等: Selection Overlay アーキテクチャ (CalendarView)
+   ======================================================== */
+.matrix-table-zoom-inner,
+.calendar-zoom-inner {
+  position: relative !important;
+}
+
+.calendar-selection-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  border: 2px solid #2563eb;
+  pointer-events: none;
+  z-index: 25;
+  box-sizing: border-box;
+  will-change: transform, width, height;
+  transition: none !important;
+  display: none;
+}
+
+.calendar-selection-overlay.is-multi-cell {
+  background-color: rgba(37, 99, 235, 0.12);
+}
+
+.calendar-selection-overlay-handle {
+  position: absolute;
+  bottom: -4px;
+  right: -4px;
+  width: 7px;
+  height: 7px;
+  background-color: #2563eb;
+  border: 1px solid #ffffff;
+  border-radius: 1px;
+  pointer-events: none;
+  z-index: 30;
+}
+
+.calendar-copy-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  border: 2px dashed #2563eb;
+  background-color: rgba(37, 99, 235, 0.08);
+  pointer-events: none;
+  z-index: 24;
+  box-sizing: border-box;
+  animation: marqueeBlink 1.2s infinite ease-in-out;
+  display: none;
+  will-change: transform, width, height;
+  transition: none !important;
+}
+
+
 
 
