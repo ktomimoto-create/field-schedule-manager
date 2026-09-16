@@ -6,7 +6,6 @@ import { buildFcAutofillPatch } from '../utils/fcAutofill';
 
 import { Plus, ChevronLeft, ChevronRight, Calendar as CalendarIcon, Filter, CheckCircle2, Download, Eye, EyeOff, Printer, Lock, ArrowUpDown, RotateCcw, Edit2 } from 'lucide-react';
 import { PrintPreviewModal } from './PrintPreviewModal';
-import { ScheduleSidePanel } from './ScheduleSidePanel';
 import './GridView.css';
 
 const parseTSV = (text: string): string[][] => {
@@ -99,14 +98,11 @@ interface GridViewProps {
 export const GridView: React.FC<GridViewProps> = ({
   schedules,
   staff,
-  workTypes = [],
   onOpenAddModal,
   onOpenEditModal,
   onSave,
-  onDelete,
   currentUserRole,
   currentStaffId,
-  currentUserName = '担当者',
   activeLocks = {},
   zoomLevel = 100,
 }) => {
@@ -315,7 +311,6 @@ export const GridView: React.FC<GridViewProps> = ({
     return s;
   });
 
-  const [selectedScheduleForPanel, setSelectedScheduleForPanel] = useState<Schedule | null>(null);
   const [sortColumn, setSortColumn] = useState<'default' | 'unit_number' | 'property_name' | 'target_time' | 'staff_name'>('default');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
 
@@ -371,24 +366,6 @@ export const GridView: React.FC<GridViewProps> = ({
     const cmp = valA.localeCompare(valB, 'ja', { numeric: true });
     return sortOrder === 'asc' ? cmp : -cmp;
   });
-
-  const currentIndex = selectedScheduleForPanel 
-    ? sortedSchedules.findIndex(s => s.id === selectedScheduleForPanel.id)
-    : -1;
-  const hasPrev = currentIndex > 0;
-  const hasNext = currentIndex >= 0 && currentIndex < sortedSchedules.length - 1;
-
-  const handleSelectPrev = () => {
-    if (hasPrev) {
-      setSelectedScheduleForPanel(sortedSchedules[currentIndex - 1]);
-    }
-  };
-
-  const handleSelectNext = () => {
-    if (hasNext) {
-      setSelectedScheduleForPanel(sortedSchedules[currentIndex + 1]);
-    }
-  };
 
   const handleSortToggle = (column: 'unit_number' | 'property_name' | 'target_time' | 'staff_name') => {
     clearSelectionOverlay();
@@ -988,13 +965,11 @@ export const GridView: React.FC<GridViewProps> = ({
 
                 const isAdmin = canManageSchedules(currentUserRole);
 
-                const isSelected = selectedScheduleForPanel?.id === schedule.id;
-
                 return (
                   <tr 
                     key={schedule.id} 
                     onDoubleClick={isAdmin ? () => onOpenEditModal(schedule) : undefined}
-                    className={`spreadsheet-row ${isCompleted ? 'row-completed' : ''} ${isSelected ? 'row-selected' : ''}`}
+                    className={`spreadsheet-row ${isCompleted ? 'row-completed' : ''}`}
                   >
                     <td 
                       id={`grid-cell-${rowIndex}-0`}
@@ -1055,13 +1030,9 @@ export const GridView: React.FC<GridViewProps> = ({
                           className="cell-edit-modal-btn"
                           onClick={(e) => {
                             e.stopPropagation();
-                            setSelectedScheduleForPanel(schedule);
-                          }}
-                          onDoubleClick={(e) => {
-                            e.stopPropagation();
                             if (isAdmin) onOpenEditModal(schedule);
                           }}
-                          title="鉛筆マーク: 予定を編集（右側パネルを開く） / ダブルクリックで詳細モーダル"
+                          title="予定を編集"
                         >
                           <Edit2 size={12} />
                         </button>
@@ -1293,27 +1264,6 @@ export const GridView: React.FC<GridViewProps> = ({
         initialFilterStaff={myScheduleOnly && currentStaffId !== null ? String(currentStaffId) : filterStaff}
       />
 
-      <ScheduleSidePanel
-        schedule={selectedScheduleForPanel}
-        isOpen={selectedScheduleForPanel !== null}
-        onClose={() => setSelectedScheduleForPanel(null)}
-        onSave={async (data) => {
-          await onSave(data);
-          if (selectedScheduleForPanel) {
-            setSelectedScheduleForPanel(prev => prev ? { ...prev, ...data } : null);
-          }
-        }}
-        onDelete={onDelete}
-        staff={staff}
-        schedules={schedules}
-        workTypes={workTypes}
-        currentUserRole={currentUserRole}
-        currentUserName={currentUserName}
-        onSelectPrev={handleSelectPrev}
-        onSelectNext={handleSelectNext}
-        hasPrev={hasPrev}
-        hasNext={hasNext}
-      />
 
       {/* スプレッドシート風コピートースト通知 */}
       {copyToast && (
