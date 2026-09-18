@@ -5,49 +5,50 @@
   min-height: 0;
   height: 100%;
   overflow: hidden;
-  padding: 1.5rem;
+  padding: 0.5rem 0.85rem;
   margin-bottom: 0;
   box-sizing: border-box;
 }
 
-
 .matrix-header {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 1.25rem;
-  gap: 1rem;
-  flex-wrap: wrap;
+  flex-direction: column;
+  align-items: stretch;
+  margin-bottom: 0.4rem;
+  gap: 0.35rem;
+  flex-shrink: 0;
 }
 
 .matrix-title-nav {
   display: flex;
   align-items: center;
-  gap: 1.5rem;
+  gap: 0.75rem;
 }
 
 .matrix-controls {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 1rem;
-  flex-wrap: wrap;
+  gap: 0.4rem;
+  flex-wrap: nowrap !important;
   width: 100%;
 }
 
 .matrix-nav-buttons.date-group {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  flex-wrap: wrap;
+  gap: 0.3rem;
+  flex-wrap: nowrap !important;
+  flex-shrink: 0;
 }
 
 .matrix-nav-buttons.action-group {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  flex-wrap: wrap;
+  gap: 0.3rem;
+  flex-wrap: nowrap !important;
   margin-left: auto;
+  flex-shrink: 0;
 }
 
 .matrix-nav-buttons button,
@@ -57,21 +58,24 @@
   display: inline-flex !important;
   align-items: center;
   justify-content: center;
-  height: 32px;
+  height: 30px;
+  font-size: 0.78rem !important;
+  padding: 0 0.55rem !important;
 }
 
 .matrix-title-nav h2 {
-  font-size: 1.4rem;
+  font-size: 1.15rem;
   font-weight: 700;
   color: var(--text-primary);
+  margin: 0;
 }
 
 .matrix-date-range {
-  font-size: 0.95rem;
+  font-size: 0.85rem;
   font-weight: 600;
   color: var(--primary);
   background: rgba(99, 102, 241, 0.08);
-  padding: 0.3rem 0.8rem;
+  padding: 0.15rem 0.6rem;
   border-radius: var(--radius-sm);
   border: 1px solid rgba(99, 102, 241, 0.2);
 }
@@ -1335,24 +1339,24 @@
   position: relative;
   display: flex;
   align-items: center;
-  margin-left: 0.5rem;
+  margin-left: 0.25rem;
 }
 
 .calendar-search-icon {
   position: absolute;
-  left: 10px;
+  left: 9px;
   color: var(--text-muted, #94a3b8);
   pointer-events: none;
 }
 
 .calendar-search-input {
-  width: 200px;
-  height: 32px;
-  padding: 0 28px 0 30px;
+  width: 170px;
+  height: 30px;
+  padding: 0 24px 0 28px;
   border-radius: 6px;
   border: 1px solid var(--border-color, #e2e8f0);
   background: var(--card-bg, #ffffff);
-  font-size: 0.875rem;
+  font-size: 0.8rem;
   font-weight: 500;
   color: var(--text-main, #1e293b);
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
@@ -1362,7 +1366,7 @@
 .calendar-search-input:focus {
   border-color: var(--primary, #4f46e5);
   box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15);
-  width: 250px; /* フォーカス時に少し幅広にするアニメーション */
+  width: 210px; /* フォーカス時に少し幅広にするアニメーション */
 }
 
 .calendar-search-clear-btn {

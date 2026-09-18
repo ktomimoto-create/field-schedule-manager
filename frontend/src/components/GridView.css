@@ -4,15 +4,15 @@
   flex: 1;
   min-height: 0;
   overflow: hidden;
-  padding: 1.5rem;
+  padding: 0.5rem 0.85rem;
   margin-bottom: 0;
 }
 
 .grid-view-header {
   display: flex;
   flex-direction: column;
-  gap: 1.25rem;
-  margin-bottom: 1.5rem;
+  gap: 0.35rem;
+  margin-bottom: 0.4rem;
   width: 100%;
 }
 
@@ -21,19 +21,17 @@
   justify-content: space-between;
   align-items: center;
   width: 100%;
-  flex-wrap: wrap;
-  gap: 1rem;
+  gap: 0.5rem;
 }
 
 .grid-header-top-right {
   display: flex;
   align-items: center;
-  gap: 1.25rem;
-  flex-wrap: wrap;
+  gap: 0.75rem;
 }
 
 .grid-double-click-guide {
-  font-size: 0.8rem;
+  font-size: 0.78rem;
   color: var(--text-muted);
   font-style: italic;
 }
@@ -43,24 +41,27 @@
   justify-content: space-between;
   align-items: center;
   width: 100%;
-  flex-wrap: wrap;
-  gap: 1rem;
-  padding-top: 0.75rem;
+  flex-wrap: nowrap !important;
+  gap: 0.5rem;
+  padding-top: 0.35rem;
   border-top: 1px dashed var(--border-glass);
 }
 
 .grid-filters-left {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-  flex-wrap: wrap;
+  gap: 0.35rem;
+  flex-wrap: nowrap !important;
+  flex-shrink: 0;
 }
 
 .grid-actions-right {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-  flex-wrap: wrap;
+  gap: 0.35rem;
+  flex-wrap: nowrap !important;
+  margin-left: auto;
+  flex-shrink: 0;
 }
 
 .grid-date-selector {
