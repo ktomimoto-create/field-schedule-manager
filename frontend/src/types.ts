@@ -417,9 +417,9 @@ export const compareValuesWithEmptyLast = (
  * スプレッドシート運用準拠の並び順:
  *   1. キャンセル予定は最下部
  *   2. 未割当仮想空行（temp-unassigned）は最下部直前
- *   3. 第1ソートキー: 号機（unit_number）昇順（空欄は末尾）
+ *   3. 第1ソートキー: コース（course）昇順（コース番号あり優先、空欄は末尾）
  *   4. 第2ソートキー: エリア（area）昇順（空欄は末尾）
- *   5. 第3ソートキー: コース（course）昇順（空欄は末尾）
+ *   5. 第3ソートキー: 号機（unit_number）昇順（自然順ソート、空欄は末尾）
  *   6. タイブレーク: 指定時間（target_time / time_limit）昇順
  *   7. タイブレーク: 物件名（property_name）昇順
  *   8. タイブレーク: ID昇順
@@ -439,17 +439,17 @@ export const compareSchedules = (a: Schedule, b: Schedule): number => {
     return aTemp ? 1 : -1;
   }
 
-  // 3. 第1キー: 号機（unit_number）昇順（空欄は末尾）
-  const unitCmp = compareValuesWithEmptyLast(a.unit_number, b.unit_number, true);
-  if (unitCmp !== 0) return unitCmp;
+  // 3. 第1キー: コース（course）昇順（空欄は末尾）
+  const courseCmp = compareValuesWithEmptyLast(a.course, b.course, true);
+  if (courseCmp !== 0) return courseCmp;
 
   // 4. 第2キー: エリア（area）昇順（空欄は末尾）
   const areaCmp = compareValuesWithEmptyLast(a.area, b.area, false);
   if (areaCmp !== 0) return areaCmp;
 
-  // 5. 第3キー: コース（course）昇順（空欄は末尾）
-  const courseCmp = compareValuesWithEmptyLast(a.course, b.course, true);
-  if (courseCmp !== 0) return courseCmp;
+  // 5. 第3キー: 号機（unit_number）昇順（空欄は末尾）
+  const unitCmp = compareValuesWithEmptyLast(a.unit_number, b.unit_number, true);
+  if (unitCmp !== 0) return unitCmp;
 
   // 6. タイブレーク: 指定時間（target_time または time_limit）昇順
   const aTime = a.target_time || a.time_limit || '';
