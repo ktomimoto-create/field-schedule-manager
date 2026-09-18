@@ -2551,14 +2551,16 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
               style={showFullText ? { backgroundColor: 'var(--primary)', color: '#fff', borderColor: 'var(--primary)' } : undefined}
             >
               {showFullText ? <EyeOff size={14} style={{ marginRight: '4px' }} /> : <Eye size={14} style={{ marginRight: '4px' }} />}
-              <span>{showFullText ? '標準表示に戻す' : '全文表示に切替'}</span>
+              <span className="btn-text-full">{showFullText ? '標準表示に戻す' : '全文表示に切替'}</span>
+              <span className="btn-text-short">{showFullText ? '標準表示' : '全文表示'}</span>
             </button>
             <button 
               className="btn btn-secondary btn-sm-nav" 
               onClick={onOpenPasteImportModal} 
               title="Excelやスプレッドシートからコピーしたデータを貼り付け"
             >
-              スプレッドシートから貼り付け
+              <span className="btn-text-full">スプレッドシートから貼り付け</span>
+              <span className="btn-text-short">シート貼付</span>
             </button>
             <button 
               className="btn btn-primary btn-sm-nav" 
@@ -2566,7 +2568,8 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
               title="新規予定を追加"
             >
               <Plus size={14} style={{ marginRight: '4px' }} />
-              予定を追加
+              <span className="btn-text-full">予定を追加</span>
+              <span className="btn-text-short">予定追加</span>
             </button>
             <div className="calendar-search-wrapper">
               <Search size={14} className="calendar-search-icon" />
@@ -2574,7 +2577,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                 ref={searchInputRef}
                 type="text"
                 className="calendar-search-input"
-                placeholder="号機・物件名・対応者で検索 (Ctrl+F)"
+                placeholder="検索 (Ctrl+F)"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
               />

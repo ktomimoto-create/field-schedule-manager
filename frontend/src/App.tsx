@@ -1282,7 +1282,7 @@ function App() {
                 title="操作ガイド・よくある質問（ショートカット: ?）"
               >
                 <HelpCircle size={16} />
-                <span>操作ガイド</span>
+                <span className="help-btn-text">操作ガイド</span>
                 <span className="help-shortcut-badge">?</span>
               </button>
 
@@ -1291,7 +1291,11 @@ function App() {
               {/* Azure (Entra ID) ログインは user_metadata に写真URLを返さないため、
                   スタッフ一覧と同じく talkscript-flow profiles 由来の avatar_url にメールで突合する */}
               <div className="user-profile-section">
-                <div className="user-profile-trigger" onClick={() => setShowUserMenu(!showUserMenu)}>
+                <div 
+                  className="user-profile-trigger" 
+                  onClick={() => setShowUserMenu(!showUserMenu)}
+                  title={`アカウント: ${user.user_metadata?.full_name || user.email}`}
+                >
                   {(() => {
                     const loginEmail = (user.email || '').toLowerCase().trim();
                     const matchedProfileAvatar = loginEmail

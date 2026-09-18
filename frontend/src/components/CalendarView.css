@@ -63,6 +63,35 @@
   padding: 0 0.55rem !important;
 }
 
+.btn-text-short {
+  display: none;
+}
+
+.btn-text-full {
+  display: inline;
+}
+
+/* ノートPC・中画面（1400px以下）でのボタンテキスト短縮＆見切れ防止 */
+@media (max-width: 1400px) {
+  .btn-text-short {
+    display: inline;
+  }
+  .btn-text-full {
+    display: none;
+  }
+  .matrix-nav-buttons button,
+  .matrix-controls button {
+    padding: 0 0.45rem !important;
+    font-size: 0.75rem !important;
+  }
+  .matrix-controls {
+    gap: 0.25rem !important;
+  }
+  .matrix-nav-buttons.action-group {
+    gap: 0.25rem !important;
+  }
+}
+
 .matrix-title-nav h2 {
   font-size: 1.15rem;
   font-weight: 700;
@@ -1350,13 +1379,13 @@
 }
 
 .calendar-search-input {
-  width: 170px;
+  width: 140px;
   height: 30px;
-  padding: 0 24px 0 28px;
+  padding: 0 24px 0 26px;
   border-radius: 6px;
   border: 1px solid var(--border-color, #e2e8f0);
   background: var(--card-bg, #ffffff);
-  font-size: 0.8rem;
+  font-size: 0.78rem;
   font-weight: 500;
   color: var(--text-main, #1e293b);
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
@@ -1366,7 +1395,16 @@
 .calendar-search-input:focus {
   border-color: var(--primary, #4f46e5);
   box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15);
-  width: 210px; /* フォーカス時に少し幅広にするアニメーション */
+  width: 180px; /* フォーカス時に少し幅広にするアニメーション */
+}
+
+@media (max-width: 1200px) {
+  .calendar-search-input {
+    width: 120px;
+  }
+  .calendar-search-input:focus {
+    width: 160px;
+  }
 }
 
 .calendar-search-clear-btn {

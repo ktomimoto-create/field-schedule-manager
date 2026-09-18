@@ -64,6 +64,28 @@
   flex-shrink: 0;
 }
 
+.grid-actions-right button,
+.grid-filters-left select,
+.grid-filters-left button {
+  height: 30px;
+  font-size: 0.78rem !important;
+  padding: 0 0.55rem !important;
+  white-space: nowrap !important;
+  flex-shrink: 0 !important;
+}
+
+@media (max-width: 1400px) {
+  .grid-actions-right button,
+  .grid-filters-left select,
+  .grid-filters-left button {
+    padding: 0 0.45rem !important;
+    font-size: 0.75rem !important;
+  }
+  .grid-header-bottom-row {
+    gap: 0.35rem !important;
+  }
+}
+
 .grid-date-selector {
   display: flex;
   align-items: center;
