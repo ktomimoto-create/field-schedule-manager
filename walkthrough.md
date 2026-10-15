@@ -928,6 +928,50 @@ GoogleスプレッドシートやExcel Webが超高速に動く理由は、**「
 - `specification.md`
 - `walkthrough.md`（本ドキュメント）
 
+---
+
+## 2026-10-15: 開発者用技術仕様・運用マニュアル（DEVELOPER_MANUAL.md）の策定
+
+### 1. ユーザー様からのご要望
+> 「開発者用マニュアル　硬派な感じで作れる？」
+
+---
+
+### 2. 実施した策定内容
+プロのシステムエンジニア・テクニカルリードが参照するに足る、技術的厳密性と体系性を備えた重厚な技術文書として、[DEVELOPER_MANUAL.md](file:///C:/Users/000644/.gemini/antigravity/scratch/field-schedule-manager/docs/DEVELOPER_MANUAL.md) を策定・新規作成しました。
+
+- **主要章立て**:
+  1. **第1章 システム概要と設計思想**: 現場対応業務基盤としての存在意義、ゼロ遅延レンダリング・分散排他制御・多層防護の3大コア原則、システム全体構成図（Mermaid Flowchart）。
+  2. **第2章 技術スタックとコンポーネント構成**: React 19 / TypeScript / Vite / Supabase / Entra ID の技術選定一覧およびディレクトリ構造。
+  3. **第3章 データモデルと制約規則**: `schedules` をはじめとする全テーブル定義、暗黙メタデータ構文（`[__parent_id:...]`）、リレーショナルER図（Mermaid ERDiagram）。
+  4. **第4章 中核エンジンのアーキテクチャとアルゴリズム**:
+     - 高速スプレッドシート互換エンジン（0ms DOM操作）
+     - CSS `zoom` 環境下での座標除算補正（Scale Invariant Transformation）
+     - Chromiumの循環パーセンテージ解決（Cyclic Dependency）の完全排除
+     - 業務標準多段ソートアルゴリズム（`compareSchedules`）
+     - リアルタイム分散排他ロック（Realtime Distributed Lock シーケンス図）
+  5. **第5章 開発・運用プロトコル（Git Flow & CI/CD）**:
+     - 二系統ブランチ戦略（`main` 本番保護 / `develop` 通常開発）の厳格な運用規約
+     - Conventional Commits コミットメッセージ規約
+     - 必須ドキュメント運用規則（`specification.md` / `walkthrough.md` の常時更新）
+  6. **第6章 環境構築と検証手順**: 前提要件、セットアップ手順、TypeScript/Viteビルド検証手順。
+  7. **第7章 トラブルシューティングと障害対応**: 過去に発生した重要バグ（ズーム座標ズレ、111万px肥大化、行選択即時解除）の根本原因と恒久対策一覧。
+  8. **第8章 セキュリティ・監査ログ規約**: `audit_logs` による不可逆証跡、お試しモード（Sandbox Isolation）のデータ物理分離プロトコル。
+
+---
+
+### 3. 検証結果
+- アーティファクトおよびリポジトリ内 `docs/DEVELOPER_MANUAL.md` の双方に完全なマークダウン形式で配置完了。
+- Mermaid ダイアグラム（システム構成図、ER図、排他制御シーケンス図）の構文検証完了。
+
+---
+
+### 4. 更新したドキュメント
+- `docs/DEVELOPER_MANUAL.md`（新規作成）
+- `specification.md`（第27.27章を追加）
+- `walkthrough.md`（本ドキュメント）
+
+
 
 
 
