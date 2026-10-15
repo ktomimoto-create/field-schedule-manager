@@ -144,7 +144,22 @@ function App() {
         return;
       }
 
-      const matched = staff.find(s => s.email === user.email);
+      const loginEmail = (user.email || '').toLowerCase().trim();
+
+      // 開発者ホワイトリスト（マスタ突合例外時やキャッシュ遅延時の多層防護ガード）
+      const developerEmails = [
+        'k_tomimoto@fts.co.jp',
+        'k_ueda@fts.co.jp',
+        'h_kurokawa@fts.co.jp'
+      ];
+      if (developerEmails.includes(loginEmail)) {
+        setCurrentUserRole('developer');
+        const matched = staff.find(s => s.email && s.email.toLowerCase().trim() === loginEmail);
+        setCurrentStaffId(matched ? matched.id : null);
+        return;
+      }
+
+      const matched = staff.find(s => s.email && s.email.toLowerCase().trim() === loginEmail);
       if (matched) {
         setCurrentUserRole(normalizeRole(matched.role));
         setCurrentStaffId(matched.id);

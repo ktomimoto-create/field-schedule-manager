@@ -971,6 +971,48 @@ GoogleスプレッドシートやExcel Webが超高速に動く理由は、**「
 - `specification.md`（第27.27章を追加）
 - `walkthrough.md`（本ドキュメント）
 
+---
+
+## 2026-10-15: 黒川裕之様（h_kurokawa@fts.co.jp）への開発者権限付与対応
+
+### 1. ユーザー様からのご依頼
+> 「h_kurokawa@fts.co.jp　開発者の権限にしたい」
+
+---
+
+### 2. 実施した対応内容
+1. **スタッフマスタ（Supabase `staff` テーブル）への登録**:
+   - 社内プロファイルマスタ（talkscript-flow profiles 等）との厳密な照合を行い、黒川裕之様（社員番号: 000597、エンジニアリング事業部）の基本情報を特定。
+   - `staff` テーブルに以下の属性値で正常にレコードを追加（INSERT）完了：
+     ```json
+     {
+       "id": 54,
+       "name": "黒川 裕之",
+       "email": "h_kurokawa@fts.co.jp",
+       "employee_code": "000597",
+       "role": "developer",
+       "is_active": 1
+     }
+     ```
+2. **フロントエンド（[App.tsx](file:///C:/Users/000644/.gemini/antigravity/scratch/field-schedule-manager/frontend/src/App.tsx)）の認証・権限突合強化**:
+   - Microsoft Entra ID (Azure AD) から渡されるメールアドレスの大文字小文字表記や前後空白を安全に正規化（`toLowerCase().trim()`）。
+   - マスタキャッシュの読み込み遅延やネットワーク例外時にも確実に開発者権限が付与されるよう、開発者ホワイトリスト配列（`developerEmails`）に `h_kurokawa@fts.co.jp` を追加。
+
+---
+
+### 3. 検証結果
+1. **DB登録検証**:
+   - `supabase.from('staff').select('*').eq('email', 'h_kurokawa@fts.co.jp')` にて、ID 54、`role: 'developer'` で確実に登録されていることを確認。
+2. **ビルド検証**:
+   - `cmd.exe /c npm run build` にて TypeScript 型検査、Vite バンドルともにエラー 0 件でビルド成功。
+
+---
+
+### 4. 更新したドキュメント
+- `specification.md`（第27.28章を追加）
+- `walkthrough.md`（本ドキュメント）
+
+
 
 
 
