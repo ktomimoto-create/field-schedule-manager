@@ -4,8 +4,10 @@ import type { Schedule, Staff, UserRole, WorkType } from '../types';
 import { getShortName, cleanMetadata, splitCoWorkers, canManageSchedules, normalizeTargetTime, compareSchedules, toHalfWidth, findStaffByName } from '../types';
 import { buildFcAutofillPatch } from '../utils/fcAutofill';
 
-import { Plus, ChevronLeft, ChevronRight, Calendar as CalendarIcon, Filter, CheckCircle2, Download, Eye, EyeOff, Printer, Lock, ArrowUpDown, RotateCcw, Edit2 } from 'lucide-react';
+import { Plus, ChevronLeft, ChevronRight, Calendar as CalendarIcon, Filter, CheckCircle2, Download, Eye, EyeOff, Printer, Lock, ArrowUpDown, RotateCcw, Edit2, LayoutList, ChartGantt, Table2 } from 'lucide-react';
 import { PrintPreviewModal } from './PrintPreviewModal';
+import { DayScheduleCards } from './ScheduleCards';
+import { ScheduleTimeAxis } from './ScheduleTimeAxis';
 import './GridView.css';
 
 const parseTSV = (text: string): string[][] => {
@@ -257,6 +259,18 @@ export const GridView: React.FC<GridViewProps> = ({
   const [filterStaff, setFilterStaff] = useState<string>('all');
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [isPrintPreviewOpen, setIsPrintPreviewOpen] = useState(false);
+
+  // 表示の切替: カード一覧（既定）/ 時間軸 / 表
+  const [viewMode, setViewMode] = useState<'card' | 'timeline' | 'table'>(() => {
+    try {
+      const saved = localStorage.getItem('field_app_grid_view_mode');
+      if (saved === 'card' || saved === 'timeline' || saved === 'table') return saved;
+    } catch { /* 保存できない環境では既定のカード */ }
+    return 'card';
+  });
+  useEffect(() => {
+    try { localStorage.setItem('field_app_grid_view_mode', viewMode); } catch { /* noop */ }
+  }, [viewMode]);
 
   const changeDate = (days: number) => {
     const d = new Date(selectedDate);
@@ -540,7 +554,7 @@ export const GridView: React.FC<GridViewProps> = ({
     return () => {
       wrapper.removeEventListener('scroll', handleScroll);
     };
-  }, []);
+  }, [viewMode]);
 
   useLayoutEffect(() => {
     const wrapper = tableWrapperRef.current;
@@ -951,7 +965,26 @@ export const GridView: React.FC<GridViewProps> = ({
           </div>
 
           <div className="grid-actions-right">
-            {sortColumn !== 'default' && (
+            <div className="view-mode-switch" role="group" aria-label="表示の切替">
+              {([
+                { key: 'card', icon: <LayoutList size={16} />, label: 'カード一覧' },
+                { key: 'timeline', icon: <ChartGantt size={16} />, label: '時間軸' },
+                { key: 'table', icon: <Table2 size={16} />, label: '表' },
+              ] as const).map(v => (
+                <button
+                  key={v.key}
+                  type="button"
+                  className={`view-mode-btn ${viewMode === v.key ? 'active' : ''}`}
+                  onClick={() => setViewMode(v.key)}
+                  title={`${v.label}で表示`}
+                  aria-pressed={viewMode === v.key}
+                >
+                  {v.icon}
+                </button>
+              ))}
+            </div>
+
+            {viewMode === 'table' && sortColumn !== 'default' && (
               <button 
                 className="btn btn-secondary"
                 onClick={() => {
@@ -966,6 +999,7 @@ export const GridView: React.FC<GridViewProps> = ({
               </button>
             )}
 
+            {viewMode === 'table' && (
             <button 
               className={`btn btn-toggle-view ${showFullText ? 'active' : ''}`} 
               onClick={() => setShowFullText(!showFullText)}
@@ -974,6 +1008,7 @@ export const GridView: React.FC<GridViewProps> = ({
               {showFullText ? <EyeOff size={15} /> : <Eye size={15} />}
               <span>{showFullText ? '標準表示に戻す' : '全文表示に切替'}</span>
             </button>
+            )}
 
             <button 
               className="btn btn-action-excel" 
@@ -1005,6 +1040,34 @@ export const GridView: React.FC<GridViewProps> = ({
         </div>
       )}
 
+      {viewMode !== 'table' ? (
+        <div className="grid-table-wrapper grid-cards-wrapper">
+          {viewMode === 'card' ? (
+            <div style={zoomLevel !== 100 ? { zoom: `${zoomLevel}%` } : undefined}>
+              <DayScheduleCards
+                schedules={sortedSchedules}
+                staff={staff}
+                canEdit={isAdmin}
+                activeLocks={activeLocks}
+                onOpenEditModal={onOpenEditModal}
+                onToggleComplete={handleQuickCompleteToggle}
+              />
+            </div>
+          ) : (
+            <div style={zoomLevel !== 100 ? { zoom: `${zoomLevel}%` } : undefined}>
+              <ScheduleTimeAxis
+                schedules={sortedSchedules}
+                staff={staff}
+                date={selectedDate}
+                canEdit={isAdmin}
+                activeLocks={activeLocks}
+                onOpenEditModal={onOpenEditModal}
+                onToggleComplete={handleQuickCompleteToggle}
+              />
+            </div>
+          )}
+        </div>
+      ) : (
       <div ref={tableWrapperRef} className="grid-table-wrapper">
         <div
           ref={tableContainerRef}
@@ -1383,6 +1446,7 @@ export const GridView: React.FC<GridViewProps> = ({
         </table>
         </div>
       </div>
+      )}
 
       <div className="grid-view-footer">
         {isAdmin ? (

@@ -971,3 +971,38 @@ tr:hover .cell-edit-modal-btn {
 }
 
 
+
+/* 表示の切替（カード一覧 / 時間軸 / 表）: アイコンのみ＋ツールチップ */
+.view-mode-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--border-glass);
+  border-radius: var(--radius-sm);
+  background: var(--bg-primary);
+}
+.view-mode-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 30px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+.view-mode-btn:hover {
+  filter: brightness(1.12);
+  color: var(--primary);
+}
+.view-mode-btn.active {
+  border-color: rgba(79, 70, 229, 0.35);
+  background: rgba(79, 70, 229, 0.08);
+  color: var(--primary);
+}
+.grid-cards-wrapper {
+  background: var(--bg-primary);
+}

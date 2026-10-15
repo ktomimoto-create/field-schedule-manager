@@ -1801,3 +1801,108 @@
 
 
 
+
+/* ===== カード一覧表示（日ごとの列にカードを積む） ===== */
+.view-mode-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--border-glass);
+  border-radius: var(--radius-sm);
+  background: var(--bg-primary);
+  flex-shrink: 0;
+}
+.view-mode-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 28px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+.view-mode-btn:hover {
+  filter: brightness(1.12);
+  color: var(--primary);
+}
+.view-mode-btn.active {
+  border-color: rgba(79, 70, 229, 0.35);
+  background: rgba(79, 70, 229, 0.08);
+  color: var(--primary);
+}
+
+.day-column-block.day-card-column {
+  flex: 0 0 300px;
+  width: 300px;
+  display: flex;
+  flex-direction: column;
+}
+.day-card-header.matrix-day-header-super {
+  position: static;
+  height: auto;
+  min-height: 42px;
+}
+.day-card-header .day-header-content-super {
+  flex-wrap: wrap;
+  gap: 6px !important;
+  padding: 2px 4px !important;
+}
+.day-card-freespace {
+  padding: 4px 6px;
+  border-bottom: 1px solid var(--border-glass);
+  background: var(--bg-column-header);
+}
+.day-card-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 11px 10px 8px; /* ホバーで右へ 3px 動くので右に余白 */
+  flex: 1;
+}
+.day-card-empty {
+  padding: 1.5rem 0;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+.day-card-free {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 6px;
+  align-items: start;
+  margin-top: 4px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--border-glass);
+  font-size: 0.75rem;
+  line-height: 1.4;
+}
+.day-card-free-label {
+  padding-top: 3px;
+  color: var(--text-muted);
+  font-weight: 700;
+}
+.day-card-free-names {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.day-card-free-chip {
+  padding: 2px 6px;
+  border: 1px solid var(--border-glass);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 0.72rem;
+  line-height: 1.4;
+  cursor: pointer;
+}
+.day-card-free-chip:hover {
+  border-color: rgba(79, 70, 229, 0.35);
+  color: var(--primary);
+}

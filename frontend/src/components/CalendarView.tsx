@@ -3,7 +3,8 @@ import type { Schedule, Staff, WorkType, UserRole } from '../types';
 import { getShortName, findStaffByName, toHalfWidth, normalizeTargetTime, splitCoWorkers, compareSchedules } from '../types';
 import { buildFcAutofillPatch } from '../utils/fcAutofill';
 
-import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Edit2, Plus, Search, Lock, Eye, EyeOff } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Edit2, Plus, Search, Lock, Eye, EyeOff, LayoutList, Table2 } from 'lucide-react';
+import { CompactScheduleCard } from './ScheduleCards';
 import './CalendarView.css';
 
 // ローカルタイムゾーン基準で YYYY-MM-DD 形式の日付文字列を生成する
@@ -294,6 +295,18 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
   React.useEffect(() => {
     localStorage.setItem('field_app_calendar_full_text', String(showFullText));
   }, [showFullText]);
+
+  // 表示の切替: カード一覧（既定）/ 表
+  const [viewMode, setViewMode] = useState<'card' | 'table'>(() => {
+    try {
+      return localStorage.getItem('field_app_calendar_view_mode') === 'table' ? 'table' : 'card';
+    } catch {
+      return 'card';
+    }
+  });
+  React.useEffect(() => {
+    try { localStorage.setItem('field_app_calendar_view_mode', viewMode); } catch { /* noop */ }
+  }, [viewMode]);
 
   const triggerDatePicker = () => {
     if (dateInputRef.current) {
@@ -2621,9 +2634,18 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
             </button>
           </div>
           <div className="matrix-nav-buttons action-group">
-            <button 
+            <div className="view-mode-switch" role="group" aria-label="表示の切替">
+              <button type="button" className={`view-mode-btn ${viewMode === 'card' ? 'active' : ''}`} onClick={() => setViewMode('card')} title="カード一覧で表示" aria-pressed={viewMode === 'card'}>
+                <LayoutList size={16} />
+              </button>
+              <button type="button" className={`view-mode-btn ${viewMode === 'table' ? 'active' : ''}`} onClick={() => setViewMode('table')} title="表で表示" aria-pressed={viewMode === 'table'}>
+                <Table2 size={16} />
+              </button>
+            </div>
+            {viewMode === 'table' && (
+            <button
               type="button"
-              className={`btn btn-secondary btn-sm-nav ${showFullText ? 'active' : ''}`} 
+              className={`btn btn-secondary btn-sm-nav ${showFullText ? 'active' : ''}`}  
               onClick={() => setShowFullText(!showFullText)} 
               title={showFullText ? "2〜3行の標準折り返し表示に戻します" : "すべての予定の物件名・作業内容・備考等のテキストを折り返して全行展開します"}
               style={showFullText ? { backgroundColor: 'var(--primary)', color: '#fff', borderColor: 'var(--primary)' } : undefined}
@@ -2632,6 +2654,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
               <span className="btn-text-full">{showFullText ? '標準表示に戻す' : '全文表示に切替'}</span>
               <span className="btn-text-short">{showFullText ? '標準表示' : '全文表示'}</span>
             </button>
+            )}
             <button 
               className="btn btn-secondary btn-sm-nav" 
               onClick={onOpenPasteImportModal} 
@@ -2812,38 +2835,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                   if (dayOfWeekNum === 6) dayClass = 'saturday-column';
                   if (dayOfWeekNum === 0 || isDayHoliday) dayClass = 'sunday-column';
 
-                  return (
-                    <div 
-                      key={day.dateStr} 
-                      id={`day-block-${day.dateStr}`}
-                      className={`day-column-block ${isToday ? 'today-column' : ''} ${dayClass}`}
-                    >
-                      <table className={`day-calendar-table ${showFullText ? 'show-full-text' : ''}`}>
-                        <colgroup>
-                          <col style={{ width: '100px' }} /> {/* 依頼番号 (一番左へ配置) */}
-                          <col style={{ width: '65px' }} /> {/* タイプ (見切れ防止のため幅を確保) */}
-                          <col style={{ width: '45px' }} /> {/* BOX */}
-                          <col style={{ width: '65px' }} /> {/* 号機 */}
-                          <col style={{ width: '200px' }} /> {/* 物件名 (2行折り返し時に収まりやすいよう拡張) */}
-                          <col style={{ width: '105px' }} /> {/* 種別 (「依頼者承認済」が見切れないよう拡張) */}
-                          <col style={{ width: '250px' }} /> {/* 作業内容 (3行折り返し時にしっかり読めるよう拡張) */}
-                          <col style={{ width: '75px' }} /> {/* 時間 */}
-                          <col style={{ width: '115px' }} /> {/* 対応者 (FE/SF/FR等委託スタッフの見切れ防止のため拡張) */}
-                          <col style={{ width: '75px' }} /> {/* エリア */}
-                          <col style={{ width: '65px' }} /> {/* 県別 */}
-                          <col style={{ width: '65px' }} /> {/* 移動 */}
-                          <col style={{ width: '85px' }} /> {/* 同行者 */}
-                          <col style={{ width: '45px' }} /> {/* TIME */}
-                          <col style={{ width: '45px' }} /> {/* コース */}
-                          <col style={{ width: '150px' }} /> {/* 備考 */}
-                        </colgroup>
-                        <thead>
-                          {/* 1段目ヘッダー: 各曜日の大結合ヘッダー */}
-                          <tr>
-                            <th 
-                              colSpan={16} 
-                              className={`matrix-day-header-super ${isToday ? 'today-header' : ''}`}
-                            >
+                  const dayHeaderContent = (
                               <div className="day-header-content-super" style={{ 
                                 display: 'flex', 
                                 alignItems: 'center', 
@@ -2897,11 +2889,8 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                                   )}
                                 </div>
                               </div>
-                            </th>
-                          </tr>
-                          {/* 1.5段目ヘッダー: フリースペース (常に表示) */}
-                          <tr>
-                            <th colSpan={16} className="matrix-freespace-header">
+                  );
+                  const freeSpaceContent = (
                               <div className="freespace-content-wrapper">
                                 {freeSpaceSchedules.map((group: GroupedSchedule) => {
                                   const isHoliday = group.work_type === '休暇';
@@ -3152,6 +3141,130 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                                   </button>
                                 )}
                               </div>
+                  );
+
+                  if (viewMode === 'card') {
+                    const realSchedules = daySchedules.filter(s => !isTempSchedule(s));
+                    const freeStaffSchedules = daySchedules.filter(s => isTempSchedule(s) && !String(s.id).startsWith('temp-unassigned-'));
+                    const q = searchQuery.toLowerCase();
+                    return (
+                      <div
+                        key={day.dateStr}
+                        id={`day-block-${day.dateStr}`}
+                        className={`day-column-block day-card-column ${isToday ? 'today-column' : ''} ${dayClass}`}
+                      >
+                        <div className={`matrix-day-header-super day-card-header ${isToday ? 'today-header' : ''}`}>
+                          {dayHeaderContent}
+                        </div>
+                        <div className="matrix-freespace-header day-card-freespace">
+                          {freeSpaceContent}
+                        </div>
+                        <div className="day-card-list">
+                          {realSchedules.length === 0 && (
+                            <div className="day-card-empty">予定なし</div>
+                          )}
+                          {realSchedules.map(schedule => {
+                            const isMatch = q ? [schedule.property_name, schedule.staff_name, schedule.unit_number].some(v => v && v.toLowerCase().includes(q)) : false;
+                            return (
+                              <CompactScheduleCard
+                                key={schedule.id}
+                                schedule={schedule}
+                                staff={staff}
+                                selected={typeof schedule.id === 'number' && (selectedScheduleIds.includes(schedule.id) || selectedScheduleId === schedule.id)}
+                                searchState={q ? (isMatch ? 'match' : 'no-match') : ''}
+                                lock={typeof schedule.id === 'number' ? activeLocks[schedule.id] : undefined}
+                                onClick={(e) => {
+                                  if (e.ctrlKey || e.shiftKey || e.metaKey) {
+                                    handleSelectRow(e, schedule);
+                                  } else {
+                                    setSelectedScheduleIds([]);
+                                    setSelectedScheduleId(schedule.id);
+                                    lastSelectedScheduleIdRef.current = typeof schedule.id === 'number' ? schedule.id : null;
+                                  }
+                                }}
+                                onEdit={() => onOpenEditModal(schedule)}
+                                onContextMenu={(e) => {
+                                  e.preventDefault();
+                                  const menuWidth = 240;
+                                  const menuHeight = 360;
+                                  const x = e.clientX + menuWidth > window.innerWidth ? Math.max(0, window.innerWidth - menuWidth - 10) : e.clientX;
+                                  const y = e.clientY + menuHeight > window.innerHeight ? Math.max(0, window.innerHeight - menuHeight - 10) : e.clientY;
+                                  let currentSelectedIds: number[] = [];
+                                  if (selectedScheduleIds.length > 1 && typeof schedule.id === 'number' && selectedScheduleIds.includes(schedule.id)) {
+                                    currentSelectedIds = selectedScheduleIds;
+                                  } else {
+                                    currentSelectedIds = typeof schedule.id === 'number' ? [schedule.id] : [];
+                                    setSelectedScheduleIds([]);
+                                    setSelectedScheduleId(schedule.id);
+                                    lastSelectedScheduleIdRef.current = typeof schedule.id === 'number' ? schedule.id : null;
+                                  }
+                                  setContextMenu({ x, y, schedule, selectedIds: currentSelectedIds });
+                                }}
+                              />
+                            );
+                          })}
+                          {freeStaffSchedules.length > 0 && (
+                            <div className="day-card-free">
+                              <span className="day-card-free-label">空き</span>
+                              <span className="day-card-free-names">
+                                {freeStaffSchedules.map(s => (
+                                  <button
+                                    key={s.id}
+                                    type="button"
+                                    className="day-card-free-chip"
+                                    title={`${s.staff_name} さんの予定を追加`}
+                                    onClick={() => onOpenAddModal(day.dateStr)}
+                                  >
+                                    {getShortName(s.staff_name || '')}
+                                  </button>
+                                ))}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <div
+                      key={day.dateStr}
+                      id={`day-block-${day.dateStr}`}
+                      className={`day-column-block ${isToday ? 'today-column' : ''} ${dayClass}`}
+                    >
+                      <table className={`day-calendar-table ${showFullText ? 'show-full-text' : ''}`}>
+                        <colgroup>
+                          <col style={{ width: '100px' }} /> {/* 依頼番号 (一番左へ配置) */}
+                          <col style={{ width: '65px' }} /> {/* タイプ (見切れ防止のため幅を確保) */}
+                          <col style={{ width: '45px' }} /> {/* BOX */}
+                          <col style={{ width: '65px' }} /> {/* 号機 */}
+                          <col style={{ width: '200px' }} /> {/* 物件名 (2行折り返し時に収まりやすいよう拡張) */}
+                          <col style={{ width: '105px' }} /> {/* 種別 (「依頼者承認済」が見切れないよう拡張) */}
+                          <col style={{ width: '250px' }} /> {/* 作業内容 (3行折り返し時にしっかり読めるよう拡張) */}
+                          <col style={{ width: '75px' }} /> {/* 時間 */}
+                          <col style={{ width: '115px' }} /> {/* 対応者 (FE/SF/FR等委託スタッフの見切れ防止のため拡張) */}
+                          <col style={{ width: '75px' }} /> {/* エリア */}
+                          <col style={{ width: '65px' }} /> {/* 県別 */}
+                          <col style={{ width: '65px' }} /> {/* 移動 */}
+                          <col style={{ width: '85px' }} /> {/* 同行者 */}
+                          <col style={{ width: '45px' }} /> {/* TIME */}
+                          <col style={{ width: '45px' }} /> {/* コース */}
+                          <col style={{ width: '150px' }} /> {/* 備考 */}
+                        </colgroup>
+                        <thead>
+                          {/* 1段目ヘッダー: 各曜日の大結合ヘッダー */}
+                          <tr>
+                            <th 
+                              colSpan={16} 
+                              className={`matrix-day-header-super ${isToday ? 'today-header' : ''}`}
+                            >
+                                {dayHeaderContent}
+                            </th>
+                          </tr>
+                          {/* 1.5段目ヘッダー: フリースペース (常に表示) */}
+                          <tr>
+                            <th colSpan={16} className="matrix-freespace-header">
+                                {freeSpaceContent}
                             </th>
                           </tr>
                           {/* 2段目ヘッダー: 各項目ヘッダー */}

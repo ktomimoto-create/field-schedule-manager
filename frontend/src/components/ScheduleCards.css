@@ -1,0 +1,397 @@
+/* 予定のカード表示（予定表の当日一覧・月間予定表の日ごとの列） */
+
+.sc-num {
+  font-variant-numeric: tabular-nums;
+}
+.sc-c {
+  text-align: center;
+  justify-content: center;
+}
+.sc-muted {
+  color: var(--text-muted);
+}
+.sc-ellipsis {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sc-empty {
+  padding: 3rem 1rem;
+  text-align: center;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+/* 状態の色: 確定=赤 / 仮=黄 / 通常=灰 / キャンセル=淡灰（月間予定表の行の色と同じ） */
+.tone-confirmed { --tone: #ef4444; --tone-bg: rgba(239, 68, 68, 0.06); }
+.tone-draft { --tone: #eab308; --tone-bg: rgba(234, 179, 8, 0.07); }
+.tone-free { --tone: #94a3b8; --tone-bg: transparent; }
+.tone-cancelled { --tone: #cbd5e1; --tone-bg: transparent; }
+
+/* ---------- アバター・対応者 ---------- */
+.sc-avatar {
+  flex-shrink: 0;
+  border-radius: 50%;
+  object-fit: cover;
+}
+.sc-avatar-initial {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--primary);
+  color: #fff;
+  font-weight: 700;
+  line-height: 1;
+}
+.sc-avatar-initial.is-unknown {
+  background: #6b7280;
+}
+.sc-staff {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.sc-staff-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+}
+.sc-coworkers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  min-width: 0;
+}
+.sc-coworker {
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: var(--bg-empty);
+  font-size: 0.78rem;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+
+/* 種別などの短い語のバッジ */
+.sc-badge {
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  box-sizing: border-box;
+  height: 22px;
+  padding: 0 8px;
+  border-radius: 999px;
+  border: 1px solid var(--border-glass);
+  background: var(--bg-primary);
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.sc-lock {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 6px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: rgba(239, 68, 68, 0.1);
+  color: #dc2626;
+  font-size: 0.7rem;
+  font-weight: 700;
+  line-height: 1.4;
+  vertical-align: middle;
+}
+
+/* ---------- 当日一覧 ---------- */
+.sc-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 1080px;
+  padding: 6px 10px 10px 6px; /* ホバーで右へ 3px 動くので右に余白 */
+}
+.sc-row {
+  display: grid;
+  grid-template-columns: 8px 64px 72px minmax(0, 1fr) 104px 112px 112px 84px 96px 84px 60px;
+  grid-template-rows: auto auto;
+  column-gap: 12px;
+  align-items: center;
+  padding: 8px 12px;
+}
+.sc-row > * {
+  grid-row: 1 / span 2;
+  min-width: 0;
+}
+.sc-head {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  grid-template-rows: auto;
+  padding-top: 4px;
+  padding-bottom: 4px;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-glass);
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1.4;
+}
+.sc-head > * {
+  grid-row: 1;
+}
+.sc-card {
+  border: 1px solid var(--border-glass);
+  border-left: 4px solid var(--tone);
+  border-radius: var(--radius-sm);
+  background: var(--bg-secondary);
+  box-shadow: var(--shadow-sm);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.sc-card:hover,
+.sc-card.is-open {
+  transform: translateX(3px);
+  box-shadow: 0 0 0 1px rgba(79, 70, 229, 0.25), 0 4px 14px rgba(79, 70, 229, 0.12);
+}
+.sc-card.tone-confirmed .sc-body,
+.sc-card.tone-draft .sc-body {
+  background: var(--tone-bg);
+}
+.sc-card.tone-cancelled {
+  opacity: 0.6;
+}
+.sc-card.tone-cancelled .sc-property {
+  text-decoration: line-through;
+}
+.sc-card.is-done {
+  opacity: 0.7;
+}
+.sc-body {
+  cursor: pointer;
+  border-radius: calc(var(--radius-sm) - 2px);
+  line-height: 1.5;
+}
+.sc-body:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: -2px;
+}
+.sc-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--tone);
+}
+.sc-time {
+  font-weight: 700;
+}
+.sc-time.is-must {
+  color: var(--danger);
+}
+.sc-unit {
+  font-weight: 600;
+}
+/* 物件名は識別テキストなので省略せず折り返して全部見せる。作業内容は 1 行の予告だけ */
+.sc-title {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.sc-property {
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+.sc-desc {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+}
+.sc-result {
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 4px;
+  box-sizing: border-box;
+  height: 26px;
+  padding: 0 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border-glass);
+  background: transparent;
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.sc-result.is-done {
+  border-color: rgba(16, 185, 129, 0.4);
+  color: #059669;
+  background: rgba(16, 185, 129, 0.08);
+}
+.sc-result:not(.is-static):hover {
+  filter: brightness(1.12);
+  border-color: var(--primary);
+}
+.sc-result:not(.is-static):active {
+  transform: translateY(1px);
+}
+.sc-result.is-static {
+  cursor: default;
+}
+.sc-actions {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+  color: var(--text-muted);
+}
+.sc-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+.sc-icon-btn:hover {
+  border-color: rgba(79, 70, 229, 0.3);
+  color: var(--primary);
+  background: rgba(79, 70, 229, 0.06);
+}
+.sc-chevron {
+  transition: transform 0.15s ease;
+}
+.sc-card.is-open .sc-chevron {
+  transform: rotate(180deg);
+}
+
+/* 展開した詳細（読み取り専用。編集は鉛筆ボタンから） */
+.sc-detail {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px 16px;
+  margin: 0;
+  padding: 10px 16px 12px 108px; /* 物件名の列の位置に揃える */
+  border-top: 1px dashed var(--border-glass);
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+.sc-detail > div {
+  display: flex;
+  gap: 8px;
+  min-width: 0;
+}
+.sc-detail .is-wide {
+  grid-column: 1 / -1;
+}
+.sc-detail dt {
+  flex-shrink: 0;
+  width: 4.5em;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+.sc-detail dd {
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+/* ---------- 月間予定表の日ごとの列 ---------- */
+.scc-card {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 6px 8px;
+  border: 1px solid var(--border-glass);
+  border-left: 4px solid var(--tone);
+  border-radius: 6px;
+  background: var(--bg-secondary);
+  line-height: 1.4;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease;
+}
+.scc-card.tone-confirmed,
+.scc-card.tone-draft {
+  background: linear-gradient(var(--tone-bg), var(--tone-bg)), var(--bg-secondary);
+}
+.scc-card.tone-cancelled {
+  opacity: 0.55;
+}
+.scc-card.tone-cancelled .scc-property {
+  text-decoration: line-through;
+}
+.scc-card:hover {
+  transform: translateX(3px);
+  box-shadow: 0 0 0 1px rgba(79, 70, 229, 0.25), 0 4px 12px rgba(79, 70, 229, 0.12);
+}
+.scc-card.is-selected {
+  box-shadow: 0 0 0 2px var(--primary);
+}
+.scc-card.is-match {
+  background: #fef9c3;
+  color: #0f172a;
+}
+.scc-card.is-no-match {
+  opacity: 0.3;
+}
+.scc-top {
+  display: grid;
+  grid-template-columns: 52px 56px minmax(0, 1fr);
+  align-items: center;
+  column-gap: 6px;
+  font-size: 0.78rem;
+}
+.scc-time {
+  font-weight: 700;
+}
+.scc-time.is-must {
+  color: var(--danger);
+}
+.scc-unit {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.scc-staff {
+  display: flex;
+  justify-content: flex-end;
+  min-width: 0;
+}
+.scc-property {
+  font-size: 0.84rem;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+.scc-bottom {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  font-size: 0.76rem;
+  color: var(--text-secondary);
+}
+.scc-bottom .sc-badge {
+  height: 20px;
+  padding: 0 6px;
+  font-size: 0.7rem;
+}
+.scc-desc {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
