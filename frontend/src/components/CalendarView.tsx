@@ -420,6 +420,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
   const calendarDates = weeks.flatMap(week => week.map(d => d.dateStr));
 
   const FIELD_ORDER: (keyof Schedule)[] = [
+    'request_number',
     'type',
     'box',
     'unit_number',
@@ -432,7 +433,6 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
     'prefecture',
     'transport',
     'co_worker',
-    'request_number',
     'time_limit',
     'course',
     'notes'
@@ -2742,6 +2742,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                     >
                       <table className={`day-calendar-table ${showFullText ? 'show-full-text' : ''}`}>
                         <colgroup>
+                          <col style={{ width: '100px' }} /> {/* 依頼番号 (一番左へ配置) */}
                           <col style={{ width: '65px' }} /> {/* タイプ (見切れ防止のため幅を確保) */}
                           <col style={{ width: '45px' }} /> {/* BOX */}
                           <col style={{ width: '65px' }} /> {/* 号機 */}
@@ -2754,7 +2755,6 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                           <col style={{ width: '65px' }} /> {/* 県別 */}
                           <col style={{ width: '65px' }} /> {/* 移動 */}
                           <col style={{ width: '85px' }} /> {/* 同行者 */}
-                          <col style={{ width: '100px' }} /> {/* 依頼番号 */}
                           <col style={{ width: '45px' }} /> {/* TIME */}
                           <col style={{ width: '45px' }} /> {/* コース */}
                           <col style={{ width: '150px' }} /> {/* 備考 */}
@@ -3078,6 +3078,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                           </tr>
                           {/* 2段目ヘッダー: 各項目ヘッダー */}
                           <tr>
+                            <th>依頼番号</th>
                             <th>タイプ</th>
                             <th>BOX</th>
                             <th>号機</th>
@@ -3090,7 +3091,6 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                             <th>県別</th>
                             <th>移動</th>
                             <th>同行者</th>
-                            <th>依頼番号</th>
                             <th>TIME</th>
                             <th>コース</th>
                             <th>備考</th>
@@ -3168,7 +3168,8 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                                     });
                                   }}
                                 >
-                                  {renderEditableCell(schedule, rowIndex, 'type', `${statusClass} first-status-cell ${isToday ? 'today-td' : ''}`)}
+                                  {renderEditableCell(schedule, rowIndex, 'request_number', `${statusClass} first-status-cell ${isToday ? 'today-td' : ''}`)}
+                                  {renderEditableCell(schedule, rowIndex, 'type', `${statusClass} ${isToday ? 'today-td' : ''}`)}
                                   {renderEditableCell(schedule, rowIndex, 'box', `${statusClass} ${isToday ? 'today-td' : ''}`)}
                                   {renderEditableCell(schedule, rowIndex, 'unit_number', `${statusClass} ${isToday ? 'today-td' : ''}`)}
                                   {renderEditableCell(schedule, rowIndex, 'property_name', `${statusClass} ${isToday ? 'today-td' : ''} font-bold-cell`, schedule.property_name)}
@@ -3313,7 +3314,6 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                                   {renderEditableCell(schedule, rowIndex, 'prefecture', `${statusClass} ${isToday ? 'today-td' : ''}`)}
                                   {renderEditableCell(schedule, rowIndex, 'transport', `${statusClass} ${isToday ? 'today-td' : ''}`)}
                                   {renderEditableCell(schedule, rowIndex, 'co_worker', `${statusClass} ${isToday ? 'today-td' : ''}`)}
-                                  {renderEditableCell(schedule, rowIndex, 'request_number', `${statusClass} ${isToday ? 'today-td' : ''}`)}
                                   {renderEditableCell(schedule, rowIndex, 'time_limit', `${statusClass} ${isToday ? 'today-td' : ''}`)}
                                   {renderEditableCell(schedule, rowIndex, 'course', `${statusClass} ${isToday ? 'today-td' : ''}`)}
                                   {renderEditableCell(schedule, rowIndex, 'notes', `${statusClass} ${isToday ? 'today-td' : ''} text-muted-cell`, schedule.notes || '')}
