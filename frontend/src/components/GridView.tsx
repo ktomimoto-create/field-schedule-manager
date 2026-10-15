@@ -614,6 +614,24 @@ export const GridView: React.FC<GridViewProps> = ({
     }
     e.stopPropagation(); // 行選択（サイドバー表示）への伝播を防止
 
+    // ★Shift + クリック時: 矩形範囲選択（Googleスプレッドシート互換）
+    if (e.shiftKey) {
+      const activeStart = selectionStartCoordRef.current || (selectionRangeRef.current ? {
+        rowIndex: selectionRangeRef.current.startRow,
+        colIndex: selectionRangeRef.current.startCol
+      } : null);
+
+      if (activeStart) {
+        updateSelectionOverlayDom(
+          activeStart.rowIndex,
+          activeStart.colIndex,
+          rowIndex,
+          colIndex
+        );
+        return;
+      }
+    }
+
     isSelectingRef.current = true;
     isDraggingRef.current = false;
     selectionStartCoordRef.current = { rowIndex, colIndex };
@@ -645,7 +663,6 @@ export const GridView: React.FC<GridViewProps> = ({
     const handleMouseUpGlobal = () => {
       isSelectingRef.current = false;
       isDraggingRef.current = false;
-      selectionStartCoordRef.current = null;
     };
     window.addEventListener('mouseup', handleMouseUpGlobal);
     return () => {

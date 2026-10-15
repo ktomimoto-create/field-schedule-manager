@@ -742,3 +742,56 @@ GoogleスプレッドシートやExcel Webが超高速に動く理由は、**「
 - `specification.md`（第27.23章を追加）
 - `walkthrough.md`（本ドキュメント）
 
+---
+
+## Shift / Ctrl キーを使用した複数選択（行一括操作バー・範囲選択）の機能復元・統合（2026-10-15）
+
+### 1. ユーザー様からのご指摘
+> 「直ったの確認できました。以前反映させたshiftやctrlを使用した複数選択が機能していない。なぜか」
+
+---
+
+### 2. 機能していなかった理由（技術的解明）
+1. **イベント伝播遮断（`e.stopPropagation()`）による複数行選択ハンドラのブロック**:
+   - 以前、セルをクリックした際に行全体（`tr`）が勝手に選択されてしまうバグを防止するため、各セル（`td`）に `onClick={(e) => e.stopPropagation()}` を適用しました。
+   - しかし、この遮断が通常クリック時だけでなく **Ctrl や Shift キーを押している際にも無条件に発動** していたため、親要素 `<tr>` の `onClick` に定義されていた `handleSelectRow(e, schedule)` へイベントが一切届かず、完全にブロックされていました。
+2. **`handleCellMouseDown` による行選択の無条件クリア**:
+   - マウスダウン時に修飾キーの判定を行わず、無条件に `if (selectedScheduleIds.length > 0) setSelectedScheduleIds([]);` を実行していたため、直前の行選択状態が即座に消去されていました。
+3. **セル単位の Shift 範囲選択の未組み込み**:
+   - セルをクリックした後に別のセルを Shift + クリックして矩形選択する処理が `handleCellMouseDown` に入っておらず、常に単一セルへとリセットされていました。
+
+---
+
+### 3. 実施した修正内容
+1. **`handleCellMouseDown` への修飾キー判定の直接統合（[CalendarView.tsx](file:///C:/Users/000644/.gemini/antigravity/scratch/field-schedule-manager/frontend/src/components/CalendarView.tsx)）**:
+   - **Ctrl または Cmd 押下時**:
+     - `selectedScheduleIds` を消去せず、直接 `handleSelectRow(e, targetSched)` を呼び出して行の個別トグル選択（追加／解除）を実行。各選択行に `.selected-row` クラス（紫ハイライト）を付与。
+   - **Shift 押下時**:
+     - 直前のセル起点（`selectionStartCoordRef.current` または `calendarSelectionRangeRef.current`）から今回のセルまでの矩形範囲を `updateCalendarSelectionOverlayDom` で青い半透明オーバーレイで囲む。
+     - 同時に `handleSelectRow(e, targetSched)` を呼び出し、直前の予定行から今回の予定行までの全行を `selectedScheduleIds` に一括追加し、行範囲全体をオーバーレイ枠として同期。
+   - **通常クリック時**:
+     - 従来の単一セル独立選択を100%維持。`selectedScheduleIds` を安全にクリアし、親要素 `<tr>` へのバブリングを遮断して行全体が勝手に選択されるのを確実に防止。
+2. **各セル（`td`）の `onClick` でも修飾キーを中継**:
+   - `staff_name`、`property_name`、`co_worker`、および通常セルの全 `td` において、`if (e.ctrlKey || e.shiftKey || e.metaKey)` の際は `handleSelectRow(e, schedule)` を確実に呼ぶよう二重安全対策を実装。
+3. **一括操作フローティングバーの完全復元**:
+   - 複数行選択時（`selectedScheduleIds.length > 1`）に、画面下部に「N件選択中」のフローティング一括操作バー（一括確定・一括完了・一括削除・別日へ移動）がパッと表示され、ワンクリックで操作可能。
+4. **日別予定表（[GridView.tsx](file:///C:/Users/000644/.gemini/antigravity/scratch/field-schedule-manager/frontend/src/components/GridView.tsx)）への Shift 範囲選択統合**:
+   - `GridView` でもセルをクリックした後に別のセルを `Shift + クリック` することで、Googleスプレッドシート同様に矩形範囲選択が可能。
+
+---
+
+### 4. 検証結果
+1. **ビルド検証**:
+   - `cmd.exe /c npm run build` にて TypeScript 型チェック、Vite バンドルともにエラー 0 件でビルド成功。
+2. **動作確認**:
+   - 通常クリック時は単一セルのみが選択され、行全体が勝手に囲まれる誤作動は一切なし。
+   - `Ctrl + クリック` で予定行を個別にトグル選択でき、複数選択時に画面下部に一括操作バーが出現することを確認。
+   - `Shift + クリック` で連続する予定行およびセル矩形範囲が一括選択され、一括操作バーが出現することを確認。
+
+---
+
+### 5. 更新したドキュメント
+- `specification.md`（第27.24章を追加）
+- `walkthrough.md`（本ドキュメント）
+
+

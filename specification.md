@@ -1630,3 +1630,34 @@ FC依頼番号（11桁）および号機による物件・住所・BOX・タイ�
      - `handleResize` の `useEffect` に `[zoomLevel]` を追加し、表示倍率変更直後のリサイズイベント発生時にも最新のズーム倍率で正しく再計算されるよう同期。
 * **改修後の効果**:
   - 表示倍率 80%, 90%, 100%, 110%, 125% いかなる設定時、および月の中旬・下旬まで深くスクロールした状態でも、マウスでのセル範囲選択・コピー破線枠がマウスカーソルおよびセル境界線とピタリと一致し、画面上部に突き抜ける現象が完全に解消された。
+
+
+### 27.24 セルおよび行における Shift / Ctrl 複数選択機能の復元・統合仕様（2026-10-15更新）
+* **背景と課題**:
+  - ユーザーより「直ったの確認できました。以前反映させたshiftやctrlを使用した複数選択が機能していない。なぜか」とのご指摘をいただいた。
+* **原因の調査と技術的解明**:
+  1. **イベント伝播の完全遮断（`e.stopPropagation()`）による発火ブロック**:
+     - 以前の改修（第27.9章・第27.15章）において、セルをクリックした際に行全体（`tr`）が勝手に選択されてしまうバグを防止するため、各セル（`td`）の `onClick` および `onMouseDown` に `e.stopPropagation()` を導入していた。
+     - しかし、このイベント伝播遮断が通常クリック時だけでなく **Ctrl や Shift キーが押されている時にも無条件に発動** していたため、親要素 `<tr>` の `onClick` に定義されていた複数行選択ハンドラ（`handleSelectRow`）へイベントが一切到達せず、100%遮断されていた。
+  2. **`handleCellMouseDown` による無条件クリア**:
+     - セルクリック時のマウスダウンハンドラ内において、Ctrl や Shift の押下判定を行わず、無条件に `if (selectedScheduleIds.length > 0) setSelectedScheduleIds([]);` を実行していたため、直前の行選択状態が即座に消去されていた。
+  3. **セル単位の Shift 範囲選択の未サポート**:
+     - 直前のセルをクリックした後に別のセルを Shift + クリックして矩形選択する機能が `handleCellMouseDown` に組み込まれておらず、常に単一セル選択へと強制リセットされていた。
+* **実施した改修仕様**:
+  1. **`handleCellMouseDown` への修飾キー判定と行・セル複数選択の直接統合**:
+     - `CalendarView.tsx` の `handleCellMouseDown` において、クリック時の修飾キーを直接判定：
+       - **Ctrl または Cmd 押下時**:
+         - `selectedScheduleIds` を消去せず、直接 `handleSelectRow(e, targetSched)` を呼び出して行の個別トグル選択（追加／解除）を実行。各選択行に `.selected-row` クラスを付与。
+       - **Shift 押下時**:
+         - 直前のセル起点（`selectionStartCoordRef.current` または `calendarSelectionRangeRef.current`）から今回のセルまでの矩形範囲を `updateCalendarSelectionOverlayDom` で青い半透明オーバーレイで囲む。
+         - 同時に `handleSelectRow(e, targetSched)` を呼び出し、直前の予定行から今回の予定行までの全行を `selectedScheduleIds` に一括追加し、全選択行をオーバーレイ枠として同期。
+       - **通常クリック時**:
+         - 従来の単一セル独立選択を100%維持。`selectedScheduleIds` を安全にクリアし、親要素 `<tr>` へのバブリングを遮断して行全体が勝手に選択されるのを防止。
+  2. **セル（`td`）`onClick` での二重安全イベント連携**:
+     - 各 `td` の `onClick` においても、`if (e.ctrlKey || e.shiftKey || e.metaKey)` の際は `handleSelectRow(e, schedule)` を呼び出すよう連携を強化。
+  3. **フローティング一括操作バーの完全連動**:
+     - 複数行選択時（`selectedScheduleIds.length > 1`）に、画面下部に一括操作バー（一括確定・一括完了・一括削除・別日へ移動）がパッと表示され、ワンクリックで一括操作が可能。
+  4. **日別予定表（`GridView.tsx`）への Shift 範囲選択統合**:
+     - `GridView.tsx` の `handleCellMouseDown` においても `Shift + クリック` による矩形範囲選択（Googleスプレッドシート完全同等）を実装。
+* **改修後の効果**:
+  - セル単体をクリックした際に行全体が勝手に囲まれることなく安全な操作性を維持したまま、Ctrl + クリックによる複数行の個別トグル選択、Shift + クリックによる連続行およびセル矩形範囲の一括選択、画面下部の一括操作フローティングバーが完全に復元・正常稼働するようになった。

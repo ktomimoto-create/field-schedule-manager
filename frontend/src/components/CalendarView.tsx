@@ -851,14 +851,55 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
     dateStr: string,
     rowIndex: number,
     field: keyof Schedule,
-    scheduleId: number | string
+    scheduleId: number | string,
+    schedule?: Schedule
   ) => {
     if (e.button !== 0) return; // 左クリックのみ
     if (e.target instanceof HTMLInputElement || e.target instanceof HTMLSelectElement || (e.target as HTMLElement).closest('button')) {
       return;
     }
-    e.stopPropagation(); // tr 行選択イベントへの伝播を完全に防止
+    e.stopPropagation(); // tr 行選択イベントへの伝播を防止
 
+    const targetSched = schedule || (typeof scheduleId === 'number' 
+      ? schedules.find(s => s.id === scheduleId)
+      : (sortedSchedulesMap[dateStr] || [])[rowIndex]);
+
+    // ★Ctrl または Cmd + クリック時: 複数行選択（トグル）
+    if (e.ctrlKey || e.metaKey) {
+      if (targetSched && typeof targetSched.id === 'number') {
+        handleSelectRow(e, targetSched);
+      }
+      return;
+    }
+
+    // ★Shift + クリック時: 範囲選択（セル矩形範囲 ＆ 複数行範囲選択）
+    if (e.shiftKey) {
+      const activeStart = selectionStartCoordRef.current || (calendarSelectionRangeRef.current ? {
+        dateStr: calendarSelectionRangeRef.current.startDateStr,
+        rowIndex: calendarSelectionRangeRef.current.startRow,
+        field: calendarSelectionRangeRef.current.startField
+      } : null);
+
+      if (activeStart) {
+        updateCalendarSelectionOverlayDom(
+          activeStart.dateStr,
+          activeStart.rowIndex,
+          activeStart.field,
+          dateStr,
+          rowIndex,
+          field
+        );
+      } else {
+        updateCalendarSelectionOverlayDom(dateStr, rowIndex, field, dateStr, rowIndex, field);
+      }
+
+      if (targetSched && typeof targetSched.id === 'number') {
+        handleSelectRow(e, targetSched);
+      }
+      return;
+    }
+
+    // 通常クリック時: 単一セル選択
     isSelectingRef.current = true;
     isDraggingRef.current = false;
     selectionStartCoordRef.current = { dateStr, rowIndex, field };
@@ -867,6 +908,9 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
     updateCalendarSelectionOverlayDom(dateStr, rowIndex, field, dateStr, rowIndex, field);
 
     setSelectedCell({ id: scheduleId, field });
+    if (typeof scheduleId === 'number') {
+      lastSelectedScheduleIdRef.current = scheduleId;
+    }
     if (selectedScheduleIds.length > 0) {
       setSelectedScheduleIds([]);
     }
@@ -997,6 +1041,18 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
           return Array.from(combined);
         });
         setSelectedScheduleId(clickedId);
+
+        // ★Shift範囲選択時は、起点行から今回行までの全行をオーバーレイで一括同期
+        const allDaySchedules = getSortedDaySchedules(schedule.date);
+        const startRowIdx = allDaySchedules.findIndex(s => s.id === daySchedules[start].id);
+        const endRowIdx = allDaySchedules.findIndex(s => s.id === daySchedules[end].id);
+        if (startRowIdx !== -1 && endRowIdx !== -1) {
+          updateCalendarSelectionOverlayDom(
+            schedule.date, startRowIdx, FIELD_ORDER[0],
+            schedule.date, endRowIdx, FIELD_ORDER[FIELD_ORDER.length - 1]
+          );
+        }
+        return;
       } else {
         setSelectedScheduleIds([clickedId]);
         setSelectedScheduleId(clickedId);
@@ -1325,7 +1381,6 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
     const handleMouseUpGlobal = () => {
       isSelectingRef.current = false;
       isDraggingRef.current = false;
-      selectionStartCoordRef.current = null;
     };
     window.addEventListener('mouseup', handleMouseUpGlobal);
     return () => {
@@ -2099,8 +2154,13 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
           className={cellClass} 
           style={{ ...style, padding: '0.35rem 0.35rem' }}
           title={title ? cleanMetadata(title) : (matchedStaff?.name || cleanMetadata(value))}
-          onClick={(e) => e.stopPropagation()}
-          onMouseDown={(e) => handleCellMouseDown(e, schedule.date, rowIndex, field, schedId)}
+          onClick={(e) => {
+            e.stopPropagation();
+            if (e.ctrlKey || e.shiftKey || e.metaKey) {
+              handleSelectRow(e, schedule);
+            }
+          }}
+          onMouseDown={(e) => handleCellMouseDown(e, schedule.date, rowIndex, field, schedId, schedule)}
           onMouseEnter={() => handleCellMouseEnter(schedule.date, rowIndex, field)}
           onDoubleClick={() => {
             if (isLockedByOther) {
@@ -2166,8 +2226,13 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
           className={cellClass} 
           style={style}
           title={title ? cleanMetadata(title) : undefined}
-          onClick={(e) => e.stopPropagation()}
-          onMouseDown={(e) => handleCellMouseDown(e, schedule.date, rowIndex, field, schedId)}
+          onClick={(e) => {
+            e.stopPropagation();
+            if (e.ctrlKey || e.shiftKey || e.metaKey) {
+              handleSelectRow(e, schedule);
+            }
+          }}
+          onMouseDown={(e) => handleCellMouseDown(e, schedule.date, rowIndex, field, schedId, schedule)}
           onMouseEnter={() => handleCellMouseEnter(schedule.date, rowIndex, field)}
           onDoubleClick={() => {
             if (isLockedByOther) {
@@ -2239,8 +2304,13 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
           className={cellClass} 
           style={style}
           title={title ? cleanMetadata(title) : undefined}
-          onClick={(e) => e.stopPropagation()}
-          onMouseDown={(e) => handleCellMouseDown(e, schedule.date, rowIndex, field, schedId)}
+          onClick={(e) => {
+            e.stopPropagation();
+            if (e.ctrlKey || e.shiftKey || e.metaKey) {
+              handleSelectRow(e, schedule);
+            }
+          }}
+          onMouseDown={(e) => handleCellMouseDown(e, schedule.date, rowIndex, field, schedId, schedule)}
           onMouseEnter={() => handleCellMouseEnter(schedule.date, rowIndex, field)}
           onDoubleClick={() => {
             if (isLockedByOther) {
@@ -2301,8 +2371,13 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
         className={cellClass} 
         style={style}
         title={title ? cleanMetadata(title) : undefined}
-        onClick={(e) => e.stopPropagation()}
-        onMouseDown={(e) => handleCellMouseDown(e, schedule.date, rowIndex, field, schedId)}
+        onClick={(e) => {
+          e.stopPropagation();
+          if (e.ctrlKey || e.shiftKey || e.metaKey) {
+            handleSelectRow(e, schedule);
+          }
+        }}
+        onMouseDown={(e) => handleCellMouseDown(e, schedule.date, rowIndex, field, schedId, schedule)}
         onMouseEnter={() => handleCellMouseEnter(schedule.date, rowIndex, field)}
         onDoubleClick={() => {
           if (field === 'staff_id' || field === 'division') {
@@ -3255,8 +3330,13 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                                           className={`${statusClass} ${isToday ? 'today-td' : ''} ${getSelectionClassName(day.dateStr, rowIndex, 'staff_name')} ${staffSearchClass}`}
                                           style={{ padding: '0.35rem 0.35rem' }}
                                           title={staffMember ? staffMember.name : (schedule.staff_name || undefined)}
-                                          onClick={(e) => e.stopPropagation()}
-                                          onMouseDown={(e) => handleCellMouseDown(e, day.dateStr, rowIndex, 'staff_name', schedule.id)}
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            if (e.ctrlKey || e.shiftKey || e.metaKey) {
+                                              handleSelectRow(e, schedule);
+                                            }
+                                          }}
+                                          onMouseDown={(e) => handleCellMouseDown(e, day.dateStr, rowIndex, 'staff_name', schedule.id, schedule)}
                                           onMouseEnter={() => handleCellMouseEnter(day.dateStr, rowIndex, 'staff_name')}
                                           onDoubleClick={() => {
                                             if (isStaffLocked) {
