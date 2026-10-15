@@ -676,3 +676,69 @@ GoogleスプレッドシートやExcel Webが超高速に動く理由は、**「
 ### 4. 更新したドキュメント
 - `specification.md`（第27.15章を追記）
 - `walkthrough.md`（本ドキュメント）
+
+---
+
+## 表示倍率（ズーム）適用時におけるセル範囲選択オーバーレイ座標補正およびコピペ整列の検証報告（2026-10-15）
+
+### 1. ユーザー様からのご質問・ご指摘
+> 1. **疑問①**: 「これってスプレッドシートから号機以降のコピーして今回で言うと一番左にした依頼番号にあやまってペーストしても大丈夫なんだっけ？添付の選択した3行をコピー、今回並び替えた依頼番号の所に貼り付けをしても添付2枚目のように表に入った」
+> 2. **指摘②**: 「一方でマウスでセルを範囲選択しようとすると変なところが選択される（こちらも2枚目添付参照）」
+
+---
+
+### 2. 疑問①の回答（なぜ依頼番号に貼り付けても綺麗に収まるのか？）
+- **結論**: **全く問題ありません。安全に貼り付けられます。**
+- **理由（列ズレ根絶ガード・スマート整列）**:
+  - `CalendarView.tsx`（1685行目付近）には、以前実装した「列ズレ根絶ガード（スマート整列）」が常に働いています。
+  - スプレッドシートからコピーしたデータが1行全体（10列以上の予定データ行）である場合、選択中のセルが「依頼番号」や「BOX」等の途中列であっても、**自動的に行の先頭実項目である「type（タイプ）」列を起点として流し込む安全仕様**になっています。
+  - そのため、一番左端にある「依頼番号」セルを誤ってクリックした状態で貼り付けても、システムが自動的に「タイプ」列から整列させて表に正しく配置します。列ズレ事故の心配はありません。
+
+---
+
+### 3. 指摘②の調査結果（なぜマウス選択枠が上方に突き抜けていたのか？）
+- **現象**:
+  - 添付2枚目の画像において、青いセル範囲選択オーバーレイ（`calendar-selection-overlay`）が「号機」列の幅のまま、画面の最上部（ヘッダーやナビゲーションバーの裏）まで縦長に突き抜けていた。
+- **真因の数学的解明**:
+  1. 親コンテナ `.matrix-table-zoom-inner` には、表示倍率ボタン（ヘッダーで 90% が選択されていた）により CSS `zoom: 90%` が適用されています。
+  2. セル要素の `startTd.getBoundingClientRect()` および親コンテナの `container.getBoundingClientRect()` はビューポート（画面）上の物理ピクセル（0.9倍後）を返します。
+  3. テーブルが縦方向に `scrollTop = S` だけスクロールしている時、画面物理ピクセルの差分は `diffY = startRect.top - containerRect.top = S + Y_screen` となります。
+  4. これをそのまま `zoom: 0.9` の要素内のローカル座標 `translate3d(..., diffY, 0)` に渡すと、ブラウザが画面描画時に `zoom: 0.9` を乗算するため、画面上の描画位置は：
+     $$-S + (S + Y_{\text{screen}}) \times 0.9 = 0.9 \times Y_{\text{screen}} - 0.1 \times S$$
+     となります。
+  5. スクロール量 $S$ が大きくなるほど（月の中旬〜下旬へ進むほど）、$-0.1 \times S$ によって**オーバーレイが上方向（画面天辺の外側）へ強烈に引きずり上げられ**、選択枠が画面上端を突き抜けて「変なところが選択される」状態になっていました。
+  6. また、`handleMouseUpGlobal` において `selectionStartCoordRef.current = null;` のリセットが抜けており、直前の操作座標を引きずるリスクがありました。
+
+---
+
+### 4. 実施した修正内容
+1. **ズーム倍率によるローカル座標への除算補正（`CalendarView.tsx` / `GridView.tsx`）**:
+   - `updateCalendarSelectionOverlayDom`、`updateCalendarCopyOverlayDom`、`updateSelectionOverlayDom`、`updateCopyOverlayDom` において、`scale = zoomLevel !== 100 ? (zoomLevel / 100) : 1;` を取得。
+   - すべての座標差分（left, top, right, bottom）および幅・高さを `scale` で除算：
+     ```typescript
+     const scale = zoomLevel !== 100 ? (zoomLevel / 100) : 1;
+     const left = (Math.min(startRect.left, endRect.left) - containerRect.left) / scale;
+     const top = (Math.min(startRect.top, endRect.top) - containerRect.top) / scale;
+     const right = (Math.max(startRect.right, endRect.right) - containerRect.left) / scale;
+     const bottom = (Math.max(startRect.bottom, endRect.bottom) - containerRect.top) / scale;
+     ```
+   - これにより、親コンテナの `zoom` による乗算と完全相殺され、スクロール量やズーム倍率（80%, 90%, 110%, 125%）にかかわらず、セルの物理枠と **誤差0px** で完全一致します。
+2. **ドラッグ選択起点座標の確実なリセット**:
+   - `handleMouseUpGlobal` において `selectionStartCoordRef.current = null;` を追加し、マウスアップ時に安全に初期化。
+3. **リサイズ監視の依存配列同期**:
+   - `handleResize` の依存配列に `[zoomLevel]` を追加。
+
+---
+
+### 5. 検証結果
+1. **ビルド検証**:
+   - `cmd.exe /c npm run build` にて TypeScript 型チェック、Vite バンドルともにエラー 0 件でビルド成功。
+2. **動作確認**:
+   - 表示倍率 90%（および 80%, 110%, 125%）適用時、深くスクロールした状態でも、マウスでのセル範囲選択およびコピー枠がセルの枠線と正確に一致し、上端へ突き抜けるバグが完全に解消されたことを確認。
+
+---
+
+### 6. 更新したドキュメント
+- `specification.md`（第27.23章を追加）
+- `walkthrough.md`（本ドキュメント）
+

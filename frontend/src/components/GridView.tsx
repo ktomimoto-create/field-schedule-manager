@@ -442,10 +442,11 @@ export const GridView: React.FC<GridViewProps> = ({
     const startRect = startTd.getBoundingClientRect();
     const endRect = endTd.getBoundingClientRect();
 
-    const left = Math.min(startRect.left, endRect.left) - containerRect.left;
-    const top = Math.min(startRect.top, endRect.top) - containerRect.top;
-    const right = Math.max(startRect.right, endRect.right) - containerRect.left;
-    const bottom = Math.max(startRect.bottom, endRect.bottom) - containerRect.top;
+    const scale = zoomLevel !== 100 ? (zoomLevel / 100) : 1;
+    const left = (Math.min(startRect.left, endRect.left) - containerRect.left) / scale;
+    const top = (Math.min(startRect.top, endRect.top) - containerRect.top) / scale;
+    const right = (Math.max(startRect.right, endRect.right) - containerRect.left) / scale;
+    const bottom = (Math.max(startRect.bottom, endRect.bottom) - containerRect.top) / scale;
 
     const width = right - left;
     const height = bottom - top;
@@ -497,10 +498,11 @@ export const GridView: React.FC<GridViewProps> = ({
     const startRect = startTd.getBoundingClientRect();
     const endRect = endTd.getBoundingClientRect();
 
-    const left = Math.min(startRect.left, endRect.left) - containerRect.left;
-    const top = Math.min(startRect.top, endRect.top) - containerRect.top;
-    const right = Math.max(startRect.right, endRect.right) - containerRect.left;
-    const bottom = Math.max(startRect.bottom, endRect.bottom) - containerRect.top;
+    const scale = zoomLevel !== 100 ? (zoomLevel / 100) : 1;
+    const left = (Math.min(startRect.left, endRect.left) - containerRect.left) / scale;
+    const top = (Math.min(startRect.top, endRect.top) - containerRect.top) / scale;
+    const right = (Math.max(startRect.right, endRect.right) - containerRect.left) / scale;
+    const bottom = (Math.max(startRect.bottom, endRect.bottom) - containerRect.top) / scale;
 
     overlay.style.display = 'block';
     overlay.style.transform = `translate3d(${left}px, ${top}px, 0)`;
@@ -643,6 +645,7 @@ export const GridView: React.FC<GridViewProps> = ({
     const handleMouseUpGlobal = () => {
       isSelectingRef.current = false;
       isDraggingRef.current = false;
+      selectionStartCoordRef.current = null;
     };
     window.addEventListener('mouseup', handleMouseUpGlobal);
     return () => {
@@ -662,7 +665,7 @@ export const GridView: React.FC<GridViewProps> = ({
     };
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
-  }, []);
+  }, [zoomLevel]);
 
   React.useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {

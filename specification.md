@@ -1592,3 +1592,41 @@ FC依頼番号（11桁）および号機による物件・住所・BOX・タイ�
      - 確定予定（赤バー）や仮予定（黄バー）の左端アクセント境界線クラス `.first-status-cell` を、従来の「タイプ」セルから最左端となった「依頼番号」セルへと適切に移行。行全体のステータス視認性を維持。
   4. **改善効果**:
      - スプレッドシートの実務レイアウト（依頼番号が左端にある運用）と完全に一致し、月間画面での視認性およびデータ突合のスムーズさが格段に向上。
+
+
+### 27.23 表示倍率（ズーム）適用時におけるセル範囲選択オーバーレイ座標補正および列ズレ根絶ガード（スマート整列）の仕様（2026-10-15更新）
+* **背景と課題**:
+  - ユーザーから以下の2点の疑問および不具合が報告された：
+    1. **疑問①**: 「スプレッドシートから号機以降をコピーして、今回一番左にした依頼番号にあやまってペーストしても大丈夫なのか？実際に試したら表に綺麗に入ったが、なぜなのか？」
+    2. **指摘②**: 「一方で、マウスでセルを範囲選択しようとすると、選択枠が画面上端（ヘッダーの裏）まで縦長に突き抜けて変なところが選択される」
+* **原因の分析と技術的解明**:
+  1. **疑問①の真相（列ズレ根絶ガード・スマート整列の安全機能）**:
+     - `CalendarView.tsx`（1685行目付近）において、貼り付けデータが1行全体（10列以上の予定データ行）である場合、選択中のセルが「依頼番号」や「BOX」等の途中列であっても、自動的に行の先頭実項目である「type（タイプ）」列を起点として流し込む安全ガード（`isFullRowPaste` 判定）が常に作動している。
+     - そのため、一番左端にある「依頼番号」セルを選択してペーストした場合でも、行データが自動的に「タイプ」列以降へと正しく整列して反映され、列ズレ事故が発生しない堅牢な仕様となっている。
+  2. **指摘②のバグ原因（ズーム倍率適用コンテナ内の座標除算漏れとスクロール乗算現象）**:
+     - 月間カレンダー画面およびグリッド画面では、表示倍率（ズーム）ボタン（80%, 90%, 110%, 125%等）によって親要素 `.matrix-table-zoom-inner` に CSS `zoom: ${zoomLevel}%` が適用されている。
+     - 一方、セル範囲選択オーバーレイ（`calendar-selection-overlay`）は親要素 `.matrix-table-zoom-inner` の直下に `position: absolute;` で配置されている。
+     - セル要素 `startTd.getBoundingClientRect()` および親コンテナ `container.getBoundingClientRect()` はビューポート（画面）上の物理ピクセルを返す。
+     - テーブルが縦方向に `scrollTop = S` だけスクロールしている時、画面上の物理差分は `diffY = startRect.top - containerRect.top = S + Y_screen` となる。
+     - これをそのまま `zoom: 0.9` の要素内のローカル座標 `translate3d(..., diffY, 0)` に設定すると、ブラウザが画面描画時に `zoom: 0.9` を乗算するため、画面上での描画位置は：
+       $$-S + (S + Y_{\text{screen}}) \times 0.9 = 0.9 \times Y_{\text{screen}} - 0.1 \times S$$
+       となり、スクロール量 $S$ が大きくなるほど（月の中旬〜下旬へ進むほど）オーバーレイが **$-0.1 \times S$ だけ上方向（画面天辺の外側）へ強烈に引きずり上げられ**、選択枠が画面上端のナビゲーションバーの裏まで突き抜ける現象が発生していた。
+* **実施した改修仕様**:
+  1. **ズーム倍率によるローカル座標への除算補正**:
+     - `CalendarView.tsx` および `GridView.tsx` の以下のオーバーレイ更新関数に、ズーム倍率補正（`scale`）を導入：
+       - `updateCalendarSelectionOverlayDom` / `updateCalendarCopyOverlayDom`
+       - `updateSelectionOverlayDom` / `updateCopyOverlayDom`
+     - 計算式：
+       $$\text{scale} = \frac{\text{zoomLevel}}{100}$$
+       $$\text{left} = \frac{\min(\text{startRect.left}, \text{endRect.left}) - \text{containerRect.left}}{\text{scale}}$$
+       $$\text{top} = \frac{\min(\text{startRect.top}, \text{endRect.top}) - \text{containerRect.top}}{\text{scale}}$$
+       $$\text{right} = \frac{\max(\text{startRect.right}, \text{endRect.right}) - \text{containerRect.left}}{\text{scale}}$$
+       $$\text{bottom} = \frac{\max(\text{startRect.bottom}, \text{endRect.bottom}) - \text{containerRect.top}}{\text{scale}}$$
+       $$\text{width} = \text{right} - \text{left}, \quad \text{height} = \text{bottom} - \text{top}$$
+     - これにより、親コンテナに適用された `zoom` が画面描画時に `scale` を乗算した際、分子と分母で完全に相殺され、スクロール量やズーム倍率にかかわらずセルの物理枠と **誤差0px** で完全一致する。
+  2. **ドラッグ選択起点座標の安全な初期化**:
+     - `CalendarView.tsx` および `GridView.tsx` の `handleMouseUpGlobal` において、マウスボタンを離した際に `selectionStartCoordRef.current = null;` を確実に初期化。直前の操作座標を引きずってしまうリスクを完全根絶。
+  3. **リサイズ監視の依存配列同期**:
+     - `handleResize` の `useEffect` に `[zoomLevel]` を追加し、表示倍率変更直後のリサイズイベント発生時にも最新のズーム倍率で正しく再計算されるよう同期。
+* **改修後の効果**:
+  - 表示倍率 80%, 90%, 100%, 110%, 125% いかなる設定時、および月の中旬・下旬まで深くスクロールした状態でも、マウスでのセル範囲選択・コピー破線枠がマウスカーソルおよびセル境界線とピタリと一致し、画面上部に突き抜ける現象が完全に解消された。
