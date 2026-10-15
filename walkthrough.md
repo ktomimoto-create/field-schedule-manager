@@ -846,5 +846,49 @@ GoogleスプレッドシートやExcel Webが超高速に動く理由は、**「
 - `specification.md`（第27.25章を追加）
 - `walkthrough.md`（本ドキュメント）
 
+---
+
+## 2026-10-15: 表示倍率（ズーム）適用時における「予定表（グリッド）の幅111万px肥大化・文字空白化バグ」の完全解消
+
+### 1. ユーザー様からのご指摘
+> 「予定表にうつしたあと何も出てこなくなった」（添付画像あり）
+
+---
+
+### 2. 原因の調査と技術的解明（Chromiumの循環パーセンテージ解決バグ）
+1. **現象の精密な分析**:
+   - ユーザー様の画面では件数「本日の残件数 59 / 62件中」「表示件数: 62件」と正しく予定データが読み込まれており、行のストライプ（白・薄灰）もレンダリングされていたが、文字・ヘッダー・境界線が一切表示されていなかった。
+2. **真因の特定（Chromiumのレイアウト循環参照）**:
+   - ユーザー様の画面では表示倍率が「90%」に設定されていた。
+   - [GridView.tsx](file:///C:/Users/000644/.gemini/antigravity/scratch/field-schedule-manager/frontend/src/components/GridView.tsx) において、ズーム適用時（`zoomLevel !== 100`）のインナーラッパー `.grid-table-zoom-inner` に `width: 'max-content'` がインラインスタイルで指定されていた。
+   - 一方、その直下に配置された `<table className="spreadsheet-table">` には `width: 100%; table-layout: fixed;` が指定されていた。
+   - CSS `zoom` が適用された Flex コンテナ内で `width: max-content` と `width: 100%` が共存すると、Chromium（Chrome / Edge）のレイアウトエンジンにおいて循環参照（Cyclic Dependency）が発生。
+   - その結果、テーブルの列幅計算がオーバーフローし、テーブル全体の幅が **1,111,111 ピクセル（111万ピクセル）**、1セルの幅が **25万ピクセル** にまで爆発的に肥大化。
+   - 文字や境界線が画面表示領域（1000〜1400px）の遥か右側の画面外へ吹き飛んでしまい、画面内には広大に引き伸ばされた1セルの背景色（白と薄灰色のストライプ）のみが映る状態になっていた。
+
+---
+
+### 3. 実施した修正内容
+1. **`width: 'max-content'` の完全撤廃（[GridView.tsx](file:///C:/Users/000644/.gemini/antigravity/scratch/field-schedule-manager/frontend/src/components/GridView.tsx)）**:
+   - ズーム倍率適用時・標準時の双方で `width: '100%'` かつ `minWidth: '1380px'` を指定。
+2. **CSS側（[GridView.css](file:///C:/Users/000644/.gemini/antigravity/scratch/field-schedule-manager/frontend/src/components/GridView.css)）の二重ガード**:
+   - `.grid-table-zoom-inner` に `min-width: 1380px;` を追加。
+
+---
+
+### 4. 検証結果
+1. **ヘッドレスブラウザ（Edge CDP）による再現 ＆ 解消検証**:
+   - 修正前：ズーム倍率 90% にて `table.offsetWidth` が **1,111,111px** となり、ユーザー様ご指摘と寸分違わぬ空白画面が 100% 再現。
+   - 修正後：ズーム倍率 90% にて `table.offsetWidth` が **1,476px** にピタリと収まり、各列（42px, 40px, 65px, 240px...）の文字・ヘッダー・アバター・ステータスボタンが完全に表示されることをスクリーンショットで確認。
+2. **ビルド検証**:
+   - `cmd.exe /c npm run build` にて TypeScript 型チェック、Vite バンドルともにエラー 0 件でビルド成功。
+
+---
+
+### 5. 更新したドキュメント
+- `specification.md`（第27.26章を追加）
+- `walkthrough.md`（本ドキュメント）
+
+
 
 

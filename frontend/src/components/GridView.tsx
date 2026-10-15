@@ -1012,12 +1012,13 @@ export const GridView: React.FC<GridViewProps> = ({
           style={zoomLevel !== 100 ? {
             zoom: `${zoomLevel}%`,
             minHeight: `calc(100% / ${zoomLevel / 100})`,
-            width: 'max-content',
-            minWidth: '100%',
+            width: '100%',
+            minWidth: '1380px',
             display: 'flex',
             flexDirection: 'column',
           } : {
             width: '100%',
+            minWidth: '1380px',
             minHeight: '100%',
             display: 'flex',
             flexDirection: 'column',
