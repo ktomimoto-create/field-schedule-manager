@@ -347,6 +347,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
   // === 複数行選択用のステート ===
   const [selectedScheduleIds, setSelectedScheduleIds] = useState<number[]>([]);
   const lastSelectedScheduleIdRef = useRef<number | null>(null);
+  const lastSelectRowEventTimestampRef = useRef<number>(0);
 
   // === 別日へ移動モーダル用のステート ===
   const [isMoveModalOpen, setIsMoveModalOpen] = useState(false);
@@ -1015,13 +1016,32 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
       return;
     }
 
+    // 連続発火・二重発火（MouseDownとClickの重複）ガード
+    const now = performance.now();
+    if (now - lastSelectRowEventTimestampRef.current < 250) {
+      return;
+    }
+    lastSelectRowEventTimestampRef.current = now;
+
     const clickedId = schedule.id;
 
     if (e.ctrlKey || e.metaKey) {
       // Ctrl + クリック: 個別トグル追加/解除
       setSelectedScheduleIds(prev => {
-        const exists = prev.includes(clickedId);
-        const next = exists ? prev.filter(id => id !== clickedId) : [...prev, clickedId];
+        // ★重要: 直前に通常クリックされた予定（lastSelectedScheduleIdRef）があり、
+        // かつ現在の selectedScheduleIds が空（1件目の予定がまだ配列に入っていない）場合、
+        // 1件目の予定もベースに含めて複数選択を開始する！
+        let baseList = [...prev];
+        if (
+          baseList.length === 0 &&
+          lastSelectedScheduleIdRef.current !== null &&
+          lastSelectedScheduleIdRef.current !== clickedId
+        ) {
+          baseList = [lastSelectedScheduleIdRef.current];
+        }
+
+        const exists = baseList.includes(clickedId);
+        const next = exists ? baseList.filter(id => id !== clickedId) : [...baseList, clickedId];
         setSelectedScheduleId(next.length > 0 ? next[next.length - 1] : null);
         lastSelectedScheduleIdRef.current = clickedId;
         return next;
@@ -2154,12 +2174,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
           className={cellClass} 
           style={{ ...style, padding: '0.35rem 0.35rem' }}
           title={title ? cleanMetadata(title) : (matchedStaff?.name || cleanMetadata(value))}
-          onClick={(e) => {
-            e.stopPropagation();
-            if (e.ctrlKey || e.shiftKey || e.metaKey) {
-              handleSelectRow(e, schedule);
-            }
-          }}
+          onClick={(e) => e.stopPropagation()}
           onMouseDown={(e) => handleCellMouseDown(e, schedule.date, rowIndex, field, schedId, schedule)}
           onMouseEnter={() => handleCellMouseEnter(schedule.date, rowIndex, field)}
           onDoubleClick={() => {
@@ -2226,12 +2241,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
           className={cellClass} 
           style={style}
           title={title ? cleanMetadata(title) : undefined}
-          onClick={(e) => {
-            e.stopPropagation();
-            if (e.ctrlKey || e.shiftKey || e.metaKey) {
-              handleSelectRow(e, schedule);
-            }
-          }}
+          onClick={(e) => e.stopPropagation()}
           onMouseDown={(e) => handleCellMouseDown(e, schedule.date, rowIndex, field, schedId, schedule)}
           onMouseEnter={() => handleCellMouseEnter(schedule.date, rowIndex, field)}
           onDoubleClick={() => {
@@ -2304,12 +2314,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
           className={cellClass} 
           style={style}
           title={title ? cleanMetadata(title) : undefined}
-          onClick={(e) => {
-            e.stopPropagation();
-            if (e.ctrlKey || e.shiftKey || e.metaKey) {
-              handleSelectRow(e, schedule);
-            }
-          }}
+          onClick={(e) => e.stopPropagation()}
           onMouseDown={(e) => handleCellMouseDown(e, schedule.date, rowIndex, field, schedId, schedule)}
           onMouseEnter={() => handleCellMouseEnter(schedule.date, rowIndex, field)}
           onDoubleClick={() => {
@@ -2371,12 +2376,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
         className={cellClass} 
         style={style}
         title={title ? cleanMetadata(title) : undefined}
-        onClick={(e) => {
-          e.stopPropagation();
-          if (e.ctrlKey || e.shiftKey || e.metaKey) {
-            handleSelectRow(e, schedule);
-          }
-        }}
+        onClick={(e) => e.stopPropagation()}
         onMouseDown={(e) => handleCellMouseDown(e, schedule.date, rowIndex, field, schedId, schedule)}
         onMouseEnter={() => handleCellMouseEnter(schedule.date, rowIndex, field)}
         onDoubleClick={() => {
@@ -3330,12 +3330,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                                           className={`${statusClass} ${isToday ? 'today-td' : ''} ${getSelectionClassName(day.dateStr, rowIndex, 'staff_name')} ${staffSearchClass}`}
                                           style={{ padding: '0.35rem 0.35rem' }}
                                           title={staffMember ? staffMember.name : (schedule.staff_name || undefined)}
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            if (e.ctrlKey || e.shiftKey || e.metaKey) {
-                                              handleSelectRow(e, schedule);
-                                            }
-                                          }}
+                                          onClick={(e) => e.stopPropagation()}
                                           onMouseDown={(e) => handleCellMouseDown(e, day.dateStr, rowIndex, 'staff_name', schedule.id, schedule)}
                                           onMouseEnter={() => handleCellMouseEnter(day.dateStr, rowIndex, 'staff_name')}
                                           onDoubleClick={() => {

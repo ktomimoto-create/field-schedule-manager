@@ -1661,3 +1661,32 @@ FC依頼番号（11桁）および号機による物件・住所・BOX・タイ�
      - `GridView.tsx` の `handleCellMouseDown` においても `Shift + クリック` による矩形範囲選択（Googleスプレッドシート完全同等）を実装。
 * **改修後の効果**:
   - セル単体をクリックした際に行全体が勝手に囲まれることなく安全な操作性を維持したまま、Ctrl + クリックによる複数行の個別トグル選択、Shift + クリックによる連続行およびセル矩形範囲の一括選択、画面下部の一括操作フローティングバーが完全に復元・正常稼働するようになった。
+
+### 27.25 Ctrl + クリック複数行選択における「二重発火による即時解除バグ」の完全根絶と1件目予定の自動引き継ぎ（2026-10-15更新）
+* **背景と課題**:
+  - ユーザーより「Ctrl + クリックのみまだできない」とのご指摘をいただいた。
+* **原因の調査と技術的解明**:
+  1. **MouseDown と Click の連続二重発火による即時トグル解除バグ**:
+     - `td` の `onMouseDown`（`handleCellMouseDown`）と `onClick` の両方に `handleSelectRow` が設定されていた。
+     - ユーザーがマウスを押して離す（1回のクリック）動作において、`onMouseDown`（押した瞬間）で対象行が `selectedScheduleIds` に「追加」された直後、ミリ秒単位で `onClick`（離した瞬間）が同一の予定IDで発火。
+     - トグル処理（`exists ? filter : add`）により、追加された直後に即座に「解除（削除）」されてしまい、結果として何も選択されない状態になっていた。
+  2. **1件目予定の非選択状態による複数選択不成立**:
+     - ユーザーは通常、「1件目の予定」を通常クリックし、続いて「2件目の予定」を `Ctrl + クリック` する。
+     - しかし通常クリック時点では `selectedScheduleIds` は空配列 `[]` であるため、2件目を `Ctrl + クリック` した際に `[2件目]` の1件しか配列に入らず、1件目の予定が抜け落ちてしまい、画面下部の一括操作バー（`selectedScheduleIds.length > 1`）が表示されない状態になっていた。
+* **実施した改修仕様**:
+  1. **MouseDown 発火への一本化と onClick 二重発火の完全撤廃**:
+     - `renderTableCell` 内の全セル（`staff_name`, `property_name`, `co_worker`, デフォルト各セル）および週テーブルの `onClick` を `(e) => e.stopPropagation()` に戻し、`onClick` からの `handleSelectRow` 呼び出しを完全撤廃。
+     - さらに `handleSelectRow` 内に `lastSelectRowEventTimestampRef` による 250ms デバウンスガードを組み込み、ブラウザの合成イベントによる重複発火を物理的に完全遮断。
+  2. **1件目予定のスマート自動引き継ぎ（`baseList` ロジック）**:
+     - `handleSelectRow` の Ctrlクリック処理において、`selectedScheduleIds` が空配列かつ直前に通常クリックされた予定（`lastSelectedScheduleIdRef.current`）が存在する場合、その1件目の予定をベース配列に自動で含めてから2件目を追加するよう改修：
+       ```typescript
+       let baseList = [...prev];
+       if (baseList.length === 0 && lastSelectedScheduleIdRef.current !== null && lastSelectedScheduleIdRef.current !== clickedId) {
+         baseList = [lastSelectedScheduleIdRef.current];
+       }
+       const exists = baseList.includes(clickedId);
+       const next = exists ? baseList.filter(id => id !== clickedId) : [...baseList, clickedId];
+       ```
+     - これにより、「1件目通常クリック ➔ 2件目 Ctrl+クリック」で即座に「2件選択中」となり、両行が紫色のハイライト（`.selected-row`）で強調され、画面下部にフローティング一括操作バーがパッと現れる。
+* **改修後の効果**:
+  - `Ctrl + クリック` による離れた行同士の複数選択、追加、解除（トグル）が確実に動作し、一括操作バー（一括確定・一括完了・一括削除・別日へ移動）が期待通りに利用可能となった。

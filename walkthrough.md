@@ -794,4 +794,57 @@ GoogleスプレッドシートやExcel Webが超高速に動く理由は、**「
 - `specification.md`（第27.24章を追加）
 - `walkthrough.md`（本ドキュメント）
 
+---
+
+## 2026-10-15: Ctrl + クリック複数選択における二重発火（即時解除）バグ解消と1件目予定の自動引き継ぎ
+
+### 1. ユーザー様からのご指摘
+> 「Ctrl + クリックのみまだできない」
+
+---
+
+### 2. 原因の調査と技術的解明
+1. **MouseDown と Click の連続二重発火による即時トグル解除**:
+   - `td` の `onMouseDown`（`handleCellMouseDown`）と `onClick` の両方に `handleSelectRow` を設定していたため、ユーザーがマウスを押して離す（1回のクリック）動作において、押した瞬間に予定IDが `selectedScheduleIds` に「追加」され、直後に離した瞬間に同一IDで再度トグル処理が走り即座に「解除（削除）」されていました。
+2. **1件目予定の非選択状態による複数選択不成立**:
+   - ユーザーは通常「1件目の予定」を通常クリックし、続いて「2件目の予定」を `Ctrl + クリック` します。
+   - 通常クリック時点では `selectedScheduleIds` は空配列 `[]` のため、2件目を `Ctrl + クリック` した際に `[2件目]` の1件しか配列に入らず、1件目の予定が抜け落ちてしまい、画面下部の一括操作バー（`selectedScheduleIds.length > 1`）が表示されませんでした。
+
+---
+
+### 3. 実施した修正内容
+1. **MouseDown 発火への一本化と onClick 二重発火の完全撤廃（[CalendarView.tsx](file:///C:/Users/000644/.gemini/antigravity/scratch/field-schedule-manager/frontend/src/components/CalendarView.tsx)）**:
+   - `renderTableCell` 内の全セル（`staff_name`, `property_name`, `co_worker`, デフォルト各セル）および週テーブルの `onClick` を `(e) => e.stopPropagation()` に戻し、`onClick` からの二重呼び出しを完全撤廃。
+   - `handleSelectRow` 内に `lastSelectRowEventTimestampRef` による 250ms デバウンスガードを組み込み、ブラウザの合成イベントによる重複発火を物理的に完全遮断。
+2. **1件目予定のスマート自動引き継ぎ（`baseList` ロジック）**:
+   - `handleSelectRow` の Ctrlクリック処理において、`selectedScheduleIds` が空配列かつ直前に通常クリックされた予定（`lastSelectedScheduleIdRef.current`）が存在する場合、その1件目の予定をベース配列に自動で含めてから2件目を追加するよう改修：
+     ```typescript
+     let baseList = [...prev];
+     if (
+       baseList.length === 0 &&
+       lastSelectedScheduleIdRef.current !== null &&
+       lastSelectedScheduleIdRef.current !== clickedId
+     ) {
+       baseList = [lastSelectedScheduleIdRef.current];
+     }
+     const exists = baseList.includes(clickedId);
+     const next = exists ? baseList.filter(id => id !== clickedId) : [...baseList, clickedId];
+     ```
+   - これにより、「1件目通常クリック ➔ 2件目 Ctrl+クリック」で即座に「2件選択中」となり、両行が紫色のハイライト（`.selected-row`）で強調され、画面下部にフローティング一括操作バーが出現します。
+
+---
+
+### 4. 検証結果
+1. **ビルド検証**:
+   - `cmd.exe /c npm run build` にて TypeScript 型チェック、Vite バンドルともにエラー 0 件でビルド成功。
+2. **動作確認**:
+   - `Ctrl + クリック` で離れた行同士の複数選択、追加、解除（トグル）が確実に動作し、一括操作バー（一括確定・一括完了・一括削除・別日へ移動）が期待通りに利用可能となったことを確認。
+
+---
+
+### 5. 更新したドキュメント
+- `specification.md`（第27.25章を追加）
+- `walkthrough.md`（本ドキュメント）
+
+
 
