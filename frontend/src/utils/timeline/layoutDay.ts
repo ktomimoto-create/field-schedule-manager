@@ -35,58 +35,61 @@ export interface DayLayout {
 
 /**
  * 1 人の 1 日の予定を時間軸に並べる。予定表には終了時刻が無いので:
- * - 開始・完了の実績があればそれを使う（actual）
- * - 時刻指定（10:00 / 14:00〜14:30）はその時刻に置く（fixed）
- * - それ以外は、前の作業の終わり＋移動の目安から順に置く（estimated）。
- *   AM/PM は帯の始まりより前には置かない。「〜迄」も前には寄せず、間に合わなければ late を付ける。
- * 作業時間は 1 件 60 分とみなす。items は orderInDay で並べてから渡す。
+ * 1. 先に「動かせない帯」を置く: 開始・完了の実績（actual）と時刻指定（10:00 / 14:00〜14:30 = fixed）。
+ * 2. 残り（時間なし・AM/PM・「〜迄」= estimated）を並び順に置く。開始は
+ *    「並び順で 1 つ前の帯の終わり＋移動の目安」「9:00」「AM/PM の帯の始まり」の最大値。
+ *    そこが置き済みの帯と重なるなら、その帯の終わり＋移動の目安まで後ろへずらす。
+ *    「〜迄」は前に寄せず、終わりが締切を過ぎたら late を付ける。
+ * 3. 開始順に返し、隣り合う帯に隙間があれば移動の目安（gap）を付ける。
+ * 作業時間は 1 件 60 分とみなす。時刻指定どうしの重なりはデータのとおり残す。
+ * items は orderInDay で並べてから渡す。
  */
 export const layoutStaffDay = (items: Schedule[]): DayLayout => {
-  const bars: GanttBar[] = []
-  const gaps: TravelGap[] = []
-  let cursor = FIRST_JOB_MIN
-  let last: GanttBar | null = null // いちばん遅く終わる帯
+  const targets = items.filter(s => progressOf(s) !== 'cancelled' && !isHoliday(s))
+  const placed = new Map<Schedule, GanttBar>()
 
-  for (const s of items) {
-    if (progressOf(s) === 'cancelled' || isHoliday(s)) continue
-    const travel = last ? estimateTravel(last.schedule, s) : null
-    const earliest = cursor + (travel ? travel.minutes : 0)
+  // 1. 実績・時刻指定の帯を、その時刻に置く
+  for (const s of targets) {
     const started = hmToMin(s.started_at)
     const completed = hmToMin(s.completed_at)
     const slot = parseTimeSlot(s.target_time)
-
-    let from: number
-    let to: number
-    let basis: BarBasis
-    let late = false
     if (started !== null) {
-      from = started
-      to = completed !== null && completed > started ? completed : started + DEFAULT_WORK_MIN
-      basis = 'actual'
+      const to = completed !== null && completed > started ? completed : started + DEFAULT_WORK_MIN
+      placed.set(s, { schedule: s, from: started, to, basis: 'actual' })
     } else if (slot && (slot.kind === 'at' || slot.kind === 'range')) {
-      from = slot.from
-      to = slot.kind === 'range' ? slot.to : slot.from + DEFAULT_WORK_MIN
-      basis = 'fixed'
-    } else if (slot && slot.kind === 'until') {
-      from = earliest
-      to = from + DEFAULT_WORK_MIN
-      basis = 'estimated'
-      late = to > slot.to
-    } else if (slot && slot.kind === 'band') {
-      from = Math.max(earliest, slot.from)
-      to = from + DEFAULT_WORK_MIN
-      basis = 'estimated'
-    } else {
-      from = earliest
-      to = from + DEFAULT_WORK_MIN
-      basis = 'estimated'
+      const to = slot.kind === 'range' ? slot.to : slot.from + DEFAULT_WORK_MIN
+      placed.set(s, { schedule: s, from: slot.from, to, basis: 'fixed' })
     }
+  }
 
-    if (last && travel && from > last.to) gaps.push({ from: last.to, to: from, travel })
-    const bar: GanttBar = late ? { schedule: s, from, to, basis, late } : { schedule: s, from, to, basis }
-    bars.push(bar)
-    cursor = Math.max(cursor, to)
-    if (!last || to > last.to) last = bar
+  // 2. 目安の帯を並び順に置く（置き済みの帯とは重ねない）
+  let prev: GanttBar | null = null
+  for (const s of targets) {
+    if (!placed.has(s)) {
+      const slot = parseTimeSlot(s.target_time)
+      let from = FIRST_JOB_MIN
+      if (prev) from = Math.max(from, prev.to + estimateTravel(prev.schedule, s).minutes)
+      if (slot && slot.kind === 'band') from = Math.max(from, slot.from)
+      for (;;) {
+        const end = from + DEFAULT_WORK_MIN
+        const hit = [...placed.values()].find(b => b.from < end && b.to > from)
+        if (!hit) break
+        from = hit.to + estimateTravel(hit.schedule, s).minutes
+      }
+      const to = from + DEFAULT_WORK_MIN
+      const late = slot !== null && slot.kind === 'until' && to > slot.to
+      placed.set(s, late ? { schedule: s, from, to, basis: 'estimated', late } : { schedule: s, from, to, basis: 'estimated' })
+    }
+    prev = placed.get(s) ?? null
+  }
+
+  // 3. 開始順に並べ、隙間に移動の目安を付ける
+  const bars = [...placed.values()].sort((a, b) => a.from - b.from)
+  const gaps: TravelGap[] = []
+  for (let i = 1; i < bars.length; i++) {
+    const a = bars[i - 1]
+    const b = bars[i]
+    if (b.from > a.to) gaps.push({ from: a.to, to: b.from, travel: estimateTravel(a.schedule, b.schedule) })
   }
   return { bars, gaps }
 }

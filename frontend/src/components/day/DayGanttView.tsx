@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import type { Schedule, Staff } from '../../types'
 import { hmToMin, nowHmJst, todayJst } from '../../utils/timeline/dates'
 import { groupByStaff } from '../../utils/timeline/groupByStaff'
@@ -7,11 +7,13 @@ import { isHoliday } from '../../utils/timeline/workTone'
 import { GanttRow, type GanttRowData } from './GanttRow'
 import './DayGanttView.css'
 
-const PX_PER_MIN = 1.6 // 1 時間 = 96px
+const MIN_PX_PER_MIN = 1.6 // 狭い画面では 1 時間 = 96px
+const LABEL_COL_PX = 120 // 担当名の列
+const BORDER_PX = 2 // .dg-scroll の枠
+const SPAN_MIN = DAY_END_MIN - DAY_START_MIN
 const HOURS = Array.from({ length: (DAY_END_MIN - DAY_START_MIN) / 60 + 1 }, (_, i) => DAY_START_MIN / 60 + i)
 
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v))
-const x = (min: number) => (clamp(min, DAY_START_MIN, DAY_END_MIN) - DAY_START_MIN) * PX_PER_MIN
 const nowMinutes = () => hmToMin(nowHmJst()) ?? 0
 
 interface Props {
@@ -35,6 +37,21 @@ export function DayGanttView({ schedules, staff, date, focusStaffId, onOpen }: P
     [schedules, staff],
   )
 
+  // 画面幅いっぱいに広げる（測れない環境では最小の縮尺）
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const [pxPerMin, setPxPerMin] = useState(MIN_PX_PER_MIN)
+  const hasRows = rows.length > 0
+  useEffect(() => {
+    const el = scrollRef.current
+    if (!el || typeof ResizeObserver === 'undefined') return
+    const measure = () => setPxPerMin(Math.max(MIN_PX_PER_MIN, (el.clientWidth - LABEL_COL_PX - BORDER_PX) / SPAN_MIN))
+    measure()
+    const ro = new ResizeObserver(measure)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [hasRows])
+  const x = useCallback((min: number) => (clamp(min, DAY_START_MIN, DAY_END_MIN) - DAY_START_MIN) * pxPerMin, [pxPerMin])
+
   const [now, setNow] = useState(nowMinutes)
   useEffect(() => {
     const timer = setInterval(() => setNow(nowMinutes()), 60_000)
@@ -56,8 +73,8 @@ export function DayGanttView({ schedules, staff, date, focusStaffId, onOpen }: P
   const isToday = date === todayJst()
 
   return (
-    <div className="dg-scroll">
-      <div className="dg-grid" style={{ '--dg-width': `${width}px` } as CSSProperties}>
+    <div className="dg-scroll" ref={scrollRef}>
+      <div className="dg-grid" style={{ '--dg-width': `${width}px`, '--dg-hour': `${pxPerMin * 60}px` } as CSSProperties}>
         <div className="dg-corner" />
         <div className="dg-hours">
           {HOURS.map((h, i) => (

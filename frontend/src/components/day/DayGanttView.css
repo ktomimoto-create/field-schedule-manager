@@ -101,7 +101,7 @@
 .dg-track {
   position: relative;
   isolation: isolate;
-  background-image: repeating-linear-gradient(to right, var(--border-cell) 0 1px, transparent 1px 96px);
+  background-image: repeating-linear-gradient(to right, var(--border-cell) 0 1px, transparent 1px var(--dg-hour, 96px));
 }
 
 .dg-bar {
