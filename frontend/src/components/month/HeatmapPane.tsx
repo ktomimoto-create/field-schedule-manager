@@ -1,4 +1,5 @@
-import { Fragment, useEffect, useState } from 'react'
+import { Fragment, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { ListChecks } from 'lucide-react'
 import type { Schedule } from '../../types'
 import { getShortName } from '../../types'
 import { weekdayJa, weekdayOf } from '../../utils/timeline/dates'
@@ -16,8 +17,8 @@ interface Props {
 interface Popover {
   date: string
   row: MonthRow
-  left: number
-  top: number
+  /** 押したセルの位置（内訳の置き場所は高さを測ってから決める） */
+  rect: { top: number; bottom: number; left: number }
 }
 
 const LEGEND = [
@@ -32,6 +33,8 @@ const md = (date: string) => `${Number(date.slice(5, 7))}/${Number(date.slice(8)
 
 export function HeatmapPane({ days, rows, cells, today, onJumpToDay }: Props) {
   const [pop, setPop] = useState<Popover | null>(null)
+  const [pos, setPos] = useState<{ left: number; top: number } | null>(null)
+  const popRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (!pop) return
@@ -44,15 +47,37 @@ export function HeatmapPane({ days, rows, cells, today, onJumpToDay }: Props) {
     }
     window.addEventListener('keydown', onKey)
     window.addEventListener('mousedown', onDown)
-    window.addEventListener('scroll', close, true)
+    // 内訳の中のスクロールでは閉じない
+    const onScroll = (e: Event) => {
+      if (e.target instanceof Element && e.target.closest('.hp-pop')) return
+      close()
+    }
+    window.addEventListener('scroll', onScroll, true)
+    window.addEventListener('resize', close)
     return () => {
       window.removeEventListener('keydown', onKey)
       window.removeEventListener('mousedown', onDown)
-      window.removeEventListener('scroll', close, true)
+      window.removeEventListener('scroll', onScroll, true)
+      window.removeEventListener('resize', close)
     }
   }, [pop])
 
+  // 高さを測って、下に収まらなければセルの上に出す
+  useLayoutEffect(() => {
+    if (!pop || !popRef.current) {
+      setPos(null)
+      return
+    }
+    const { height, width } = popRef.current.getBoundingClientRect()
+    const r = pop.rect
+    const below = r.bottom + 4
+    const top = below + height > window.innerHeight - 8 ? Math.max(8, r.top - 4 - height) : below
+    const left = Math.max(8, Math.min(r.left, window.innerWidth - width - 8))
+    setPos({ left, top })
+  }, [pop])
+
   const popItems = pop ? (cells.get(cellKey(pop.row.staffId, pop.date)) ?? []).filter(isFieldJob) : []
+  const popOff = pop ? popItems.length === 0 && (cells.get(cellKey(pop.row.staffId, pop.date)) ?? []).some(isHoliday) : false
   const popTypes = [...popItems.reduce((m, s) => m.set(s.work_type || '種別なし', (m.get(s.work_type || '種別なし') ?? 0) + 1), new Map<string, number>())]
 
   return (
@@ -76,22 +101,24 @@ export function HeatmapPane({ days, rows, cells, today, onJumpToDay }: Props) {
               const count = list.filter(isFieldJob).length
               const off = count === 0 && list.some(isHoliday)
               const wd = weekdayOf(d)
+              const cellTitle = `${getShortName(row.name)} ${md(d)}：${count}件（ダブルクリックでこの日の行動予定へ）`
               return (
                 <button
                   key={d}
                   type="button"
                   className={`hp-cell hp-l${heatLevel(count)} ${wd === 0 || wd === 6 ? 'is-weekend' : ''} ${off ? 'is-off' : ''}`}
-                  title={`${getShortName(row.name)} ${md(d)}：${count}件（ダブルクリックでこの日の行動予定へ）`}
+                  title={cellTitle}
+                  aria-label={cellTitle}
                   onClick={e => {
                     const r = e.currentTarget.getBoundingClientRect()
-                    setPop({ date: d, row, left: Math.min(r.left, window.innerWidth - 276), top: r.bottom + 4 })
+                    setPop({ date: d, row, rect: { top: r.top, bottom: r.bottom, left: r.left } })
                   }}
                   onDoubleClick={() => {
                     setPop(null)
                     onJumpToDay(d, row.staffId)
                   }}
                 >
-                  {count > 0 ? count : off ? '休' : ''}
+                  {count > 0 ? <span className="tl-num">{count}</span> : off ? '休' : ''}
                 </button>
               )
             })}
@@ -111,14 +138,34 @@ export function HeatmapPane({ days, rows, cells, today, onJumpToDay }: Props) {
       </div>
 
       {pop && (
-        <div className="hp-pop" role="dialog" aria-label="この日の予定" style={{ left: pop.left, top: Math.min(pop.top, window.innerHeight - 330) }}>
-          <h4>
-            {getShortName(pop.row.name)}
-            {'　'}
-            {md(pop.date)}（{weekdayJa(pop.date)}）
-          </h4>
+        <div
+          ref={popRef}
+          className="hp-pop"
+          role="dialog"
+          aria-label="この日の予定"
+          style={{ left: pos?.left ?? pop.rect.left, top: pos?.top ?? pop.rect.bottom + 4, visibility: pos ? 'visible' : 'hidden' }}
+        >
+          <div className="hp-pop-head">
+            <h4>
+              {getShortName(pop.row.name)}
+              {'　'}
+              {md(pop.date)}（{weekdayJa(pop.date)}）
+            </h4>
+            <button
+              type="button"
+              className="tl-ghost-btn tl-icon-btn"
+              title="この日の行動予定を開く"
+              aria-label="この日の行動予定を開く"
+              onClick={() => {
+                setPop(null)
+                onJumpToDay(pop.date, pop.row.staffId)
+              }}
+            >
+              <ListChecks size={16} />
+            </button>
+          </div>
           {popItems.length === 0 ? (
-            <p className="hp-pop-hint">予定はありません</p>
+            <p className="hp-pop-hint">{popOff ? '休み' : '予定はありません'}</p>
           ) : (
             <>
               <div className="hp-pop-types">
@@ -139,7 +186,7 @@ export function HeatmapPane({ days, rows, cells, today, onJumpToDay }: Props) {
               </ul>
             </>
           )}
-          <p className="hp-pop-hint">ダブルクリックで、この日の行動予定を開きます</p>
+          <p className="hp-pop-hint">右上のボタン（またはセルのダブルクリック）で、この日の行動予定を開きます</p>
         </div>
       )}
     </div>

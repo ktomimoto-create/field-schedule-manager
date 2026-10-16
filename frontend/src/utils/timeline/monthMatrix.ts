@@ -9,10 +9,14 @@ export interface MonthRow {
 
 export const cellKey = (staffId: number | null, date: string): string => `${staffId ?? 'none'}|${date}`
 
+/** 担当が分からない（null、または staff に居ない ID）予定は未割当（null）に寄せる（groupByStaff と同じ） */
+const effectiveStaffId = (s: Schedule, known: Set<number>): number | null => (s.staff_id !== null && known.has(s.staff_id) ? s.staff_id : null)
+
 /** 月間の行: 在籍中のスタッフ（is_active≠0）＋その月に予定がある人。コース順。担当の無い予定があれば最後に「未割当」 */
 export const monthRows = (schedules: Schedule[], staff: Staff[], days: string[]): MonthRow[] => {
   const inMonth = new Set(days)
-  const staffIdsWithItems = new Set(schedules.filter(s => inMonth.has(s.date)).map(s => s.staff_id))
+  const known = new Set(staff.map(st => st.id))
+  const staffIdsWithItems = new Set(schedules.filter(s => inMonth.has(s.date)).map(s => effectiveStaffId(s, known)))
   const rows: MonthRow[] = staff
     .filter(st => st.is_active !== 0 || staffIdsWithItems.has(st.id))
     .sort((a, b) => courseOf(a) - courseOf(b) || a.name.localeCompare(b.name, 'ja'))
@@ -22,10 +26,11 @@ export const monthRows = (schedules: Schedule[], staff: Staff[], days: string[])
 }
 
 /** 担当×日 → その日の予定（1 日の並び順） */
-export const indexByCell = (schedules: Schedule[]): Map<string, Schedule[]> => {
+export const indexByCell = (schedules: Schedule[], staff: Staff[]): Map<string, Schedule[]> => {
+  const known = new Set(staff.map(st => st.id))
   const map = new Map<string, Schedule[]>()
   for (const s of schedules) {
-    const key = cellKey(s.staff_id, s.date)
+    const key = cellKey(effectiveStaffId(s, known), s.date)
     const list = map.get(key)
     if (list) list.push(s)
     else map.set(key, [s])

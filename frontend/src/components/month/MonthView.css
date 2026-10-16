@@ -65,7 +65,8 @@
 
 .mv-corner {
   z-index: 3;
-  background: var(--bg-column-header);
+  /* ダークでは見出し色が半透明なので、下に不透明な色を敷く */
+  background: linear-gradient(var(--bg-column-header), var(--bg-column-header)), var(--bg-secondary);
   border-right: 1px solid var(--border-cell);
   border-bottom: 1px solid var(--border-cell);
 }
@@ -76,14 +77,14 @@
   justify-content: center;
   gap: 4px;
   height: 40px;
-  background: var(--bg-column-header);
+  background: linear-gradient(var(--bg-column-header), var(--bg-column-header)), var(--bg-secondary);
   border-right: 1px solid var(--border-cell);
   border-bottom: 1px solid var(--border-cell);
   font-size: 13px;
 }
 
 .mv-dayhead.is-weekend {
-  background: color-mix(in srgb, var(--text-muted) 14%, var(--bg-column-header));
+  background: linear-gradient(color-mix(in srgb, var(--text-muted) 14%, var(--bg-column-header)), color-mix(in srgb, var(--text-muted) 14%, var(--bg-column-header))), var(--bg-secondary);
 }
 
 .mv-dayhead.is-today {
@@ -286,8 +287,16 @@
   font-size: 13px;
 }
 
+.hp-pop-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
 .hp-pop h4 {
-  margin: 0 0 6px;
+  margin: 0;
   font-size: 14px;
 }
 

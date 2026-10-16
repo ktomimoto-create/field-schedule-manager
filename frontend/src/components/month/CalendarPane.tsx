@@ -4,6 +4,7 @@ import type { Schedule } from '../../types'
 import { getShortName } from '../../types'
 import { weekdayJa, weekdayOf } from '../../utils/timeline/dates'
 import { cellKey, type MonthRow } from '../../utils/timeline/monthMatrix'
+import { progressOf } from '../../utils/timeline/progress'
 import { targetTimeBadge } from '../../utils/timeline/parseTargetTime'
 import { isHoliday, workTone } from '../../utils/timeline/workTone'
 import { Spinner } from '../shared/Spinner'
@@ -33,7 +34,7 @@ function CalendarChip({ schedule: s, onOpen }: { schedule: Schedule; onOpen: (s:
   return (
     <button
       type="button"
-      className={`cp-chip tl-wt-${workTone(s.work_type)} ${pending ? 'is-pending' : ''} ${s.status === 'cancelled' ? 'is-cancelled' : ''}`}
+      className={`cp-chip tl-wt-${workTone(s.work_type)} ${pending ? 'is-pending' : ''} ${progressOf(s) === 'cancelled' ? 'is-cancelled' : ''}`}
       title={pending ? 'まだ行動予定に移していない予定' : undefined}
       onClick={() => onOpen(s)}
     >
@@ -53,7 +54,8 @@ export function CalendarPane({ days, rows, cells, today, transferring, onTransfe
     const map = new Map<string, number>()
     for (const list of cells.values()) {
       for (const s of list) {
-        if (s.is_transferred !== 1 && s.status !== 'cancelled') map.set(s.date, (map.get(s.date) ?? 0) + 1)
+        // App が移す対象と同じ（キャンセルも含む）
+        if (s.is_transferred !== 1) map.set(s.date, (map.get(s.date) ?? 0) + 1)
       }
     }
     return map
@@ -77,7 +79,7 @@ export function CalendarPane({ days, rows, cells, today, transferring, onTransfe
                   disabled={transferring === d}
                   onClick={() => onTransfer(d, pending)}
                   title={`この日のまだ移していない ${pending} 件を行動予定へ移す`}
-                  aria-label="行動予定へ移す"
+                  aria-label={`行動予定へ移す（${pending}件）`}
                 >
                   {transferring === d ? <Spinner size={16} /> : <ArrowRightToLine size={16} />}
                 </button>

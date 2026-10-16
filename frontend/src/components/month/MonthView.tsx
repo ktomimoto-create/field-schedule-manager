@@ -39,7 +39,7 @@ export function MonthView({ schedules, staff, onOpenAdd, onOpenEdit, onTransfer,
 
   const days = useMemo(() => monthDays(month), [month])
   const rows = useMemo(() => monthRows(schedules, staff, days), [schedules, staff, days])
-  const cells = useMemo(() => indexByCell(schedules.filter(s => s.date.startsWith(month))), [schedules, month])
+  const cells = useMemo(() => indexByCell(schedules.filter(s => s.date.startsWith(month)), staff), [schedules, staff, month])
 
   const transfer = async (date: string, pending: number) => {
     if (!window.confirm(`${date} のまだ移していない予定 ${pending} 件を、行動予定へ移します。よろしいですか？`)) return
