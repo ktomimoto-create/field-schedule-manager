@@ -1013,8 +1013,47 @@ GoogleスプレッドシートやExcel Webが超高速に動く理由は、**「
 - `walkthrough.md`（本ドキュメント）
 
 
+## 2026-10-16: 読み込み中の表示を共通の輪（Spinner）に統一 ＆ プルダウンを共有 Select 部品に統一
 
+- **担当**: 上田 晃平（Claude Code で実装）
+- **日時**: 2026-10-16 10:39（読み込み中の輪）／11:10（共有 Select）。同日 11:15 頃に main へ反映
+- **方法**: ブランチ `chore/unified-spinner` で作業し、main へ早送りで反映（main 側に新しいコミットが無かったためマージ無し）
+- **コミット**: `bf78d28`（読み込み中の輪）、`5751562`（共有 Select）
 
+---
 
+### 1. 背景
+- 社内アプリ全体の決まり（2026-10-16 確定）: **読み込み中は「尾を引いて回る輪」だけを出し、「読み込み中…」などの文字は出さない**。fe-dotai で作った輪を全アプリで共通にした。
+- 社内アプリ全体の決まり（2026-09-16 確定）: **プルダウンはブラウザ標準の `<select>` を使わず、共有の Select 部品に統一する**（見た目の基準は Knowledge DB の GlassSelect）。
 
+---
 
+### 2. 実施した修正内容
+
+#### ① 読み込み中の表示（`bf78d28`）
+- 新規 `frontend/src/components/shared/Spinner.tsx`（`Spinner` / `SpinnerBlock`）。CSS は `frontend/src/index.css` の末尾。輪の色は主色の `--primary`。
+- 「データを読み込み中...」（App.tsx）、「変更履歴を読み込み中...」（AuditLogView）を `SpinnerBlock` に置き換え。
+- 古い `.spinner` の輪 4 か所（更新中のオーバーレイ、「さらに過去の履歴を表示」ボタンなど）を `Spinner` に置き換え。
+- 回していた `RefreshCw` アイコン 2 か所（変更履歴の「最新に更新」、マスタ同期）は、処理中だけ `Spinner` に差し替える形に変更。
+- 使われなくなった `.loading-container`、古い `.spinner`、`@keyframes spin`（3 ファイル）、`.spinning`、`.spin-animation` を削除。
+
+#### ② プルダウン（`5751562`）
+- 新規 `frontend/src/components/shared/Select.tsx`（app-template の共有 Select を移植）。角丸パネル・pill 状の項目・選択中にチェック・画面下半分では上向きに開く・Esc で閉じる。
+- `<select>` 17 か所を置き換え: AnalyticsView 1、AuditLogView 1、CalendarView 3、GridView 2、MasterManagementView 4、PrintPreviewModal 1、ScheduleModal 4、TimelineView 1。
+- 読み込み中（社員一覧の取得中など）は `loading` 指定で、ボタンに輪だけを出して操作できなくする。
+- CSS: `frontend/src/index.css` に `.select-*` を追加し、`select.form-control` の矢印画像を削除。`GridView.css` / `MasterManagementView.css` の `<select>` 向けの指定を整理。
+
+---
+
+### 3. 挙動が変わる点・注意点
+- **一覧に無い値のとき**: 以前は先頭の選択肢が見えていたが、今は今の値の文字がそのまま見える（種別のセル編集、簡易登録の種別の初期値「休暇」、区分、対応者）。
+- 同じ項目を選び直しても onChange は呼ばれない（標準の select と同じ。担当者セルで無駄な保存が走らない）。
+- 表のセル編集（種別・担当者）の autoFocus / onBlur での保存タイミングは従来どおり。
+- 一覧は画面の最前面（z-index 13000）に出る。HelpGuideModal（12000）より前。
+
+---
+
+### 4. 検証結果
+1. **ビルド検証**: `npm run build`（tsc -b + vite build）成功。
+2. **lint**: `eslint src` の既存エラー 134 件 → 133 件（増加なし）。
+3. **画面確認**: ログイン用の .env が無いため実画面は未確認。Select だけを置いた確認用ページで、overflow: hidden の枠内でも一覧が切れないこと、画面下部では上向きに開きモーダルより前に出ること、読み込み中は輪だけになることを確認。
