@@ -1,6 +1,14 @@
 // アクセス権限の3段階: staff=現地対応者(閲覧+自分の予定の結果報告) / manager=予定管理者(配車・予定編集) / developer=開発者(全機能)
 export type UserRole = 'staff' | 'manager' | 'developer';
 
+// 拠点区分: tokyo=東京(東日本) / osaka=大阪(西日本)
+export type Branch = 'tokyo' | 'osaka';
+
+export const BRANCH_NAMES: Record<Branch, string> = {
+  tokyo: '東京 (東日本)',
+  osaka: '大阪 (西日本)'
+};
+
 // DB の role 文字列を UserRole に正規化（旧値 admin/user もマッピング）
 export const normalizeRole = (role: string | null | undefined): UserRole => {
   if (role === 'developer' || role === 'admin') return 'developer';
@@ -21,6 +29,7 @@ export interface Staff {
   role?: string;
   avatar_url?: string; // Microsoftアカウント等から流用するプロフィール画像URL
   employee_code?: string; // 社員番号
+  branch?: Branch; // 所属拠点 (tokyo / osaka)
 }
 
 export type ScheduleStatus = 'free' | 'draft' | 'confirmed' | 'cancelled';
@@ -59,6 +68,7 @@ export interface Schedule {
   updated_by?: string | null;
   created_at: string;
   updated_at: string;
+  branch?: Branch; // 所属拠点 (tokyo / osaka)
   staff_name?: string;
   staff_email?: string;
   staff_course?: string;
@@ -251,7 +261,27 @@ export const cleanMetadata = (val: string | null | undefined): string => {
   return String(val)
     .replace(/\s*\[__parent_id:\d+__\]/g, '')
     .replace(/\s*\[__no_sync__\]/g, '')
+    .replace(/\s*\[__branch:\w+__\]/g, '')
     .trim();
+};
+
+// スケジュールの所属拠点判定（DBのbranchカラム または notes内の暗黙メタデータから安全に解決）
+export const resolveScheduleBranch = (schedule: Schedule | null | undefined): Branch => {
+  if (!schedule) return 'tokyo';
+  if (schedule.branch === 'osaka') return 'osaka';
+  if (schedule.branch === 'tokyo') return 'tokyo';
+  if (schedule.notes && schedule.notes.includes('[__branch:osaka__]')) return 'osaka';
+  return 'tokyo';
+};
+
+// スタッフの所属拠点判定
+export const resolveStaffBranch = (member: Staff | null | undefined): Branch => {
+  if (!member) return 'tokyo';
+  if (member.branch === 'osaka') return 'osaka';
+  if (member.branch === 'tokyo') return 'tokyo';
+  const email = (member.email || '').toLowerCase().trim();
+  if (email === 'h_kurokawa@fts.co.jp') return 'osaka';
+  return 'tokyo';
 };
 
 export const findStaffByName = (staff: Staff[], name: string | null | undefined): Staff | undefined => {

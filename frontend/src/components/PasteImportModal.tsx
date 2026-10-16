@@ -4,7 +4,7 @@ import { supabase } from '../supabaseClient';
 import './PasteImportModal.css';
 import { resolveAddress } from '../utils/addressResolver';
 import { findStaffByName, toHalfWidth, normalizeTargetTime } from '../types';
-import type { Staff, Schedule } from '../types';
+import type { Staff, Schedule, Branch } from '../types';
 interface PasteImportModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -14,6 +14,7 @@ interface PasteImportModalProps {
   isSandboxMode?: boolean;
   existingSchedules?: Schedule[];
   onSandboxImport?: (importedSchedules: Schedule[]) => void;
+  currentBranch?: Branch;
 }
 
 // 10列の固定項目定義
@@ -120,7 +121,14 @@ export const PasteImportModal: React.FC<PasteImportModalProps> = ({
   isSandboxMode = false,
   existingSchedules = [],
   onSandboxImport,
+  currentBranch = 'tokyo',
 }) => {
+  const attachBranchMetadata = (notesStr: string | null | undefined, branch: Branch) => {
+    const base = (notesStr || '').replace(/\s*\[__branch:\w+__\]/g, '').trim();
+    const tag = `[__branch:${branch}__]`;
+    return base ? `${base}\n\n${tag}` : tag;
+  };
+
   const [targetDate, setTargetDate] = useState(new Date().toISOString().split('T')[0]);
   const [parsedRows, setParsedRows] = useState<string[][]>(createEmptyGrid());
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -567,7 +575,7 @@ export const PasteImportModal: React.FC<PasteImportModalProps> = ({
               course: finalCourse,
               result: result || null,
               completed_at: finalCompletedAt,
-              notes: notes || null,
+              notes: attachBranchMetadata(notes, currentBranch),
               disorder_type: disorder_type || null,
               level: level || null,
               level_3: level_3 || null,
@@ -754,7 +762,7 @@ export const PasteImportModal: React.FC<PasteImportModalProps> = ({
             course: finalCourse,
             result: result || null,
             completed_at: finalCompletedAt,
-            notes: notes || null,
+            notes: attachBranchMetadata(notes, currentBranch),
             disorder_type: disorder_type || null,
             level: level || null,
             level_3: level_3 || null,
