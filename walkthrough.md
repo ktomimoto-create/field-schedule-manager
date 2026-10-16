@@ -1012,6 +1012,64 @@ GoogleスプレッドシートやExcel Webが超高速に動く理由は、**「
 - `specification.md`（第27.28章を追加）
 - `walkthrough.md`（本ドキュメント）
 
+---
+
+## 2026-10-16: 東京／大阪 拠点分離（マルチブランチ）機能の開発環境（develop）実装
+
+### 1. ユーザーからのご要望
+- **「黒川さんは大阪支店側の設計をしていきたい（大阪にも西日本担当のディスパッチャーがいる）。同じシステムを使うが東京と大阪の予定が同じ画面にバッティングしないようにできる？」➔「拠点分離（東京／大阪）の実装開発環境でお願い」**
+  - 単一のシステム・同一DB基盤を維持したまま、東京（東日本）と大阪（西日本）の予定データおよびスタッフが同一画面上でバッティング（混在・干渉）せず、完全分離して操作できる構造を開発環境（`develop` ブランチ）に構築。
+
+---
+
+### 2. 実施した対応内容
+1. **型定義および判定基盤の拡張 ([types.ts](file:///C:/Users/000644/.gemini/antigravity/scratch/field-schedule-manager/frontend/src/types.ts))**:
+   - `Branch = 'tokyo' | 'osaka'` 型および表示名定数 `BRANCH_NAMES` を定義。
+   - `cleanMetadata` に `[__branch:\w+__]` の除去ロジックを追加し、画面上の備考欄に暗黙タグが露出しない仕様を担保。
+   - `resolveScheduleBranch(schedule)`:
+     - `schedule.branch === 'osaka'` または `schedule.notes` 内の `[__branch:osaka__]` を検知して `'osaka'`、それ以外は `'tokyo'` を返すハイブリッドメタデータ解決関数を実装。
+     - DBテーブルに `branch` カラムが存在しない現行Supabase環境でも PGRST204 エラーを起こさず安全に稼働し、将来的なカラム追加にも即応する前方互換性を確保。
+   - `resolveStaffBranch(member)`:
+     - 黒川裕之様（`h_kurokawa@fts.co.jp`、大文字小文字・空白正規化済み）をデフォルトで `'osaka'` にマッピングし、他スタッフは `'tokyo'` に解決。
+2. **ヘッダー拠点切り替えスイッチの導入 ([App.tsx](file:///C:/Users/000644/.gemini/antigravity/scratch/field-schedule-manager/frontend/src/App.tsx), [App.css](file:///C:/Users/000644/.gemini/antigravity/scratch/field-schedule-manager/frontend/src/App.css))**:
+   - タイトルロゴの横に、直感的なトグルスイッチ（`.branch-switcher`）を配置。
+     - 🏢 **東京 (東日本)**: コーポレートブルー（`#2563eb`）アクティブハイライト。
+     - 🐙 **大阪 (西日本)**: アンバーオレンジ（`#ea580c`）アクティブハイライト。
+   - 選択された拠点は `localStorage` に保存され、リロード後も状態を維持。
+   - 開発者・管理者はワンクリックでいつでも東京と大阪を行き来して確認・操作可能。
+3. **黒川様ログイン時の自動初期化 ＆ 大阪デモログインボタンの追加**:
+   - 黒川裕之様がログインした際、`localStorage` に未保存であれば自動的に「大阪 (西日本)」を初期選択。
+   - 開発環境のテストを円滑化するため、ログイン画面に「🐙 黒川（大阪支店デモ）」ボタンを追加。
+4. **全画面ビューへのデータ分離適用 (`useMemo`)**:
+   - `branchSchedules = schedules.filter(s => resolveScheduleBranch(s) === currentBranch)`
+   - `branchStaff = staff.filter(st => resolveStaffBranch(st) === currentBranch)`
+   - 予定表グリッド（`GridView`）、当日行動予定表（`TimelineView`）、月間予定表（`CalendarView`）、集計分析（`AnalyticsView`）、予定詳細モーダル（`ScheduleModal`）、コピペインポート（`PasteImportModal`）のすべてに `branchSchedules` と `branchStaff` を供給し、表示・担当者候補・集計を完全分離。
+5. **行動予定への移行（`handleTransferSchedules`）の拠点限定保護**:
+   - 指定日の全予定を一括移行するのではなく、**選択中拠点（`currentBranch`）に属する未移行予定の ID リストのみ** を抽出して `supabase.from('schedules').update({ is_transferred: 1 }).in('id', targetIds)` を実行。
+   - 東京ディスパッチャーが移行を実行しても、大阪側の予定が誤って移行される事故を物理的に根絶。
+6. **予定保存（`handleSaveSchedule`）およびコピペインポートのメタデータ自動付与**:
+   - 新規作成・編集・コピペ登録時、現在の拠点に応じたタグ（`[__branch:osaka__]` または `[__branch:tokyo__]`）を `notes` に自動付与。
+   - Supabase 保存ペイロードから `branch` プロパティを除外して未定義カラムエラーを回避。
+   - 同行者の子予定にも親の拠点タグが自動継承されるため、親子予定が拠点間で分裂しない。
+
+---
+
+### 3. 検証結果
+1. **ユニット・統合テスト検証**:
+   - `resolveScheduleBranch`、`resolveStaffBranch`、`cleanMetadata`、拠点別フィルタリング、および移行保護シミュレーションのテストスクリプトを実行し、**全ケース100%成功**。
+   - 東京画面で大阪予定が一切出ず、大阪画面で東京予定が一切出ないこと、移行時に他拠点データが保護されることを確認。
+2. **ビルド検証**:
+   - `cmd.exe /c npm run build` を実行し、TypeScript 型検査（tsc）および Vite 本番バンドルともにエラー 0 件でビルド成功（2.04s）。
+3. **開発サーバー稼働確認**:
+   - Vite 開発サーバー（`http://localhost:5173/`）が HTTP 200 で正常配信されていることを確認。
+
+---
+
+### 4. 更新したドキュメント
+- `specification.md`（第27.29章を追加）
+- `walkthrough.md`（本ドキュメント）
+
+
 
 
 
