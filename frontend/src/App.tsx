@@ -54,6 +54,8 @@ function App() {
     return staff.filter(st => resolveStaffBranch(st) === currentBranch);
   }, [staff, currentBranch]);
 
+  const transferredSchedules = useMemo(() => branchSchedules.filter(s => s.is_transferred === 1), [branchSchedules]);
+
   const handleSwitchBranch = (branch: Branch) => {
     setCurrentBranch(branch);
     localStorage.setItem('field_app_current_branch', branch);
@@ -857,6 +859,7 @@ function App() {
     selfName: selfEditorName,
   });
   const handleOpenNotice = (scheduleId: number) => {
+    if (isModalOpen && !modalReadOnly && !window.confirm('編集中の予定を閉じて、通知の予定を開きますか？')) return;
     const target = schedules.find(s => Number(s.id) === scheduleId);
     if (target) handleOpenEditModal(target);
   };
@@ -1364,7 +1367,7 @@ function App() {
             <div className="nav-tabs">
               <button
                 className={`tab-btn ${activeTab === 'action' ? 'active' : ''}`}
-                onClick={() => setActiveTab('action')}
+                onClick={() => { setDayFocusStaffId(null); setActiveTab('action'); }}
               >
                 <ListChecks size={16} />
                 行動予定
@@ -1594,7 +1597,7 @@ function App() {
                 )}
                 {activeTab === 'action' && (
                   <DayScreen
-                    schedules={branchSchedules.filter(s => s.is_transferred === 1)}
+                    schedules={transferredSchedules}
                     staff={branchStaff}
                     role={currentUserRole}
                     currentStaffId={currentStaffId}
@@ -1626,7 +1629,7 @@ function App() {
                 )}
                 {activeTab === 'grid' && (
                   <GridView
-                    schedules={branchSchedules.filter(s => s.is_transferred === 1)}
+                    schedules={transferredSchedules}
                     staff={branchStaff}
                     workTypes={workTypes}
                     onOpenAddModal={handleOpenAddModal}
@@ -1644,7 +1647,7 @@ function App() {
                 )}
                 {activeTab === 'timeline' && (
                   <TimelineView
-                    schedules={branchSchedules.filter(s => s.is_transferred === 1)}
+                    schedules={transferredSchedules}
                     staff={branchStaff}
                     onOpenEditModal={handleOpenEditModal}
                     currentUserRole={currentUserRole}
@@ -1725,7 +1728,7 @@ function App() {
 
           <NotificationToast
             key={notifications.latest?.id ?? 'none'}
-            notice={notifications.latest}
+            notice={isModalOpen ? null : notifications.latest}
             onOpen={handleOpenNotice}
             onClose={notifications.dismissLatest}
           />

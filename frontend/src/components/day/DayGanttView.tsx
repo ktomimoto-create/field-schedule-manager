@@ -42,8 +42,12 @@ export function DayGanttView({ schedules, staff, date, focusStaffId, onOpen }: P
   }, [])
 
   const focusRef = useRef<HTMLDivElement>(null)
+  const scrolledKeyRef = useRef<string | null>(null)
   useEffect(() => {
-    focusRef.current?.scrollIntoView?.({ block: 'center', behavior: 'smooth' })
+    const key = `${date}:${focusStaffId}`
+    if (focusStaffId === null || !focusRef.current || scrolledKeyRef.current === key) return
+    focusRef.current.scrollIntoView?.({ block: 'center', behavior: 'smooth' })
+    scrolledKeyRef.current = key
   }, [focusStaffId, date, rows])
 
   if (rows.length === 0) return <p className="ac-empty">この日の予定はありません</p>

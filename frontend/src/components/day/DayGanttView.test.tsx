@@ -72,4 +72,19 @@ describe('DayGanttView', () => {
     )
     expect(screen.getByText('休み')).toBeInTheDocument()
   })
+
+  it('同じ内容の予定配列で再描画しても、飛んだ先の行へのスクロールは1回だけ', () => {
+    const scrollIntoView = vi.fn()
+    const original = Element.prototype.scrollIntoView
+    Element.prototype.scrollIntoView = scrollIntoView
+    try {
+      const make = () => [makeSchedule({ id: 1, staff_id: 1 }), makeSchedule({ id: 3, staff_id: 2, target_time: '13:00' })]
+      const { rerender } = render(<DayGanttView date="2026-10-16" staff={staff} focusStaffId={2} onOpen={vi.fn()} schedules={make()} />)
+      expect(scrollIntoView).toHaveBeenCalledTimes(1)
+      rerender(<DayGanttView date="2026-10-16" staff={staff} focusStaffId={2} onOpen={vi.fn()} schedules={make()} />)
+      expect(scrollIntoView).toHaveBeenCalledTimes(1)
+    } finally {
+      Element.prototype.scrollIntoView = original
+    }
+  })
 })
