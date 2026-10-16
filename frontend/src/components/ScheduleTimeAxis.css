@@ -36,6 +36,7 @@
 .ta-lg-free { background: rgba(148, 163, 184, 0.25); border: 1px solid #94a3b8; }
 .ta-lg-until { border: 1px dashed var(--text-muted); border-right: 3px solid var(--text-muted); }
 .ta-lg-actual { background: var(--success); }
+.ta-lg-move { background: #3b82f6; }
 .ta-lg-now { width: 2px; height: 14px; background: var(--danger); }
 
 .ta-board {
@@ -223,4 +224,15 @@
 }
 .ta-detail .sc-list {
   min-width: 0;
+}
+
+/* 移動（出発〜到着）。作業の緑と同じ段に、青で並べる（FE動態の予実と同じ色） */
+.ta-move {
+  position: absolute;
+  height: 10px;
+  border-radius: 3px;
+  background: #3b82f6;
+}
+.ta-move.is-live {
+  background: repeating-linear-gradient(45deg, #3b82f6, #3b82f6 6px, #93c5fd 6px, #93c5fd 12px);
 }

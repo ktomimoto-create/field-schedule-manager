@@ -8,6 +8,7 @@ import { Plus, ChevronLeft, ChevronRight, Calendar as CalendarIcon, Filter, Chec
 import { PrintPreviewModal } from './PrintPreviewModal';
 import { DayScheduleCards } from './ScheduleCards';
 import { ScheduleTimeAxis } from './ScheduleTimeAxis';
+import type { FeEvent } from '../utils/feEvents';
 import './GridView.css';
 
 const parseTSV = (text: string): string[][] => {
@@ -106,6 +107,7 @@ interface GridViewProps {
   onLockSchedule?: (id: number | string, mode?: 'modal' | 'inline') => void;
   onUnlockSchedule?: () => void;
   zoomLevel?: number;
+  feEvents?: FeEvent[];
 }
 
 export const GridView: React.FC<GridViewProps> = ({
@@ -120,6 +122,7 @@ export const GridView: React.FC<GridViewProps> = ({
   onLockSchedule: _onLockSchedule,
   onUnlockSchedule: _onUnlockSchedule,
   zoomLevel = 100,
+  feEvents = [],
 }) => {
   const dateInputRef = useRef<HTMLInputElement>(null);
   const [selectedDate, setSelectedDate] = useState<string>(
@@ -1063,6 +1066,7 @@ export const GridView: React.FC<GridViewProps> = ({
                 activeLocks={activeLocks}
                 onOpenEditModal={onOpenEditModal}
                 onToggleComplete={handleQuickCompleteToggle}
+                feEvents={feEvents}
               />
             </div>
           )}

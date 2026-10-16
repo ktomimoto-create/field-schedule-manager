@@ -4,6 +4,7 @@ import type { Schedule, Staff } from '../types';
 import { getShortName } from '../types';
 import { parseTimeSlot, hmToMin, statusMeta, type TimeSlot } from '../utils/scheduleDisplay';
 import { DayScheduleCards, StaffAvatar } from './ScheduleCards';
+import { jstHm, type FeEvent } from '../utils/feEvents';
 import './ScheduleTimeAxis.css';
 
 // 予定表の「時間軸」表示（FE動態の予実ボードと同じ形）:
@@ -19,6 +20,8 @@ interface Props {
   activeLocks: Record<number, LockInfo>;
   onOpenEditModal: (s: Schedule) => void;
   onToggleComplete: (s: Schedule) => void;
+  /** FE のボタン記録。出発〜到着を「移動」として実績の段に出す */
+  feEvents?: FeEvent[];
 }
 
 interface PlacedBar {
@@ -51,7 +54,7 @@ const todayStr = () => {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 };
 
-export const ScheduleTimeAxis: React.FC<Props> = ({ schedules, staff, date, canEdit, activeLocks, onOpenEditModal, onToggleComplete }) => {
+export const ScheduleTimeAxis: React.FC<Props> = ({ schedules, staff, date, canEdit, activeLocks, onOpenEditModal, onToggleComplete, feEvents = [] }) => {
   const [openKey, setOpenKey] = useState<string | null>(null);
   const [now, setNow] = useState(nowMinutes);
   useEffect(() => {
@@ -106,6 +109,24 @@ export const ScheduleTimeAxis: React.FC<Props> = ({ schedules, staff, date, canE
     return [...map.values()].sort((a, b) => a.course - b.course || a.name.localeCompare(b.name, 'ja'));
   }, [schedules, staff]);
 
+  // 予定ごとの移動（最後の出発 → その後の到着）。分は JST の 0:00 から
+  const moves = useMemo(() => {
+    const out = new Map<number | string, { from: number; to: number | null; fromLabel: string; toLabel: string }>();
+    const evs = [...feEvents].filter(e => e.work_date === date && e.schedule_id != null).sort((a, b) => a.occurred_at.localeCompare(b.occurred_at));
+    for (const e of evs) {
+      if (e.kind === 'depart') {
+        out.set(e.schedule_id!, { from: hmToMin(jstHm(e.occurred_at))!, to: null, fromLabel: jstHm(e.occurred_at), toLabel: '' });
+      } else if (e.kind === 'arrive') {
+        const m = out.get(e.schedule_id!);
+        if (m && m.to == null) {
+          m.to = hmToMin(jstHm(e.occurred_at));
+          m.toLabel = jstHm(e.occurred_at);
+        }
+      }
+    }
+    return out;
+  }, [feEvents, date]);
+
   const range = useMemo(() => {
     let start = 8 * 60;
     let end = 19 * 60;
@@ -115,7 +136,8 @@ export const ScheduleTimeAxis: React.FC<Props> = ({ schedules, staff, date, canE
         end = Math.max(end, Math.ceil(b.slot.to / 60) * 60);
       }
       for (const s of r.items) {
-        for (const v of [hmToMin(s.started_at), hmToMin(s.completed_at)]) {
+        const mv = moves.get(s.id);
+        for (const v of [hmToMin(s.started_at), hmToMin(s.completed_at), mv ? mv.from : null]) {
           if (v == null) continue;
           start = Math.min(start, Math.floor(v / 60) * 60);
           end = Math.max(end, Math.ceil(v / 60) * 60);
@@ -123,7 +145,7 @@ export const ScheduleTimeAxis: React.FC<Props> = ({ schedules, staff, date, canE
       }
     }
     return { start: Math.max(0, start), end: Math.min(24 * 60, end) };
-  }, [rows]);
+  }, [rows, moves]);
 
   const span = range.end - range.start;
   const pos = (min: number) => ((Math.min(Math.max(min, range.start), range.end) - range.start) / span) * 100;
@@ -144,7 +166,8 @@ export const ScheduleTimeAxis: React.FC<Props> = ({ schedules, staff, date, canE
         <span><i className="ta-lg ta-lg-draft" />仮</span>
         <span><i className="ta-lg ta-lg-free" />通常</span>
         <span><i className="ta-lg ta-lg-until" />〜迄（締切）</span>
-        <span><i className="ta-lg ta-lg-actual" />実績（開始〜完了）</span>
+        <span><i className="ta-lg ta-lg-move" />移動（出発〜到着）</span>
+        <span><i className="ta-lg ta-lg-actual" />作業（到着〜完了）</span>
         {showNow && <span><i className="ta-lg ta-lg-now" />いま</span>}
         <span className="ta-note">終了時刻は登録が無いため、時刻指定は1時間・AM は 9〜12 時・PM は 13〜17 時の枠で置いています</span>
       </div>
@@ -209,6 +232,20 @@ export const ScheduleTimeAxis: React.FC<Props> = ({ schedules, staff, date, canE
                       >
                         <span className="ta-bar-label">{label}</span>
                       </button>
+                    );
+                  })}
+                  {r.items.map(s => {
+                    const mv = moves.get(s.id);
+                    if (!mv) return null;
+                    const live = mv.to == null && isToday;
+                    const to = mv.to ?? (live ? now : mv.from + 10);
+                    return (
+                      <span
+                        key={`m-${s.id}`}
+                        className={`ta-move${live ? ' is-live' : ''}`}
+                        style={{ left: `${pos(mv.from)}%`, width: `${Math.max(0.6, pos(to) - pos(mv.from))}%`, top: planHeight + 12 }}
+                        title={`移動 ${mv.fromLabel}〜${mv.toLabel} ${s.unit_number || ''} ${s.property_name}`}
+                      />
                     );
                   })}
                   {r.items.map(s => {

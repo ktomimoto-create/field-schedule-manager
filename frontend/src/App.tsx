@@ -3,12 +3,14 @@ import type { Schedule, Staff, WorkType, UserRole } from './types';
 import { GridView } from './components/GridView';
 import { CalendarView } from './components/CalendarView';
 import { TimelineView } from './components/TimelineView';
+import { FeActionView } from './components/FeActionView';
+import { listFeEvents, subscribeSandboxFeEvents, jstDate, type FeEvent } from './utils/feEvents';
 import { MasterManagementView } from './components/MasterManagementView';
 import { AnalyticsView } from './components/AnalyticsView';
 import { ScheduleModal } from './components/ScheduleModal';
 import { PasteImportModal } from './components/PasteImportModal';
 import { HelpGuideModal } from './components/HelpGuideModal';
-import { Calendar, Layers, RefreshCw, AlertCircle, List, Settings, Sun, Moon, BarChart3, HelpCircle, ZoomIn, ZoomOut } from 'lucide-react';
+import { Calendar, Layers, RefreshCw, AlertCircle, List, Settings, Sun, Moon, BarChart3, HelpCircle, ZoomIn, ZoomOut, Smartphone } from 'lucide-react';
 import { supabase, talkScriptSupabase } from './supabaseClient';
 import { resolveAddress } from './utils/addressResolver';
 import { findStaffByName, canManageSchedules, normalizeRole } from './types';
@@ -17,7 +19,7 @@ import './App.css';
 
 
 function App() {
-  const [activeTab, setActiveTab] = useState<'grid' | 'timeline' | 'calendar' | 'master_management' | 'analytics'>('grid');
+  const [activeTab, setActiveTab] = useState<'grid' | 'timeline' | 'calendar' | 'master_management' | 'analytics' | 'fe'>('grid');
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
     return (localStorage.getItem('theme') as 'light' | 'dark') || 'light';
   });
@@ -34,6 +36,23 @@ function App() {
   const [isSandboxMode, setIsSandboxMode] = useState<boolean>(() => {
     return localStorage.getItem('field_app_sandbox_mode') === 'true';
   });
+
+  // FE のボタン記録（出発・到着・作業完了など）。直近 8 日分を持ち、本番は 20 秒ごとに取り直す（FE動態と同じ間隔）
+  const [feEvents, setFeEvents] = useState<FeEvent[]>([]);
+  const [feUnavailable, setFeUnavailable] = useState(false);
+  const refreshFeEvents = useCallback(async () => {
+    const to = jstDate(new Date(Date.now() + 86400_000));
+    const from = jstDate(new Date(Date.now() - 7 * 86400_000));
+    const { events, unavailable } = await listFeEvents(from, to, isSandboxMode);
+    setFeEvents(events);
+    setFeUnavailable(unavailable);
+  }, [isSandboxMode]);
+  useEffect(() => {
+    void refreshFeEvents();
+    if (isSandboxMode) return subscribeSandboxFeEvents(() => void refreshFeEvents());
+    const t = setInterval(() => void refreshFeEvents(), 20_000);
+    return () => clearInterval(t);
+  }, [refreshFeEvents, isSandboxMode]);
 
   // 同期保存（コピペ等）時の採番競合防止用の一時プール (キー: "YYYY-MM-DD", 値: 使用済みコースのSet)
   const tempUsedCoursesRef = useRef<Record<string, Set<number>>>({});
@@ -1200,6 +1219,14 @@ function App() {
                 <Layers size={16} />
                 当日行動予定表
               </button>
+              <button
+                className={`tab-btn ${activeTab === 'fe' ? 'active' : ''}`}
+                onClick={() => setActiveTab('fe')}
+                title="FE のスマホ画面（出発・到着・作業完了を押して記録）"
+              >
+                <Smartphone size={16} />
+                FE画面
+              </button>
               {canManageSchedules(currentUserRole) && (
                 <button
                   className={`tab-btn ${activeTab === 'calendar' ? 'active' : ''}`}
@@ -1384,6 +1411,7 @@ function App() {
                 )}
                 {activeTab === 'grid' && (
                   <GridView
+                    feEvents={feEvents}
                     schedules={schedules.filter(s => s.is_transferred === 1)}
                     staff={staff}
                     workTypes={workTypes}
@@ -1398,6 +1426,18 @@ function App() {
                     onLockSchedule={handleLockSchedule}
                     onUnlockSchedule={handleUnlockSchedule}
                     zoomLevel={zoomLevel}
+                  />
+                )}
+                {activeTab === 'fe' && (
+                  <FeActionView
+                    schedules={schedules}
+                    staff={staff}
+                    currentStaffId={currentStaffId}
+                    isSandbox={isSandboxMode}
+                    feEvents={feEvents}
+                    feUnavailable={feUnavailable}
+                    onRecorded={() => void refreshFeEvents()}
+                    onUpdateResult={(id, result, startedAt, completedAt) => handleUpdateScheduleResult(id, result, startedAt, completedAt)}
                   />
                 )}
                 {activeTab === 'timeline' && (
