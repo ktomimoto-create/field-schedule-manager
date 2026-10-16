@@ -14,6 +14,7 @@ import { resolveAddress } from './utils/addressResolver';
 import { findStaffByName, canManageSchedules, normalizeRole, BRANCH_NAMES, resolveScheduleBranch, resolveStaffBranch } from './types';
 import './App.css';
 import { Spinner, SpinnerBlock } from './components/shared/Spinner';
+import { fetchAllRows } from './utils/fetchAllRows';
 
 
 
@@ -90,7 +91,9 @@ function App() {
 
     try {
       setLoading(true);
-      const { data: latestSchedules, error: schedError } = await supabase.from('schedules').select('*');
+      const { data: latestSchedules, error: schedError } = await fetchAllRows((from, to) =>
+        supabase.from('schedules').select('*').order('id').range(from, to)
+      );
       if (schedError) throw schedError;
       const mapped: Schedule[] = (latestSchedules || []).map((s: any) => ({
         ...s,
@@ -641,7 +644,7 @@ function App() {
     setError(null);
     try {
       const [schedulesRes, staffRes, workTypesRes, profilesRes] = await Promise.all([
-        supabase.from('schedules').select('*'),
+        fetchAllRows((from, to) => supabase.from('schedules').select('*').order('id').range(from, to)),
         supabase.from('staff').select('*'),
         supabase.from('work_types').select('*').order('sort_order', { ascending: true }),
         talkScriptSupabase
