@@ -35,7 +35,10 @@ export function ActionCard({ schedule: s, order, canReport, busy, onOpen, onStar
       aria-label={`${s.property_name || '物件名なし'} の詳細を開く`}
       onClick={() => onOpen(s)}
       onKeyDown={e => {
-        if (e.key === 'Enter' && e.target === e.currentTarget) onOpen(s)
+        if ((e.key === 'Enter' || e.key === ' ') && e.target === e.currentTarget) {
+          e.preventDefault()
+          onOpen(s)
+        }
       }}
     >
       <div className="ac-head">

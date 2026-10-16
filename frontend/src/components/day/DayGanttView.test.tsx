@@ -1,10 +1,20 @@
-import { describe, expect, it, vi } from 'vitest'
-import { fireEvent, render, screen } from '@testing-library/react'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import { DayGanttView } from './DayGanttView'
 import { makeSchedule, makeStaff } from '../../test/factories'
 
 describe('DayGanttView', () => {
   const staff = [makeStaff({ id: 1, name: '佐藤 太郎' }), makeStaff({ id: 2, name: '築地 次郎', default_course: '2' })]
+
+  beforeEach(() => {
+    // 時計は Date だけ止める
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date('2026-10-16T01:00:00Z'))
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+  })
 
   it('担当ごとの行に帯を置き、キャンセルは置かない。帯を押すと開く', () => {
     const onOpen = vi.fn()
@@ -41,7 +51,7 @@ describe('DayGanttView', () => {
     expect(screen.getByText('15分')).toBeInTheDocument()
   })
 
-  it('狭い隙間（15 分）でも移動の目安の要素を出す', () => {
+  it('狭い隙間（15 分）はアイコンだけで、分の文字は出さない', () => {
     render(
       <DayGanttView
         date="2026-10-16"
@@ -51,7 +61,9 @@ describe('DayGanttView', () => {
         schedules={[makeSchedule({ id: 1, staff_id: 1 }), makeSchedule({ id: 2, staff_id: 1 })]}
       />,
     )
-    expect(screen.getByTitle(/15分/)).toBeInTheDocument()
+    const travel = screen.getByTitle(/15分/)
+    expect(within(travel).queryByText('15分')).toBeNull()
+    expect(travel.querySelector('svg')).not.toBeNull()
   })
 
   it('休暇だけの人は「休み」', () => {

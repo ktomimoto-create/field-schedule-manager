@@ -44,7 +44,7 @@ export function DayGanttView({ schedules, staff, date, focusStaffId, onOpen }: P
   const focusRef = useRef<HTMLDivElement>(null)
   useEffect(() => {
     focusRef.current?.scrollIntoView?.({ block: 'center', behavior: 'smooth' })
-  }, [focusStaffId, date])
+  }, [focusStaffId, date, rows])
 
   if (rows.length === 0) return <p className="ac-empty">この日の予定はありません</p>
 
@@ -56,8 +56,12 @@ export function DayGanttView({ schedules, staff, date, focusStaffId, onOpen }: P
       <div className="dg-grid" style={{ '--dg-width': `${width}px` } as CSSProperties}>
         <div className="dg-corner" />
         <div className="dg-hours">
-          {HOURS.map(h => (
-            <span key={h} className="dg-hour tl-num" style={{ left: x(h * 60) }}>
+          {HOURS.map((h, i) => (
+            <span
+              key={h}
+              className={`dg-hour tl-num ${i === 0 ? 'is-first' : ''} ${i === HOURS.length - 1 ? 'is-last' : ''}`}
+              style={{ left: x(h * 60) }}
+            >
               {h}:00
             </span>
           ))}

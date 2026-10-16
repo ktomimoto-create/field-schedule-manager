@@ -46,6 +46,15 @@
   color: var(--text-muted);
 }
 
+/* 端のラベルは枠からはみ出さないよう寄せる */
+.dg-hour.is-first {
+  transform: translateX(0);
+}
+
+.dg-hour.is-last {
+  transform: translateX(-100%);
+}
+
 .dg-row {
   grid-column: 1 / -1;
   display: grid;
@@ -85,13 +94,13 @@
 }
 
 .dg-off-badge {
-  height: 22px;
   color: var(--text-muted);
   background: var(--bg-tertiary);
 }
 
 .dg-track {
   position: relative;
+  isolation: isolate;
   background-image: repeating-linear-gradient(to right, var(--border-cell) 0 1px, transparent 1px 96px);
 }
 
@@ -143,6 +152,18 @@
 .dg-bar.dg-p-active {
   border-left: 4px solid var(--pg-active);
   box-shadow: 0 0 10px color-mix(in srgb, var(--pg-active) 35%, transparent);
+}
+
+.dg-bar.dg-p-active:hover {
+  box-shadow: 0 0 10px color-mix(in srgb, var(--pg-active) 35%, transparent), 0 0 12px color-mix(in srgb, var(--wt) 40%, transparent);
+}
+
+.dg-bar.dg-p-active.dg-late {
+  box-shadow: 0 0 0 2px var(--tl-urgent), 0 0 10px color-mix(in srgb, var(--pg-active) 35%, transparent);
+}
+
+.dg-bar.dg-p-active.dg-late:hover {
+  box-shadow: 0 0 0 2px var(--tl-urgent), 0 0 10px color-mix(in srgb, var(--pg-active) 35%, transparent), 0 0 12px color-mix(in srgb, var(--wt) 40%, transparent);
 }
 
 .dg-bar svg {

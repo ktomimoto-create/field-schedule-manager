@@ -49,6 +49,9 @@ export function GanttRow({ row, x, now, focused, rowRef, onOpen }: Props) {
           const s = bar.schedule
           const progress = progressOf(s)
           const badge = targetTimeBadge(s.target_time)
+          // 範囲外の帯は右端からはみ出さないよう寄せる
+          const barWidth = Math.max(x(bar.to) - x(bar.from), 24)
+          const barLeft = Math.min(x(bar.from), x(DAY_END_MIN) - barWidth)
           const title = [
             `${s.property_name || '（物件名なし）'}（${s.work_type || '種別なし'}）`,
             `${minToHm(bar.from)}〜${minToHm(bar.to)}${bar.basis === 'estimated' ? '（目安）' : ''}`,
@@ -62,7 +65,7 @@ export function GanttRow({ row, x, now, focused, rowRef, onOpen }: Props) {
               key={s.id}
               type="button"
               className={`dg-bar tl-wt-${workTone(s.work_type)} dg-${bar.basis} dg-p-${progress} ${bar.late ? 'dg-late' : ''}`}
-              style={{ left: x(bar.from), width: Math.max(x(bar.to) - x(bar.from), 24) }}
+              style={{ left: barLeft, width: barWidth }}
               title={title}
               onClick={() => onOpen(s)}
             >

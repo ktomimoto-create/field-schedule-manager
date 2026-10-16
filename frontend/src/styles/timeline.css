@@ -158,3 +158,10 @@
   width: 32px;
   padding: 0;
 }
+
+/* 空の表示（行動予定・ガント・カードで共用） */
+.ac-empty {
+  padding: 32px;
+  text-align: center;
+  color: var(--text-muted);
+}

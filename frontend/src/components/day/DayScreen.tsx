@@ -40,7 +40,8 @@ export function DayScreen({ schedules, staff, role, currentStaffId, date, onDate
   const { isMobile } = useViewport()
   const canManage = canManageSchedules(role)
   const [showAll, setShowAll] = useState(false)
-  const [busyId, setBusyId] = useState<Schedule['id'] | null>(null)
+  // 送信中の予定（押した順に重なっても、互いの状態を消さない）
+  const [busyIds, setBusyIds] = useState<ReadonlySet<string>>(new Set())
 
   const useGantt = canManage && !isMobile
   // 管理側でもスタッフ登録の無い人（配車担当など）には「自分の予定」が無いので、最初から全員を出す
@@ -60,7 +61,9 @@ export function DayScreen({ schedules, staff, role, currentStaffId, date, onDate
   const canReportFor = (s: Schedule) => canManage || (currentStaffId !== null && s.staff_id === currentStaffId)
 
   const report = async (s: Schedule, kind: 'start' | 'complete') => {
-    setBusyId(s.id)
+    const id = String(s.id)
+    if (busyIds.has(id)) return
+    setBusyIds(prev => new Set(prev).add(id))
     try {
       const now = nowHmJst()
       if (kind === 'start') {
@@ -72,7 +75,11 @@ export function DayScreen({ schedules, staff, role, currentStaffId, date, onDate
       // 通信の失敗は onUpdateResult（App）がアラートで知らせるので、ここでは時間切れだけ知らせる
       if (e instanceof TimeoutError) alert(e.message)
     } finally {
-      setBusyId(null)
+      setBusyIds(prev => {
+        const next = new Set(prev)
+        next.delete(id)
+        return next
+      })
     }
   }
 
@@ -142,7 +149,7 @@ export function DayScreen({ schedules, staff, role, currentStaffId, date, onDate
             staff={staff}
             grouped={allMode}
             canReportFor={canReportFor}
-            busyId={busyId}
+            isBusy={s => busyIds.has(String(s.id))}
             onOpen={canManage ? onOpenEdit : onOpenDetail}
             onStart={s => report(s, 'start')}
             onComplete={s => report(s, 'complete')}

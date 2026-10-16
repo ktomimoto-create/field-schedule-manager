@@ -159,9 +159,3 @@
 .ac-foot .tl-ghost-btn {
   margin-left: auto;
 }
-
-.ac-empty {
-  padding: 32px;
-  text-align: center;
-  color: var(--text-muted);
-}

@@ -13,13 +13,13 @@ interface Props {
   /** 人ごとに見出しを付けるか（管理側が全員を見るとき） */
   grouped: boolean
   canReportFor: (s: Schedule) => boolean
-  busyId: Schedule['id'] | null
+  isBusy: (s: Schedule) => boolean
   onOpen: (s: Schedule) => void
   onStart: (s: Schedule) => void
   onComplete: (s: Schedule) => void
 }
 
-export function ActionCardView({ schedules, staff, grouped, canReportFor, busyId, onOpen, onStart, onComplete }: Props) {
+export function ActionCardView({ schedules, staff, grouped, canReportFor, isBusy, onOpen, onStart, onComplete }: Props) {
   // 休暇は上の帯に「休み」として出すので、カードにはしない
   const days = useMemo(() => groupByStaff(schedules.filter(s => !isHoliday(s)), staff), [schedules, staff])
 
@@ -45,7 +45,7 @@ export function ActionCardView({ schedules, staff, grouped, canReportFor, busyId
                   schedule={s}
                   order={i + 1}
                   canReport={canReportFor(s)}
-                  busy={busyId === s.id}
+                  busy={isBusy(s)}
                   onOpen={onOpen}
                   onStart={onStart}
                   onComplete={onComplete}
