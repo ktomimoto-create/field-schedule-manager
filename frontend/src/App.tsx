@@ -13,6 +13,7 @@ import { supabase, talkScriptSupabase } from './supabaseClient';
 import { resolveAddress } from './utils/addressResolver';
 import { findStaffByName, canManageSchedules, normalizeRole } from './types';
 import './App.css';
+import { Spinner, SpinnerBlock } from './components/shared/Spinner';
 
 
 
@@ -1352,10 +1353,7 @@ function App() {
 
           <main className="main-content">
             {loading && schedules.length === 0 ? (
-              <div className="loading-container">
-                <div className="spinner"></div>
-                <p>データを読み込み中...</p>
-              </div>
+              <SpinnerBlock />
             ) : error ? (
               <div className="card" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem', padding: '3rem', textAlign: 'center' }}>
                 <AlertCircle size={48} style={{ color: 'var(--danger)' }} />
@@ -1379,7 +1377,7 @@ function App() {
               >
                 {loading && (
                   <div className="loading-overlay">
-                    <div className="spinner"></div>
+                    <Spinner size={32} />
                   </div>
                 )}
                 {activeTab === 'grid' && (

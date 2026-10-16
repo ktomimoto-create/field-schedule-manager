@@ -26,6 +26,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import './AuditLogView.css';
+import { Spinner, SpinnerBlock } from './shared/Spinner';
 
 interface AuditLogViewProps {
   currentUserRole: UserRole;
@@ -580,7 +581,7 @@ export const AuditLogView: React.FC<AuditLogViewProps> = ({ currentUserRole, sta
           onClick={handleRefresh} 
           disabled={loading || loadingMore}
         >
-          <RefreshCw size={14} className={loading ? 'spinning' : ''} />
+          {loading ? <Spinner size={14} /> : <RefreshCw size={14} />}
           最新に更新
         </button>
       </div>
@@ -712,10 +713,7 @@ export const AuditLogView: React.FC<AuditLogViewProps> = ({ currentUserRole, sta
 
       {/* メインコンテンツ */}
       {loading && logs.length === 0 ? (
-        <div className="loading-container">
-          <div className="spinner"></div>
-          <p>変更履歴を読み込み中...</p>
-        </div>
+        <SpinnerBlock />
       ) : error ? (
         <div className="audit-error-card">
           <AlertCircle size={36} className="text-danger" />
@@ -866,7 +864,7 @@ export const AuditLogView: React.FC<AuditLogViewProps> = ({ currentUserRole, sta
                 disabled={loadingMore}
               >
                 {loadingMore ? (
-                  <span className="spinner spinner-sm"></span>
+                  <Spinner size={16} />
                 ) : (
                   <>
                     <ChevronDown size={16} />

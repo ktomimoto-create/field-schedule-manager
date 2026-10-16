@@ -6,6 +6,7 @@ import { Users, Sliders, History, Plus, Trash2, Edit2, Check, X, Shield, Chevron
 import { supabase, talkScriptSupabase } from '../supabaseClient';
 
 import './MasterManagementView.css';
+import { Spinner } from './shared/Spinner';
 
 interface MasterManagementViewProps {
   currentUserRole: UserRole;
@@ -574,7 +575,7 @@ export const MasterManagementView: React.FC<MasterManagementViewProps> = ({
                 title="エンジニアリング事業部の社員マスタ（Employee Master）と照合し、氏名・メールアドレス・社員番号・アバター画像を自動同期します"
                 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', whiteSpace: 'nowrap' }}
               >
-                <RefreshCw size={16} className={isSyncing ? 'spin-animation' : ''} />
+                {isSyncing ? <Spinner size={16} /> : <RefreshCw size={16} />}
                 {isSyncing ? 'エンジニアリング事業部と同期中...' : 'エンジニアリング事業部マスタ同期 (アバター・メール連携)'}
               </button>
             </div>

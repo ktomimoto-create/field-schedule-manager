@@ -69,15 +69,6 @@
   font-weight: 500;
 }
 
-.refresh-btn .spinning {
-  animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
-}
-
 /* 統計サマリーカウンターバー */
 .audit-stats-bar {
   display: flex;
@@ -688,7 +679,7 @@
 }
 
 /* 読み込み・エラー・空表示 */
-.loading-container, .audit-empty-state, .audit-error-card {
+.audit-empty-state, .audit-error-card {
   display: flex;
   flex-direction: column;
   align-items: center;
