@@ -31,29 +31,44 @@ export const useRealtimeNotifications = ({ enabled, branch, schedules, staff, se
   const [latest, setLatest] = useState<ProgressNotice | null>(null)
   const [lastReadAt, setLastReadAt] = useState<number>(readLastRead)
 
-  // Realtime の UPDATE には変更前の値が入らないので、手元の一覧（直前の状態）と比べる
+  // 最新の値は ref に持ち、購読の effect は enabled だけで作り直す（拠点切替で購読が止まらないように）
+  const branchRef = useRef(branch)
+  const selfNameRef = useRef(selfName)
+  const staffRef = useRef(staff)
+  const schedulesRef = useRef(schedules)
+  useEffect(() => {
+    branchRef.current = branch
+    selfNameRef.current = selfName
+    staffRef.current = staff
+  }, [branch, selfName, staff])
+
+  // Realtime の UPDATE には変更前の値が入らないので、直前の状態を持って比べる。
+  // 持ち主は Realtime 側。再取得の結果では未知の id を足すだけで、既存の行は上書きしない
   const prevRef = useRef(new Map<number, Schedule>())
   useEffect(() => {
-    prevRef.current = new Map(schedules.map(s => [Number(s.id), s]))
+    schedulesRef.current = schedules
+    for (const s of schedules) {
+      const id = Number(s.id)
+      if (!prevRef.current.has(id)) prevRef.current.set(id, s)
+    }
   }, [schedules])
-
-  const staffRef = useRef(staff)
-  useEffect(() => {
-    staffRef.current = staff
-  }, [staff])
 
   useEffect(() => {
     if (!enabled) return
+    // 同じ名前だと leave 中の古いチャンネルが返り subscribe が空振りするので、毎回変える
+    const topic = `schedules-progress-notify-${Math.random().toString(36).slice(2)}`
     const channel = supabase
-      .channel('schedules-progress-notify')
+      .channel(topic)
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'schedules' }, payload => {
-        const next = { ...(payload.new as Partial<Schedule>) } as Schedule
-        const id = Number(next.id)
-        const event = detectProgressEvent(prevRef.current.get(id), next)
+        const id = Number((payload.new as Partial<Schedule>).id)
+        const prev = prevRef.current.get(id)
+        // 欠けた列があっても判定が崩れないよう、直前の状態に重ねる
+        const next = { ...prev, ...(payload.new as Partial<Schedule>) } as Schedule
+        const event = detectProgressEvent(prev, next)
         prevRef.current.set(id, next)
         if (!event) return
-        if (resolveScheduleBranch(next) !== branch) return
-        if (selfName && next.updated_by === selfName) return
+        if (resolveScheduleBranch(next) !== branchRef.current) return
+        if (selfNameRef.current && next.updated_by === selfNameRef.current) return
 
         const member = staffRef.current.find(st => st.id === Number(next.staff_id))
         const notice: ProgressNotice = {
@@ -66,14 +81,19 @@ export const useRealtimeNotifications = ({ enabled, branch, schedules, staff, se
           at: event.at,
           receivedAt: Date.now(),
         }
-        setItems(prev => [notice, ...prev].slice(0, MAX_ITEMS))
+        setItems(list => [notice, ...list].slice(0, MAX_ITEMS))
         setLatest(notice)
       })
-      .subscribe()
+      .subscribe(status => {
+        // 接続できた時点の最新一覧で作り直す
+        if (status === 'SUBSCRIBED') {
+          prevRef.current = new Map(schedulesRef.current.map(s => [Number(s.id), s]))
+        }
+      })
     return () => {
       supabase.removeChannel(channel)
     }
-  }, [enabled, branch, selfName])
+  }, [enabled])
 
   const markAllRead = useCallback(() => {
     const now = Date.now()

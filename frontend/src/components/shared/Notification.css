@@ -108,7 +108,7 @@
   top: calc(100% + 8px);
   right: 0;
   z-index: 1500;
-  width: 340px;
+  width: min(340px, calc(100vw - 32px));
   max-height: 420px;
   overflow: auto;
   padding: 8px;
@@ -151,4 +151,10 @@
   font-size: 13px;
   color: var(--text-muted);
   text-align: center;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nt-toast {
+    animation: none;
+  }
 }

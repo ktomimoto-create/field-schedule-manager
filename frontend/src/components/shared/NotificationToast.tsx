@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { Bell, X } from 'lucide-react'
 import { noticeText, type ProgressNotice } from '../../utils/timeline/notification'
 import './Notification.css'
@@ -9,18 +9,28 @@ interface Props {
   onClose: () => void
 }
 
-// 右下に 5 秒だけ出す。新しい通知が来たら key（notice.id）で作り直して出し直す
+// 右下に 5 秒だけ出す。新しい通知が来たら key（notice.id）で作り直して出し直す。
+// ホバー中・フォーカス中は消さず、離れたらまた 5 秒数える
 export function NotificationToast({ notice, onOpen, onClose }: Props) {
+  const [paused, setPaused] = useState(false)
+
   useEffect(() => {
-    if (!notice) return
+    if (!notice || paused) return
     const timer = setTimeout(onClose, 5000)
     return () => clearTimeout(timer)
-  }, [notice, onClose])
+  }, [notice, paused, onClose])
 
   if (!notice) return null
 
   return (
-    <div className={`tl-root nt-toast nt-${notice.kind}`} role="status">
+    <div
+      className={`tl-root nt-toast nt-${notice.kind}`}
+      role="status"
+      onMouseEnter={() => setPaused(true)}
+      onMouseLeave={() => setPaused(false)}
+      onFocus={() => setPaused(true)}
+      onBlur={() => setPaused(false)}
+    >
       <button
         type="button"
         className="nt-toast-body"
