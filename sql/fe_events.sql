@@ -2,6 +2,9 @@
 -- FE動態（fe-dotai）の fd_events / fd_record_event を予定管理システムへ移したもの。
 -- 決定: Vault Projects/field-schedule-manager/Decisions/2026-10-16_FE動態の機能を予定管理システムへ移す.md
 --
+-- 流し方: Supabase の SQL Editor でこのファイルを丸ごと実行 → 続けて sql/fe_events_check.sql を実行し「確認OK」が出ればよい。
+--   既存の表は変えない（schedules / staff は読むのと、RPC から started_at / completed_at / result を書くだけ）。
+--
 -- 方針:
 --   - 位置を含む個人の記録なので、このテーブルは RLS を有効にする（既存の表は RLS 無し運用だが、この表は絞る）
 --   - 書き込みは security definer の RPC だけ。誰の記録かは画面から受け取らず、ログイン中のメール → staff で決める
