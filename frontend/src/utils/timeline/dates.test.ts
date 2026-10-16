@@ -11,6 +11,22 @@ describe('dates', () => {
     expect(nowHmJst(new Date('2026-10-16T15:30:00Z'))).toBe('00:30')
   })
 
+  it('日本時間の 0 時をまたぐ境界（UTC 15:00）', () => {
+    const d = new Date('2026-10-15T15:00:00Z')
+    expect(todayJst(d)).toBe('2026-10-16')
+    expect(nowHmJst(d)).toBe('00:00')
+  })
+
+  it('hmToMin は範囲外の時刻を null にする', () => {
+    expect(hmToMin('24:00')).toBeNull()
+    expect(hmToMin('10:60')).toBeNull()
+    expect(hmToMin('23:59')).toBe(1439)
+  })
+
+  it('うるう年の 2 月は 29 日', () => {
+    expect(monthDays('2028-02')).toHaveLength(29)
+  })
+
   it('addDays は月・年をまたぐ', () => {
     expect(addDays('2026-10-31', 1)).toBe('2026-11-01')
     expect(addDays('2026-03-01', -1)).toBe('2026-02-28')
