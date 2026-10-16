@@ -8,18 +8,29 @@ import { AnalyticsView } from './components/AnalyticsView';
 import { ScheduleModal } from './components/ScheduleModal';
 import { PasteImportModal } from './components/PasteImportModal';
 import { HelpGuideModal } from './components/HelpGuideModal';
-import { Calendar, Layers, RefreshCw, AlertCircle, List, Settings, Sun, Moon, BarChart3, HelpCircle, ZoomIn, ZoomOut } from 'lucide-react';
+import { Calendar, CalendarDays, Layers, ListChecks, History, RefreshCw, AlertCircle, List, Settings, Sun, Moon, BarChart3, HelpCircle, ZoomIn, ZoomOut } from 'lucide-react';
 import { supabase, talkScriptSupabase } from './supabaseClient';
 import { resolveAddress } from './utils/addressResolver';
 import { findStaffByName, canManageSchedules, normalizeRole, BRANCH_NAMES, resolveScheduleBranch, resolveStaffBranch } from './types';
 import './App.css';
 import { Spinner, SpinnerBlock } from './components/shared/Spinner';
 import { fetchAllRows } from './utils/fetchAllRows';
+import { DayScreen } from './components/day/DayScreen';
+import { MonthView } from './components/month/MonthView';
+import { NotificationToast } from './components/shared/NotificationToast';
+import { NotificationBadge } from './components/shared/NotificationBadge';
+import { useRealtimeNotifications } from './hooks/useRealtimeNotifications';
+import { todayJst } from './utils/timeline/dates';
+import './styles/timeline.css';
 
 
+
+// action=行動予定（新）/ month=月間予定（新）/ grid・timeline・calendar=旧画面（Phase 2 で削除）
+type AppTab = 'action' | 'month' | 'grid' | 'timeline' | 'calendar' | 'master_management' | 'analytics';
+const LEGACY_TABS: AppTab[] = ['grid', 'timeline', 'calendar'];
 
 function App() {
-  const [activeTab, setActiveTab] = useState<'grid' | 'timeline' | 'calendar' | 'master_management' | 'analytics'>('grid');
+  const [activeTab, setActiveTab] = useState<AppTab>('action');
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
     return (localStorage.getItem('theme') as 'light' | 'dark') || 'light';
   });
@@ -152,6 +163,28 @@ function App() {
   }, []);
   const [currentStaffId, setCurrentStaffId] = useState<number | null>(null);
 
+  // 旧画面（表の予定表・当日行動予定表・月間予定表）のタブを出すか。管理側だけ。新画面で 2 週間問題なければ Phase 2 で消す
+  const [legacyUi, setLegacyUi] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('field_app_legacy_ui') === 'true';
+    } catch {
+      return false;
+    }
+  });
+  const toggleLegacyUi = () => {
+    const next = !legacyUi;
+    setLegacyUi(next);
+    try {
+      localStorage.setItem('field_app_legacy_ui', String(next));
+    } catch {
+      // 保存できなくても切り替えはする
+    }
+  };
+
+  // 行動予定タブの日付と、ヒートマップから飛んできたときの担当
+  const [dayDate, setDayDate] = useState<string>(() => todayJst());
+  const [dayFocusStaffId, setDayFocusStaffId] = useState<number | null>(null);
+
   // ユーザーとスタッフマスタの突合でロール・IDを自動決定
   useEffect(() => {
     if (user && staff.length > 0) {
@@ -207,13 +240,18 @@ function App() {
   }, [user, staff]);
 
   useEffect(() => {
+    // 現地対応者は「行動予定」だけ（他のタブは出さない）
+    if (!canManageSchedules(currentUserRole)) {
+      if (activeTab !== 'action') setActiveTab('action');
+      return;
+    }
     if (
       (currentUserRole !== 'developer' && activeTab === 'master_management') ||
-      (!canManageSchedules(currentUserRole) && (activeTab === 'calendar' || activeTab === 'analytics'))
+      (!legacyUi && LEGACY_TABS.includes(activeTab))
     ) {
-      setActiveTab('grid');
+      setActiveTab('action');
     }
-  }, [currentUserRole, activeTab]);
+  }, [currentUserRole, activeTab, legacyUi]);
 
   useEffect(() => {
     // 現在のセッションを取得
@@ -492,6 +530,8 @@ function App() {
   const [isImportOpen, setIsImportOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [selectedSchedule, setSelectedSchedule] = useState<Schedule | null>(null);
+  // 現地対応者がカードから開いたときは見るだけ
+  const [modalReadOnly, setModalReadOnly] = useState(false);
 
   // 画面表示サイズ（ズーム倍率: 80%, 90%, 100%, 110%, 125%）
   const [zoomLevel, setZoomLevel] = useState<number>(() => {
@@ -630,12 +670,13 @@ function App() {
 
   // モーダル開閉に合わせて編集ロックをブロードキャスト / 解除
   useEffect(() => {
-    if (isModalOpen && selectedSchedule && typeof selectedSchedule.id === 'number') {
+    // 見るだけで開いたときは編集中の印を送らない（管理側の編集を止めないため）
+    if (isModalOpen && !modalReadOnly && selectedSchedule && typeof selectedSchedule.id === 'number') {
       handleLockSchedule(selectedSchedule.id, 'modal');
-    } else if (!isModalOpen && currentLockedRef.current?.mode === 'modal') {
+    } else if ((!isModalOpen || modalReadOnly) && currentLockedRef.current?.mode === 'modal') {
       handleUnlockSchedule();
     }
-  }, [isModalOpen, selectedSchedule, handleLockSchedule, handleUnlockSchedule]);
+  }, [isModalOpen, modalReadOnly, selectedSchedule, handleLockSchedule, handleUnlockSchedule]);
 
   const fetchData = async (silent = false) => {
     if (!silent) {
@@ -782,13 +823,42 @@ function App() {
   const handleOpenAddModal = (dateStr: string) => {
     setSelectedSchedule(null);
     setSelectedDate(dateStr);
+    setModalReadOnly(false);
     setIsModalOpen(true);
   };
 
   const handleOpenEditModal = (schedule: Schedule) => {
     setSelectedSchedule(schedule);
     setSelectedDate(schedule.date);
+    setModalReadOnly(false);
     setIsModalOpen(true);
+  };
+
+  const handleOpenDetailModal = (schedule: Schedule) => {
+    setSelectedSchedule(schedule);
+    setSelectedDate(schedule.date);
+    setModalReadOnly(true);
+    setIsModalOpen(true);
+  };
+
+  // 現地の開始・完了の通知（管理側・本番モードのときだけ）。自分の名前は updated_by に入る名前と同じ決め方にする
+  const selfEditorName = user
+    ? user.user_metadata?.full_name ||
+      user.user_metadata?.name ||
+      staff.find(st => st.email?.toLowerCase().trim() === (user.email || '').toLowerCase().trim())?.name ||
+      user.email ||
+      'system'
+    : '';
+  const notifications = useRealtimeNotifications({
+    enabled: Boolean(user) && !isSandboxMode && canManageSchedules(currentUserRole),
+    branch: currentBranch,
+    schedules,
+    staff,
+    selfName: selfEditorName,
+  });
+  const handleOpenNotice = (scheduleId: number) => {
+    const target = schedules.find(s => Number(s.id) === scheduleId);
+    if (target) handleOpenEditModal(target);
   };
 
   const handleSaveSchedule = async (scheduleData: Partial<Schedule>) => {
@@ -1293,27 +1363,45 @@ function App() {
 
             <div className="nav-tabs">
               <button
-                className={`tab-btn ${activeTab === 'grid' ? 'active' : ''}`}
-                onClick={() => setActiveTab('grid')}
+                className={`tab-btn ${activeTab === 'action' ? 'active' : ''}`}
+                onClick={() => setActiveTab('action')}
               >
-                <List size={16} />
-                予定表 (グリッド)
-              </button>
-              <button
-                className={`tab-btn ${activeTab === 'timeline' ? 'active' : ''}`}
-                onClick={() => setActiveTab('timeline')}
-              >
-                <Layers size={16} />
-                当日行動予定表
+                <ListChecks size={16} />
+                行動予定
               </button>
               {canManageSchedules(currentUserRole) && (
                 <button
-                  className={`tab-btn ${activeTab === 'calendar' ? 'active' : ''}`}
-                  onClick={() => setActiveTab('calendar')}
+                  className={`tab-btn ${activeTab === 'month' ? 'active' : ''}`}
+                  onClick={() => setActiveTab('month')}
                 >
-                  <Calendar size={16} />
-                  月間予定表
+                  <CalendarDays size={16} />
+                  月間予定
                 </button>
+              )}
+              {canManageSchedules(currentUserRole) && legacyUi && (
+                <>
+                  <button
+                    className={`tab-btn ${activeTab === 'grid' ? 'active' : ''}`}
+                    onClick={() => setActiveTab('grid')}
+                  >
+                    <List size={16} />
+                    旧 予定表
+                  </button>
+                  <button
+                    className={`tab-btn ${activeTab === 'timeline' ? 'active' : ''}`}
+                    onClick={() => setActiveTab('timeline')}
+                  >
+                    <Layers size={16} />
+                    旧 当日行動予定表
+                  </button>
+                  <button
+                    className={`tab-btn ${activeTab === 'calendar' ? 'active' : ''}`}
+                    onClick={() => setActiveTab('calendar')}
+                  >
+                    <Calendar size={16} />
+                    旧 月間予定表
+                  </button>
+                </>
               )}
             </div>
 
@@ -1367,6 +1455,25 @@ function App() {
               <div className="header-divider"></div>
 
               {/* グループ2: 業務・マスタ管理 */}
+              {canManageSchedules(currentUserRole) && (
+                <NotificationBadge
+                  items={notifications.items}
+                  unread={notifications.unread}
+                  onOpen={handleOpenNotice}
+                  onMarkAllRead={notifications.markAllRead}
+                />
+              )}
+              {canManageSchedules(currentUserRole) && (
+                <button
+                  type="button"
+                  className={`btn ${legacyUi ? 'btn-primary' : 'btn-secondary'}`}
+                  onClick={toggleLegacyUi}
+                  aria-pressed={legacyUi}
+                  title={legacyUi ? '旧画面のタブを隠す' : '旧画面（表の予定表・当日行動予定表・月間予定表）のタブを出す'}
+                >
+                  <History size={16} />
+                </button>
+              )}
               {canManageSchedules(currentUserRole) && (
                 <button
                   className={`btn ${activeTab === 'analytics' ? 'btn-primary' : 'btn-secondary'}`}
@@ -1485,6 +1592,38 @@ function App() {
                     <Spinner size={32} />
                   </div>
                 )}
+                {activeTab === 'action' && (
+                  <DayScreen
+                    schedules={branchSchedules.filter(s => s.is_transferred === 1)}
+                    staff={branchStaff}
+                    role={currentUserRole}
+                    currentStaffId={currentStaffId}
+                    date={dayDate}
+                    onDateChange={(d) => {
+                      setDayDate(d);
+                      setDayFocusStaffId(null);
+                    }}
+                    focusStaffId={dayFocusStaffId}
+                    onOpenEdit={handleOpenEditModal}
+                    onOpenDetail={handleOpenDetailModal}
+                    onUpdateResult={handleUpdateScheduleResult}
+                  />
+                )}
+                {canManageSchedules(currentUserRole) && activeTab === 'month' && (
+                  <MonthView
+                    schedules={branchSchedules}
+                    staff={branchStaff}
+                    onOpenAdd={handleOpenAddModal}
+                    onOpenEdit={handleOpenEditModal}
+                    onTransfer={handleTransferSchedules}
+                    onOpenPasteImport={() => setIsImportOpen(true)}
+                    onJumpToDay={(d, staffId) => {
+                      setDayDate(d);
+                      setDayFocusStaffId(staffId);
+                      setActiveTab('action');
+                    }}
+                  />
+                )}
                 {activeTab === 'grid' && (
                   <GridView
                     schedules={branchSchedules.filter(s => s.is_transferred === 1)}
@@ -1566,8 +1705,9 @@ function App() {
             workTypes={workTypes}
             currentUserEmail={user?.email || 'system'}
             currentUserName={user?.user_metadata?.full_name || user?.user_metadata?.name || staff.find(s => s.email && s.email.toLowerCase() === (user?.email || '').toLowerCase())?.name || ''}
-            defaultTransferred={activeTab === 'calendar' ? 0 : 1}
+            defaultTransferred={activeTab === 'calendar' || activeTab === 'month' ? 0 : 1}
             lockedBy={selectedSchedule && typeof selectedSchedule.id === 'number' ? activeLocks[selectedSchedule.id] : null}
+            readOnly={modalReadOnly}
             currentUserRole={currentUserRole}
           />
 
@@ -1581,6 +1721,13 @@ function App() {
             existingSchedules={branchSchedules}
             onSandboxImport={handleSandboxImport}
             currentBranch={currentBranch}
+          />
+
+          <NotificationToast
+            key={notifications.latest?.id ?? 'none'}
+            notice={notifications.latest}
+            onOpen={handleOpenNotice}
+            onClose={notifications.dismissLatest}
           />
 
           <HelpGuideModal
