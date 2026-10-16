@@ -29,6 +29,7 @@ describe('isHoliday / isFieldJob', () => {
   it('キャンセルと社内の予定は現地作業に数えない', () => {
     expect(isFieldJob(makeSchedule({ work_type: '障害' }))).toBe(true)
     expect(isFieldJob(makeSchedule({ work_type: '障害', status: 'cancelled' }))).toBe(false)
+    expect(isFieldJob(makeSchedule({ work_type: '障害', result: 'キャンセル' }))).toBe(false)
     expect(isFieldJob(makeSchedule({ work_type: '研修' }))).toBe(false)
   })
 })

@@ -53,6 +53,7 @@ export function GanttRow({ row, x, now, focused, rowRef, onOpen }: Props) {
             `${s.property_name || '（物件名なし）'}（${s.work_type || '種別なし'}）`,
             `${minToHm(bar.from)}〜${minToHm(bar.to)}${bar.basis === 'estimated' ? '（目安）' : ''}`,
             badge ? `指定 ${badge}` : '',
+            bar.late ? `締切 ${badge} に間に合わない並び` : '',
           ]
             .filter(Boolean)
             .join('\n')
@@ -60,7 +61,7 @@ export function GanttRow({ row, x, now, focused, rowRef, onOpen }: Props) {
             <button
               key={s.id}
               type="button"
-              className={`dg-bar tl-wt-${workTone(s.work_type)} dg-${bar.basis} dg-p-${progress}`}
+              className={`dg-bar tl-wt-${workTone(s.work_type)} dg-${bar.basis} dg-p-${progress} ${bar.late ? 'dg-late' : ''}`}
               style={{ left: x(bar.from), width: Math.max(x(bar.to) - x(bar.from), 24) }}
               title={title}
               onClick={() => onOpen(s)}

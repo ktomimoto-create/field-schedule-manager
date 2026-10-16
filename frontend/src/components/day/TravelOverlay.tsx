@@ -16,10 +16,10 @@ export function TravelOverlay({ gap, left, width }: Props) {
   return (
     <div className="dg-travel" style={{ left, width }} title={`移動の目安 ${label}（エリア・県別から見積もり）`}>
       <span className="dg-travel-line" />
-      {width >= 44 && (
+      {width >= 20 && (
         <span className="dg-travel-label">
           <Icon size={12} />
-          <span className="tl-num">{label}</span>
+          {width >= 44 && <span className="tl-num">{label}</span>}
         </span>
       )}
     </div>

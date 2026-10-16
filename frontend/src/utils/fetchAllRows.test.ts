@@ -9,6 +9,13 @@ describe('fetchAllRows', () => {
     expect(page).toHaveBeenCalledTimes(3)
   })
 
+  it('ちょうど満杯で終わるときも 3 回で止まり全件返す', async () => {
+    const all = [0, 1, 2, 3]
+    const page = vi.fn(async (from: number, to: number) => ({ data: all.slice(from, to + 1), error: null }))
+    await expect(fetchAllRows(page, 2)).resolves.toEqual({ data: [0, 1, 2, 3], error: null })
+    expect(page).toHaveBeenCalledTimes(3)
+  })
+
   it('途中で失敗したらそこまでと error を返す', async () => {
     const page = vi.fn().mockResolvedValueOnce({ data: [1, 2], error: null }).mockResolvedValueOnce({ data: null, error: { message: 'x' } })
     await expect(fetchAllRows(page, 2)).resolves.toEqual({ data: [1, 2], error: { message: 'x' } })

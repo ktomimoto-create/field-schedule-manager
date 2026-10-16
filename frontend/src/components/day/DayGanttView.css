@@ -123,6 +123,14 @@
   box-shadow: 0 0 12px color-mix(in srgb, var(--wt) 40%, transparent);
 }
 
+.dg-bar.dg-late {
+  box-shadow: 0 0 0 2px var(--tl-urgent);
+}
+
+.dg-bar.dg-late:hover {
+  box-shadow: 0 0 0 2px var(--tl-urgent), 0 0 12px color-mix(in srgb, var(--wt) 40%, transparent);
+}
+
 .dg-bar.dg-estimated {
   border-style: dashed;
   background: color-mix(in srgb, var(--wt) 8%, var(--bg-secondary));

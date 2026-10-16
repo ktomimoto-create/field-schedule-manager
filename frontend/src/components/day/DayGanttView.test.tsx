@@ -41,6 +41,19 @@ describe('DayGanttView', () => {
     expect(screen.getByText('15分')).toBeInTheDocument()
   })
 
+  it('狭い隙間（15 分）でも移動の目安の要素を出す', () => {
+    render(
+      <DayGanttView
+        date="2026-10-16"
+        staff={staff}
+        focusStaffId={null}
+        onOpen={vi.fn()}
+        schedules={[makeSchedule({ id: 1, staff_id: 1 }), makeSchedule({ id: 2, staff_id: 1 })]}
+      />,
+    )
+    expect(screen.getByTitle(/15分/)).toBeInTheDocument()
+  })
+
   it('休暇だけの人は「休み」', () => {
     render(
       <DayGanttView date="2026-10-16" staff={staff} focusStaffId={null} onOpen={vi.fn()} schedules={[makeSchedule({ staff_id: 2, work_type: '休暇' })]} />,

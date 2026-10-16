@@ -10,6 +10,10 @@ describe('estimateTravel', () => {
     expect(estimateTravel(at('江東区', '23'), at('八千代市', '千葉'))).toEqual({ minutes: 60, mode: 'car' })
   })
 
+  it('同じ区市でも県別が食い違えば 15 分にしない', () => {
+    expect(estimateTravel(at('中央区', '23'), at('中央区', '千葉'))).toEqual({ minutes: 60, mode: 'car' })
+  })
+
   it('場所が分からなければ 30 分', () => {
     expect(estimateTravel(at(null, null), at('江東区', '23'))).toEqual({ minutes: 30, mode: 'car' })
   })

@@ -25,7 +25,7 @@ export const estimateTravel = (from: Place, to: Place & Pick<Schedule, 'transpor
   const toPref = (to.prefecture || '').trim()
 
   let minutes: number
-  if (fromArea && fromArea === toArea) minutes = 15
+  if (fromArea && fromArea === toArea && (!fromPref || !toPref || fromPref === toPref)) minutes = 15
   else if (!fromPref || !toPref || fromPref === toPref) minutes = 30
   else minutes = 60
 

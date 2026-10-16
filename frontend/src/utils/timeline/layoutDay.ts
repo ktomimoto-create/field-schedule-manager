@@ -2,6 +2,7 @@ import type { Schedule } from '../../types'
 import { hmToMin } from './dates'
 import { parseTimeSlot } from './parseTargetTime'
 import { estimateTravel, type Travel } from './estimateTravelTime'
+import { progressOf } from './progress'
 import { isHoliday } from './workTone'
 
 export const DAY_START_MIN = 8 * 60
@@ -17,6 +18,8 @@ export interface GanttBar {
   from: number
   to: number
   basis: BarBasis
+  /** 「〜迄」の締切に間に合わない並び */
+  late?: boolean
 }
 
 export interface TravelGap {
@@ -35,18 +38,18 @@ export interface DayLayout {
  * - 開始・完了の実績があればそれを使う（actual）
  * - 時刻指定（10:00 / 14:00〜14:30）はその時刻に置く（fixed）
  * - それ以外は、前の作業の終わり＋移動の目安から順に置く（estimated）。
- *   AM/PM は帯の始まりより前には置かない。「〜迄」は締切に間に合う位置まで前に寄せる。
+ *   AM/PM は帯の始まりより前には置かない。「〜迄」も前には寄せず、間に合わなければ late を付ける。
  * 作業時間は 1 件 60 分とみなす。items は orderInDay で並べてから渡す。
  */
 export const layoutStaffDay = (items: Schedule[]): DayLayout => {
   const bars: GanttBar[] = []
   const gaps: TravelGap[] = []
   let cursor = FIRST_JOB_MIN
-  let prev: GanttBar | null = null
+  let last: GanttBar | null = null // いちばん遅く終わる帯
 
   for (const s of items) {
-    if (s.status === 'cancelled' || isHoliday(s)) continue
-    const travel = prev ? estimateTravel(prev.schedule, s) : null
+    if (progressOf(s) === 'cancelled' || isHoliday(s)) continue
+    const travel = last ? estimateTravel(last.schedule, s) : null
     const earliest = cursor + (travel ? travel.minutes : 0)
     const started = hmToMin(s.started_at)
     const completed = hmToMin(s.completed_at)
@@ -55,6 +58,7 @@ export const layoutStaffDay = (items: Schedule[]): DayLayout => {
     let from: number
     let to: number
     let basis: BarBasis
+    let late = false
     if (started !== null) {
       from = started
       to = completed !== null && completed > started ? completed : started + DEFAULT_WORK_MIN
@@ -64,9 +68,10 @@ export const layoutStaffDay = (items: Schedule[]): DayLayout => {
       to = slot.kind === 'range' ? slot.to : slot.from + DEFAULT_WORK_MIN
       basis = 'fixed'
     } else if (slot && slot.kind === 'until') {
-      from = Math.min(earliest, slot.to - DEFAULT_WORK_MIN)
+      from = earliest
       to = from + DEFAULT_WORK_MIN
       basis = 'estimated'
+      late = to > slot.to
     } else if (slot && slot.kind === 'band') {
       from = Math.max(earliest, slot.from)
       to = from + DEFAULT_WORK_MIN
@@ -77,11 +82,11 @@ export const layoutStaffDay = (items: Schedule[]): DayLayout => {
       basis = 'estimated'
     }
 
-    if (prev && travel && from > prev.to) gaps.push({ from: prev.to, to: from, travel })
-    const bar: GanttBar = { schedule: s, from, to, basis }
+    if (last && travel && from > last.to) gaps.push({ from: last.to, to: from, travel })
+    const bar: GanttBar = late ? { schedule: s, from, to, basis, late } : { schedule: s, from, to, basis }
     bars.push(bar)
     cursor = Math.max(cursor, to)
-    prev = bar
+    if (!last || to > last.to) last = bar
   }
   return { bars, gaps }
 }

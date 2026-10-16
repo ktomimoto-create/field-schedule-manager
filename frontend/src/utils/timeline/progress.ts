@@ -12,9 +12,10 @@ export const PROGRESS_LABEL: Record<Progress, string> = {
 type ProgressFields = Pick<Schedule, 'status' | 'result'> & Partial<Pick<Schedule, 'started_at' | 'completed_at'>>
 
 export const progressOf = (s: ProgressFields): Progress => {
-  if (s.status === 'cancelled') return 'cancelled'
-  if (s.result === '完了' || s.completed_at) return 'done'
-  if (s.result === '作業中' || s.started_at) return 'active'
+  // 結果欄だけを見る（旧画面は結果を戻しても時刻を消さないので、時刻からは決めない）
+  if (s.status === 'cancelled' || s.result === 'キャンセル') return 'cancelled'
+  if (s.result === '完了') return 'done'
+  if (s.result === '作業中') return 'active'
   return 'todo'
 }
 
@@ -27,7 +28,7 @@ export const detectProgressEvent = (
   const before = progressOf(prev)
   const after = progressOf(next)
   if (before === after) return null
-  if (after === 'done') return { kind: 'complete', at: next.completed_at ?? '' }
+  if (after === 'done' && before !== 'cancelled') return { kind: 'complete', at: next.completed_at ?? '' }
   if (after === 'active' && before === 'todo') return { kind: 'start', at: next.started_at ?? '' }
   return null
 }
