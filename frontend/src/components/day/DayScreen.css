@@ -1,0 +1,69 @@
+.ds-root {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  flex: 1;
+  min-height: 0;
+}
+
+.ds-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-glass);
+  background: var(--bg-glass);
+  backdrop-filter: blur(12px);
+}
+
+.ds-date {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ds-date-label {
+  min-width: 92px;
+  font-size: 18px;
+  font-weight: 700;
+  text-align: center;
+}
+
+.ds-progress {
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+.ds-progress .tl-num {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.ds-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.ds-chip svg {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+
+.ds-spacer {
+  flex: 1;
+}
+
+.ds-body {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
