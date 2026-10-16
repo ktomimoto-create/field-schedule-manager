@@ -216,6 +216,7 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
   };
 
   const handleUnitNumberBlur = async () => {
+    if (readOnly) return;
     // サジェストを非表示（200msの遅延を設けることでリスト項目のクリックを可能にする）
     setTimeout(() => setShowSuggestions(false), 200);
 
@@ -226,6 +227,7 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
 
   /** 依頼番号→FC同期テーブル(fc_requests)→号機→マスタ補完 */
   const handleRequestNumberBlur = async () => {
+    if (readOnly) return;
     setRequestNumberHint('');
     const val = toHalfWidth(requestNumber).trim();
     if (val === '') return;
@@ -255,6 +257,7 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
   };
 
   const handleSelectProperty = (prop: any) => {
+    if (readOnly) return;
     setUnitNumber(prop.unit_number || '');
     setPropertyName(prop.property_name || '');
     setBox(prop.box_count ? String(prop.box_count) : '');
@@ -277,6 +280,7 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
   };
 
   const handleToggleCoWorker = (name: string) => {
+    if (readOnly) return;
     const trimmedName = name.trim();
     const shortName = getShortName(trimmedName);
     // 同行者リストを分解
@@ -614,7 +618,7 @@ ${description || ''}
                   </span>
                 </div>
               </div>
-              {canManageSchedules(currentUserRole) && (
+              {canManageSchedules(currentUserRole) && !readOnly && (
                 <button
                   type="button"
                   className="btn btn-secondary"
@@ -640,28 +644,28 @@ ${description || ''}
           )}
 
           {/* ステータストグル */}
-          <div className="status-toggle" style={{ marginBottom: '1.5rem', opacity: isEffectiveLocked ? 0.6 : 1, pointerEvents: isEffectiveLocked ? 'none' : 'auto' }}>
+          <div className="status-toggle" style={{ marginBottom: '1.5rem', opacity: (isEffectiveLocked || readOnly) ? 0.6 : 1, pointerEvents: (isEffectiveLocked || readOnly) ? 'none' : 'auto' }}>
             <div 
               className={`status-toggle-btn free ${status === 'free' ? 'active' : ''}`}
-              onClick={() => !isEffectiveLocked && setStatus('free')}
+              onClick={() => !(isEffectiveLocked || readOnly) && setStatus('free')}
             >
               通常 (フリー)
             </div>
             <div 
               className={`status-toggle-btn draft ${status === 'draft' ? 'active' : ''}`}
-              onClick={() => !isEffectiveLocked && setStatus('draft')}
+              onClick={() => !(isEffectiveLocked || readOnly) && setStatus('draft')}
             >
               仮予定
             </div>
             <div 
               className={`status-toggle-btn confirmed ${status === 'confirmed' ? 'active' : ''}`}
-              onClick={() => !isEffectiveLocked && setStatus('confirmed')}
+              onClick={() => !(isEffectiveLocked || readOnly) && setStatus('confirmed')}
             >
               確定予定
             </div>
             <div 
               className={`status-toggle-btn cancelled ${status === 'cancelled' ? 'active' : ''}`}
-              onClick={() => !isEffectiveLocked && setStatus('cancelled')}
+              onClick={() => !(isEffectiveLocked || readOnly) && setStatus('cancelled')}
               style={{ color: status === 'cancelled' ? 'var(--danger)' : 'var(--text-secondary)', backgroundColor: status === 'cancelled' ? 'rgba(239, 68, 68, 0.15)' : 'transparent', border: status === 'cancelled' ? '1px solid rgba(239, 68, 68, 0.3)' : 'none' }}
             >
               キャンセル
@@ -735,7 +739,7 @@ ${description || ''}
                     {propertySuggestions.map((prop) => (
                       <li
                         key={prop.id}
-                        onClick={() => handleSelectProperty(prop)}
+                        onClick={() => { if (!isInputDisabled) handleSelectProperty(prop); }}
                         onMouseEnter={() => setActiveHoverId(prop.id)}
                         onMouseLeave={() => setActiveHoverId(null)}
                         style={{
@@ -1003,6 +1007,7 @@ ${description || ''}
                           key={st.id}
                           type="button"
                           onClick={() => handleToggleCoWorker(st.name)}
+                          disabled={isInputDisabled}
                           style={{
                             padding: '3px 8px',
                             fontSize: '0.72rem',
@@ -1010,7 +1015,7 @@ ${description || ''}
                             border: isSelected ? '1px solid var(--primary, #4f46e5)' : '1px solid transparent',
                             background: isSelected ? 'rgba(99, 102, 241, 0.15)' : 'var(--bg-empty, #f1f5f9)',
                             color: isSelected ? 'var(--primary, #4f46e5)' : 'var(--text-secondary, #475569)',
-                            cursor: 'pointer',
+                            cursor: isInputDisabled ? 'default' : 'pointer',
                             fontWeight: isSelected ? '600' : 'normal',
                             transition: 'all 0.12s ease'
                           }}

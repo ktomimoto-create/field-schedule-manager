@@ -28,6 +28,7 @@
 }
 
 .dark-theme {
+  --heat-0: var(--bg-empty);
   --wt-teiki: #60a5fa;
   --wt-shogai: #f87171;
   --wt-koji: #fb923c;
