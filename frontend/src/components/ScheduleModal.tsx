@@ -21,6 +21,8 @@ interface ScheduleModalProps {
   defaultTransferred?: number;
   lockedBy?: { userName: string; userEmail: string; startedAt: number } | null;
   currentUserRole?: UserRole;
+  /** 見るだけ（現地対応者が行動予定のカードから開いたとき）。入力・保存・削除をさせない */
+  readOnly?: boolean;
 }
 
 export const ScheduleModal: React.FC<ScheduleModalProps> = ({
@@ -37,6 +39,7 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
   defaultTransferred,
   lockedBy,
   currentUserRole,
+  readOnly = false,
 }) => {
   // 現場作業用の種別リスト（不要な「保守」「依頼有/非認可」を除外し、フリーを含める）
   const fieldWorkTypeList = useMemo(() => {
@@ -96,7 +99,7 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
   }, [isOpen]);
 
   const isEffectiveLocked = Boolean(lockedBy) && !forceUnlocked;
-  const isInputDisabled = isSubmitting || isEffectiveLocked;
+  const isInputDisabled = isSubmitting || isEffectiveLocked || readOnly;
 
   // 物件マスタ自動補完用の状態
   const [propertySuggestions, setPropertySuggestions] = useState<any[]>([]);
@@ -488,6 +491,7 @@ ${description || ''}
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (readOnly) return;
     if (isEffectiveLocked) {
       alert(`現在、${lockedBy?.userName} さんがこの予定を編集中です。同時編集による競合を防ぐため保存できません。`);
       return;
@@ -1238,7 +1242,7 @@ ${description || ''}
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid var(--border-glass)', paddingTop: '1.25rem', flexWrap: 'wrap', gap: '1rem' }}>
             <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
-              {isEditMode ? (
+              {isEditMode && !readOnly ? (
                 <button
                   type="button"
                   className="btn btn-danger"
@@ -1251,7 +1255,7 @@ ${description || ''}
                 <div></div>
               )}
 
-              {targetStaffEmail && (
+              {targetStaffEmail && !readOnly && (
                 <button
                   type="button"
                   className="btn"
@@ -1282,16 +1286,18 @@ ${description || ''}
                 onClick={onClose}
                 disabled={isSubmitting}
               >
-                キャンセル
+                {readOnly ? '閉じる' : 'キャンセル'}
               </button>
-              <button
-                type="submit"
-                className="btn btn-primary"
-                disabled={isInputDisabled}
-                title={isEffectiveLocked ? `${lockedBy?.userName} さんが編集中です` : undefined}
-              >
-                {isEffectiveLocked ? `🔒 編集中 (${lockedBy?.userName})` : (isSubmitting ? '保存中...' : '予定を保存')}
-              </button>
+              {!readOnly && (
+                <button
+                  type="submit"
+                  className="btn btn-primary"
+                  disabled={isInputDisabled}
+                  title={isEffectiveLocked ? `${lockedBy?.userName} さんが編集中です` : undefined}
+                >
+                  {isEffectiveLocked ? `🔒 編集中 (${lockedBy?.userName})` : (isSubmitting ? '保存中...' : '予定を保存')}
+                </button>
+              )}
             </div>
           </div>
         </form>
