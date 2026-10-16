@@ -4,6 +4,7 @@ import { getShortName, findStaffByName, toHalfWidth, normalizeTargetTime, splitC
 import { buildFcAutofillPatch } from '../utils/fcAutofill';
 
 import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Edit2, Plus, Search, Lock, Eye, EyeOff } from 'lucide-react';
+import { Select } from './shared/Select';
 import './CalendarView.css';
 
 // ローカルタイムゾーン基準で YYYY-MM-DD 形式の日付文字列を生成する
@@ -217,17 +218,16 @@ const InlineInput: React.FC<InlineInputProps> = ({
 
   if (field === 'work_type') {
     return (
-      <select
+      <Select
         className="inline-edit-select"
         value={value}
-        onChange={(e) => setValue(e.target.value)}
+        onChange={setValue}
         onBlur={() => onSave(value)}
         autoFocus
-      >
-        {workTypes.map(t => (
-          <option key={t.id} value={t.name}>{t.name}</option>
-        ))}
-      </select>
+        placeholder={value}
+        options={workTypes.map(t => ({ value: t.name, label: t.name }))}
+        aria-label="種別"
+      />
     );
   }
 
@@ -3020,16 +3020,17 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                                 {activeAddFormDate === day.dateStr ? (
                                   <div className="quick-add-form-inline" onClick={(e) => e.stopPropagation()}>
                                     <div style={{ width: '100%', fontSize: '0.72rem', fontWeight: 'bold', color: 'var(--text-secondary)', marginBottom: '6px', textAlign: 'left', borderBottom: '1px solid var(--border-cell)', paddingBottom: '3px', whiteSpace: 'nowrap' }}>休暇・社内予定の簡易登録</div>
-                                    <select
+                                    <Select
                                       className="quick-form-control quick-select-worktype"
                                       value={quickWorkType}
-                                      onChange={(e) => setQuickWorkType(e.target.value)}
-                                    >
-                                      {workTypes.filter(t => t.is_internal === 1).map(t => (
-                                        <option key={t.id} value={t.name}>{t.name}</option>
-                                      ))}
-                                      <option value="その他">その他（自由入力）</option>
-                                    </select>
+                                      onChange={setQuickWorkType}
+                                      placeholder={quickWorkType}
+                                      options={[
+                                        ...workTypes.filter(t => t.is_internal === 1).map(t => ({ value: t.name, label: t.name })),
+                                        { value: 'その他', label: 'その他（自由入力）' },
+                                      ]}
+                                      aria-label="予定の種別"
+                                    />
 
                                     {quickWorkType === 'その他' && (
                                       <input
@@ -3259,11 +3260,13 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                                   })}
                                   {editingCell?.id === schedule.id && editingCell?.field === 'staff_name' ? (
                                     <td id={`cell-${day.dateStr}-${rowIndex}-staff_name`} className={`${statusClass} ${isToday ? 'today-td' : ''}`}>
-                                      <select
+                                      <Select
                                         className="inline-edit-select"
                                         value={String(schedule.staff_id || '')}
-                                        onChange={async (e) => {
-                                          const nextStaffId = e.target.value ? Number(e.target.value) : null;
+                                        placeholder={schedule.staff_name || '- 未設定 -'}
+                                        aria-label="担当者"
+                                        onChange={async (v) => {
+                                          const nextStaffId = v ? Number(v) : null;
                                           const nextStaff = staff.find(st => st.id === nextStaffId);
                                           
                                           // 選択されたスタッフのデフォルトコースと区分を自動決定
@@ -3312,12 +3315,11 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                                         }}
                                         onBlur={() => stopEditingCell()}
                                         autoFocus
-                                      >
-                                        <option value="">- 未設定 -</option>
-                                        {staff.filter(st => st.is_active !== 0).map(st => (
-                                          <option key={st.id} value={st.id}>{getShortName(st.name)}</option>
-                                        ))}
-                                      </select>
+                                        options={[
+                                          { value: '', label: '- 未設定 -' },
+                                          ...staff.filter(st => st.is_active !== 0).map(st => ({ value: String(st.id), label: getShortName(st.name) })),
+                                        ]}
+                                      />
                                     </td>
                                   ) : (
                                     (() => {

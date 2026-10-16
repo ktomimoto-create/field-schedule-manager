@@ -7,6 +7,7 @@ import { supabase, talkScriptSupabase } from '../supabaseClient';
 
 import './MasterManagementView.css';
 import { Spinner } from './shared/Spinner';
+import { Select } from './shared/Select';
 
 interface MasterManagementViewProps {
   currentUserRole: UserRole;
@@ -590,11 +591,11 @@ export const MasterManagementView: React.FC<MasterManagementViewProps> = ({
                     <Building2 size={15} />
                     エンジニアリング事業部の社員から自動入力（候補から選択）
                   </label>
-                  <select
+                  <Select
                     className="form-control"
                     value=""
-                    onChange={(e) => {
-                      const selectedEmpId = e.target.value;
+                    aria-label="エンジニアリング事業部の社員から選択"
+                    onChange={(selectedEmpId) => {
                       const mem = engMembers.find(m => m.employee_id === selectedEmpId);
                       if (mem) {
                         let formattedName = mem.display_name ? mem.display_name.trim() : '';
@@ -616,17 +617,14 @@ export const MasterManagementView: React.FC<MasterManagementViewProps> = ({
                         setNewStaffEmpCode(mem.employee_id || '');
                       }
                     }}
-                    disabled={isSubmitting || loadingEngMembers}
-                  >
-                    <option value="">
-                      {loadingEngMembers ? 'エンジニアリング事業部の社員一覧を読み込み中...' : '-- エンジニアリング事業部から社員を選択して自動セット --'}
-                    </option>
-                    {engMembers.map(m => (
-                      <option key={m.employee_id || m.display_name} value={m.employee_id || ''}>
-                        {m.display_name} {m.employee_id ? `(${m.employee_id})` : ''} {m.section ? `[${m.section}]` : ''}
-                      </option>
-                    ))}
-                  </select>
+                    disabled={isSubmitting}
+                    loading={loadingEngMembers}
+                    placeholder="-- エンジニアリング事業部から社員を選択して自動セット --"
+                    options={engMembers.map(m => ({
+                      value: m.employee_id || '',
+                      label: `${m.display_name} ${m.employee_id ? `(${m.employee_id})` : ''} ${m.section ? `[${m.section}]` : ''}`,
+                    }))}
+                  />
                 </div>
                 <div className="form-group">
                   <label>氏名 <span className="text-danger">*</span></label>
@@ -671,16 +669,18 @@ export const MasterManagementView: React.FC<MasterManagementViewProps> = ({
                 </div>
                 <div className="form-group">
                   <label>アクセス権限</label>
-                  <select
+                  <Select
                     className="form-control"
                     value={newStaffRole}
-                    onChange={(e) => setNewStaffRole(e.target.value as UserRole)}
+                    onChange={(v) => setNewStaffRole(v as UserRole)}
                     disabled={isSubmitting}
-                  >
-                    <option value="staff">一般ユーザー</option>
-                    <option value="manager">予定管理者</option>
-                    <option value="developer">開発者</option>
-                  </select>
+                    aria-label="権限"
+                    options={[
+                      { value: 'staff', label: '一般ユーザー' },
+                      { value: 'manager', label: '予定管理者' },
+                      { value: 'developer', label: '開発者' },
+                    ]}
+                  />
                 </div>
               </div>
               <div className="form-actions-right">
@@ -788,15 +788,17 @@ export const MasterManagementView: React.FC<MasterManagementViewProps> = ({
                         </td>
                         <td>
                           {isEditing ? (
-                            <select
+                            <Select
                               className="form-control form-control-sm"
                               value={editStaffRole}
-                              onChange={(e) => setEditStaffRole(e.target.value as UserRole)}
-                            >
-                              <option value="staff">一般</option>
-                              <option value="manager">予定管理者</option>
-                              <option value="developer">開発者</option>
-                            </select>
+                              onChange={(v) => setEditStaffRole(v as UserRole)}
+                              aria-label="権限"
+                              options={[
+                                { value: 'staff', label: '一般' },
+                                { value: 'manager', label: '予定管理者' },
+                                { value: 'developer', label: '開発者' },
+                              ]}
+                            />
                           ) : normalizeRole(st.role) === 'developer' ? (
                             <span className="badge-admin">
                               <Shield size={10} style={{ marginRight: '2px' }} />
@@ -813,14 +815,16 @@ export const MasterManagementView: React.FC<MasterManagementViewProps> = ({
                         </td>
                         <td>
                           {isEditing ? (
-                            <select
+                            <Select
                               className="form-control form-control-sm"
-                              value={editStaffActive}
-                              onChange={(e) => setEditStaffActive(Number(e.target.value))}
-                            >
-                              <option value={1}>有効</option>
-                              <option value={0}>無効</option>
-                            </select>
+                              value={String(editStaffActive)}
+                              onChange={(v) => setEditStaffActive(Number(v))}
+                              aria-label="状態"
+                              options={[
+                                { value: '1', label: '有効' },
+                                { value: '0', label: '無効' },
+                              ]}
+                            />
                           ) : isActive ? (
                             <span className="badge-active">有効</span>
                           ) : (

@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import type { Schedule, Staff } from '../types';
 import { BarChart3, Users, MapPin, Calendar, Award } from 'lucide-react';
+import { Select } from './shared/Select';
 import './AnalyticsView.css';
 
 interface AnalyticsViewProps {
@@ -122,15 +123,13 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({ schedules, staff }
 
         <div className="month-picker-container">
           <Calendar size={16} className="text-muted" />
-          <select 
+          <Select
             className="form-control month-select"
             value={selectedMonth}
-            onChange={(e) => setSelectedMonth(e.target.value)}
-          >
-            {availableMonths.map(m => (
-              <option key={m} value={m}>{formatJapaneseMonth(m)}</option>
-            ))}
-          </select>
+            onChange={setSelectedMonth}
+            options={availableMonths.map(m => ({ value: m, label: formatJapaneseMonth(m) }))}
+            aria-label="集計する月"
+          />
         </div>
       </div>
 

@@ -27,6 +27,7 @@ import {
 import { supabase } from '../supabaseClient';
 import './AuditLogView.css';
 import { Spinner, SpinnerBlock } from './shared/Spinner';
+import { Select } from './shared/Select';
 
 interface AuditLogViewProps {
   currentUserRole: UserRole;
@@ -680,16 +681,18 @@ export const AuditLogView: React.FC<AuditLogViewProps> = ({ currentUserRole, sta
         {/* 期間選択セレクト */}
         <div className="audit-date-filter">
           <Calendar size={14} className="date-filter-icon" />
-          <select 
+          <Select
             className="date-filter-select"
             value={dateFilter}
-            onChange={(e: any) => setDateFilter(e.target.value)}
-          >
-            <option value="all">全期間</option>
-            <option value="today">今日</option>
-            <option value="7days">直近 7 日間</option>
-            <option value="30days">直近 30 日間</option>
-          </select>
+            onChange={(v) => setDateFilter(v as typeof dateFilter)}
+            options={[
+              { value: 'all', label: '全期間' },
+              { value: 'today', label: '今日' },
+              { value: '7days', label: '直近 7 日間' },
+              { value: '30days', label: '直近 30 日間' },
+            ]}
+            aria-label="期間"
+          />
         </div>
       </div>
 
