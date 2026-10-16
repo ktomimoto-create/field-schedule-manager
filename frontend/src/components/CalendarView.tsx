@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useLayoutEffect } from 'react';
 import type { Schedule, Staff, WorkType, UserRole } from '../types';
-import { getShortName, findStaffByName, toHalfWidth, normalizeTargetTime, splitCoWorkers, compareSchedules } from '../types';
+import { getShortName, findStaffByName, toHalfWidth, normalizeTargetTime, splitCoWorkers, compareSchedules, cleanMetadata } from '../types';
 import { buildFcAutofillPatch } from '../utils/fcAutofill';
 
 import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Edit2, Plus, Search, Lock, Eye, EyeOff } from 'lucide-react';
@@ -2126,15 +2126,6 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
   ) => {
     const isEditing = editingCell?.id === schedule.id && editingCell?.field === field;
     const schedId = schedule.id;
-
-    // メタデータ除去ヘルパー
-    const cleanMetadata = (val: any): string => {
-      if (!val) return '';
-      return String(val)
-        .replace(/\s*\[__parent_id:\d+__\]/g, '')
-        .replace(/\s*\[__no_sync__\]/g, '')
-        .trim();
-    };
 
     // 検索一致判定
     const cellValueStr = schedule[field] ? cleanMetadata(schedule[field]).toLowerCase() : '';
