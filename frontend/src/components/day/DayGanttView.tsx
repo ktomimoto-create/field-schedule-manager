@@ -77,7 +77,7 @@ export function DayGanttView({ schedules, staff, date, focusStaffId, onOpen }: P
           )
         })}
       </div>
-      <p className="dg-legend">実線＝時刻指定・実績　点線＝並び順から置いた目安（1件60分）　線の上＝移動の目安</p>
+      <p className="dg-legend">実線＝時刻指定・実績&emsp;点線＝並び順から置いた目安（1件60分）&emsp;線の上＝移動の目安</p>
     </div>
   )
 }
