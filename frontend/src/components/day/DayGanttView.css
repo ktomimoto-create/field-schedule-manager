@@ -25,7 +25,7 @@
 .dg-corner {
   top: 0;
   z-index: 4;
-  background: var(--bg-column-header);
+  background: linear-gradient(var(--bg-column-header), var(--bg-column-header)), var(--bg-secondary);
   border-bottom: 1px solid var(--border-cell);
 }
 
@@ -34,7 +34,7 @@
   top: 0;
   z-index: 3;
   height: 32px;
-  background: var(--bg-column-header);
+  background: linear-gradient(var(--bg-column-header), var(--bg-column-header)), var(--bg-secondary);
   border-bottom: 1px solid var(--border-cell);
 }
 

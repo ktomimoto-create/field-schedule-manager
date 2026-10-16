@@ -134,4 +134,19 @@ describe('layoutStaffDay 重なり回避', () => {
     ])
     expect(bars.map(b => b.from)).toEqual([600, 600])
   })
+
+  it('重なる帯は段（lane）を分ける', () => {
+    const { bars, laneCount } = layoutStaffDay([
+      makeSchedule({ id: 1, target_time: '10:00' }),
+      makeSchedule({ id: 2, target_time: '10:00' }),
+    ])
+    expect(bars.map(b => b.lane)).toEqual([0, 1])
+    expect(laneCount).toBe(2)
+  })
+
+  it('重ならなければ全部 lane 0', () => {
+    const { bars, laneCount } = layoutStaffDay([makeSchedule({ id: 1 }), makeSchedule({ id: 2 })])
+    expect(bars.map(b => b.lane)).toEqual([0, 0])
+    expect(laneCount).toBe(1)
+  })
 })

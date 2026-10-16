@@ -82,7 +82,7 @@ export function HeatmapPane({ days, rows, cells, today, onJumpToDay }: Props) {
 
   return (
     <div className="mv-scroll">
-      <div className="mv-grid" style={{ gridTemplateColumns: `120px repeat(${days.length}, 36px)` }}>
+      <div className="mv-grid hp-grid" style={{ gridTemplateColumns: `120px repeat(${days.length}, minmax(36px, 1fr))` }}>
         <div className="mv-corner mv-sticky-col mv-sticky-row" />
         {days.map(d => {
           const wd = weekdayOf(d)

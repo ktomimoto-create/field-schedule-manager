@@ -87,4 +87,22 @@ describe('DayGanttView', () => {
       Element.prototype.scrollIntoView = original
     }
   })
+
+  it('同じ時刻の帯は段を分けて、どちらも見える', () => {
+    render(
+      <DayGanttView
+        date="2026-10-16"
+        staff={staff}
+        focusStaffId={null}
+        onOpen={vi.fn()}
+        schedules={[
+          makeSchedule({ id: 1, staff_id: 1, property_name: 'A棟', target_time: '10:00' }),
+          makeSchedule({ id: 2, staff_id: 1, property_name: 'B棟', target_time: '10:00' }),
+        ]}
+      />,
+    )
+    const a = screen.getByRole('button', { name: /A棟/ })
+    const b = screen.getByRole('button', { name: /B棟/ })
+    expect(a.style.top).not.toBe(b.style.top)
+  })
 })

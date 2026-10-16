@@ -20,6 +20,8 @@ export interface GanttBar {
   basis: BarBasis
   /** 「〜迄」の締切に間に合わない並び */
   late?: boolean
+  /** 重なる帯を分ける段（0 始まり） */
+  lane: number
 }
 
 export interface TravelGap {
@@ -31,6 +33,7 @@ export interface TravelGap {
 export interface DayLayout {
   bars: GanttBar[]
   gaps: TravelGap[]
+  laneCount: number
 }
 
 /**
@@ -55,10 +58,10 @@ export const layoutStaffDay = (items: Schedule[]): DayLayout => {
     const slot = parseTimeSlot(s.target_time)
     if (started !== null) {
       const to = completed !== null && completed > started ? completed : started + DEFAULT_WORK_MIN
-      placed.set(s, { schedule: s, from: started, to, basis: 'actual' })
+      placed.set(s, { schedule: s, from: started, to, basis: 'actual', lane: 0 })
     } else if (slot && (slot.kind === 'at' || slot.kind === 'range')) {
       const to = slot.kind === 'range' ? slot.to : slot.from + DEFAULT_WORK_MIN
-      placed.set(s, { schedule: s, from: slot.from, to, basis: 'fixed' })
+      placed.set(s, { schedule: s, from: slot.from, to, basis: 'fixed', lane: 0 })
     }
   }
 
@@ -78,18 +81,26 @@ export const layoutStaffDay = (items: Schedule[]): DayLayout => {
       }
       const to = from + DEFAULT_WORK_MIN
       const late = slot !== null && slot.kind === 'until' && to > slot.to
-      placed.set(s, late ? { schedule: s, from, to, basis: 'estimated', late } : { schedule: s, from, to, basis: 'estimated' })
+      placed.set(s, late ? { schedule: s, from, to, basis: 'estimated', late, lane: 0 } : { schedule: s, from, to, basis: 'estimated', lane: 0 })
     }
     prev = placed.get(s) ?? null
   }
 
   // 3. 開始順に並べ、隙間に移動の目安を付ける
   const bars = [...placed.values()].sort((a, b) => a.from - b.from)
+  // 重なる帯は空いている最小の段へ
+  const laneEnds: number[] = []
+  for (const bar of bars) {
+    let lane = laneEnds.findIndex(end => end <= bar.from)
+    if (lane < 0) lane = laneEnds.length
+    laneEnds[lane] = bar.to
+    bar.lane = lane
+  }
   const gaps: TravelGap[] = []
   for (let i = 1; i < bars.length; i++) {
     const a = bars[i - 1]
     const b = bars[i]
     if (b.from > a.to) gaps.push({ from: a.to, to: b.from, travel: estimateTravel(a.schedule, b.schedule) })
   }
-  return { bars, gaps }
+  return { bars, gaps, laneCount: Math.max(1, laneEnds.length) }
 }

@@ -32,7 +32,11 @@ export function GanttRow({ row, x, now, focused, rowRef, onOpen }: Props) {
   const done = jobs.filter(s => progressOf(s) === 'done').length
 
   return (
-    <div ref={rowRef} className={`dg-row ${focused ? 'is-focused' : ''} ${row.offToday ? 'is-off' : ''}`}>
+    <div
+      ref={rowRef}
+      className={`dg-row ${focused ? 'is-focused' : ''} ${row.offToday ? 'is-off' : ''}`}
+      style={{ minHeight: 56 + (row.layout.laneCount - 1) * 40 }}
+    >
       <div className="dg-name">
         <span className="dg-name-text">{getShortName(row.name)}</span>
         {row.offToday ? (
@@ -65,7 +69,7 @@ export function GanttRow({ row, x, now, focused, rowRef, onOpen }: Props) {
               key={s.id}
               type="button"
               className={`dg-bar tl-wt-${workTone(s.work_type)} dg-${bar.basis} dg-p-${progress} ${bar.late ? 'dg-late' : ''}`}
-              style={{ left: barLeft, width: barWidth }}
+              style={{ left: barLeft, width: barWidth, top: 10 + bar.lane * 40 }}
               title={title}
               onClick={() => onOpen(s)}
             >

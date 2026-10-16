@@ -51,6 +51,11 @@
   width: max-content;
 }
 
+.mv-grid.hp-grid {
+  width: 100%;
+  min-width: max-content;
+}
+
 .mv-sticky-row {
   position: sticky;
   top: 0;
