@@ -1,5 +1,5 @@
 import type { CSSProperties } from 'react'
-import { Box, Check, Clock, Hash, MapPin, Play, TriangleAlert } from 'lucide-react'
+import { Box, Check, Clock, FilePen, Hash, MapPin, Play, TriangleAlert } from 'lucide-react'
 import type { Schedule } from '../../types'
 import { PROGRESS_LABEL, progressOf } from '../../utils/timeline/progress'
 import { targetTimeBadge } from '../../utils/timeline/parseTargetTime'
@@ -16,6 +16,8 @@ interface Props {
   onOpen: (s: Schedule) => void
   onStart: (s: Schedule) => void
   onComplete: (s: Schedule) => void
+  /** 結果の報告・直し（報告モーダルを開く） */
+  onReport: (s: Schedule) => void
 }
 
 const placeOf = (s: Schedule): string => {
@@ -23,7 +25,7 @@ const placeOf = (s: Schedule): string => {
   return [s.area, pref].filter(Boolean).join(' / ')
 }
 
-export function ActionCard({ schedule: s, order, canReport, busy, onOpen, onStart, onComplete }: Props) {
+export function ActionCard({ schedule: s, order, canReport, busy, onOpen, onStart, onComplete, onReport }: Props) {
   const progress = progressOf(s)
   const badge = targetTimeBadge(s.target_time)
   const place = placeOf(s)
@@ -123,6 +125,20 @@ export function ActionCard({ schedule: s, order, canReport, busy, onOpen, onStar
           >
             {busy ? <Spinner size={16} /> : <Check size={16} />}
             完了
+          </button>
+        )}
+        {canReport && (
+          <button
+            type="button"
+            className="tl-ghost-btn tl-icon-btn"
+            title="結果を報告・直す"
+            aria-label="結果を報告・直す"
+            onClick={e => {
+              e.stopPropagation()
+              onReport(s)
+            }}
+          >
+            <FilePen size={16} />
           </button>
         )}
       </div>

@@ -549,6 +549,8 @@ ${description || ''}
 
       if (isEdit && selectedSchedule) {
         payload.id = selectedSchedule.id;
+        // 現地が押した開始・完了を、開いた時点の古い値で戻さないよう、結果は送らない（結果の変更は報告モーダルから）
+        delete payload.result;
       }
 
       await onSave(payload);

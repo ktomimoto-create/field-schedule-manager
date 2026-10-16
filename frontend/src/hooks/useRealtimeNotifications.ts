@@ -107,5 +107,13 @@ export const useRealtimeNotifications = ({ enabled, branch, schedules, staff, se
 
   const dismissLatest = useCallback(() => setLatest(null), [])
 
+  // 画面を隠している間（モーダル表示中など）に古くなった通知が、閉じた後に出し直されないよう、
+  // 受信から 60 秒たったら表示の対象から外す（一覧には残る）
+  useEffect(() => {
+    if (!latest) return
+    const timer = setTimeout(() => setLatest(cur => (cur?.id === latest.id ? null : cur)), Math.max(0, latest.receivedAt + 60_000 - Date.now()))
+    return () => clearTimeout(timer)
+  }, [latest])
+
   return { items, latest, unread: unreadCount(items, lastReadAt), markAllRead, dismissLatest }
 }

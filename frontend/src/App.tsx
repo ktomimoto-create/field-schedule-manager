@@ -18,6 +18,7 @@ import { fetchAllRows } from './utils/fetchAllRows';
 import { DayScreen } from './components/day/DayScreen';
 import { MonthView } from './components/month/MonthView';
 import { NotificationToast } from './components/shared/NotificationToast';
+import { withTimeout } from './utils/withTimeout';
 import { NotificationBadge } from './components/shared/NotificationBadge';
 import { useRealtimeNotifications } from './hooks/useRealtimeNotifications';
 import { todayJst } from './utils/timeline/dates';
@@ -421,7 +422,11 @@ function App() {
       if (completedAt !== undefined) payload.completed_at = completedAt;
       if (reportNotes !== undefined) payload.report_notes = reportNotes;
 
-      const { error: patchError } = await supabase.from('schedules').update(payload).eq('id', idVal);
+      const { error: patchError } = await withTimeout(
+        supabase.from('schedules').update(payload).eq('id', idVal),
+        15_000,
+        '結果の更新'
+      );
 
       if (patchError) {
         throw new Error('結果の更新に失敗しました。');
@@ -429,14 +434,15 @@ function App() {
 
       // 履歴ログの保存
       const targetSched = schedules.find(s => s.id === idVal);
-      await saveAuditLog(
+      // 書き込みが済んだら待たない（履歴と再取得は遅くても現地の操作を止めない。Realtime も再取得する）
+      void saveAuditLog(
         idVal,
         'update_result',
         targetSched ? targetSched.property_name : '',
         `予定の結果を更新しました: ${resultValue}`
       );
 
-      await fetchData(true); // サイレント更新
+      void fetchData(true); // サイレント更新
     } catch (err: any) {
       alert(err.message || 'エラーが発生しました。');
       throw err;
@@ -1458,7 +1464,7 @@ function App() {
               <div className="header-divider"></div>
 
               {/* グループ2: 業務・マスタ管理 */}
-              {canManageSchedules(currentUserRole) && (
+              {canManageSchedules(currentUserRole) && !isSandboxMode && (
                 <NotificationBadge
                   items={notifications.items}
                   unread={notifications.unread}
@@ -1728,7 +1734,7 @@ function App() {
 
           <NotificationToast
             key={notifications.latest?.id ?? 'none'}
-            notice={isModalOpen ? null : notifications.latest}
+            notice={isModalOpen || isImportOpen || isHelpGuideOpen ? null : notifications.latest}
             onOpen={handleOpenNotice}
             onClose={notifications.dismissLatest}
           />

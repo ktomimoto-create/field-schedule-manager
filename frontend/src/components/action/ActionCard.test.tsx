@@ -4,7 +4,7 @@ import { ActionCard } from './ActionCard'
 import { makeSchedule } from '../../test/factories'
 
 const renderCard = (overrides: Parameters<typeof makeSchedule>[0], canReport = true) => {
-  const handlers = { onOpen: vi.fn(), onStart: vi.fn(), onComplete: vi.fn() }
+  const handlers = { onOpen: vi.fn(), onStart: vi.fn(), onComplete: vi.fn(), onReport: vi.fn() }
   render(<ActionCard schedule={makeSchedule(overrides)} order={1} canReport={canReport} busy={false} {...handlers} />)
   return handlers
 }
@@ -31,9 +31,16 @@ describe('ActionCard', () => {
 
   it('完了: ボタンは出さず開始・完了の時刻を出す', () => {
     renderCard({ result: '完了', started_at: '10:05', completed_at: '10:40' })
-    expect(screen.queryByRole('button')).toBeNull()
+    expect(screen.queryByRole('button', { name: /開始|完了/ })).toBeNull()
     expect(screen.getByText('10:05')).toBeInTheDocument()
     expect(screen.getByText('10:40')).toBeInTheDocument()
+  })
+
+  it('報告ボタン: 状態によらず出て、押してもカードは開かない', () => {
+    const h = renderCard({ result: '完了', started_at: '10:05', completed_at: '10:40' })
+    fireEvent.click(screen.getByRole('button', { name: '結果を報告・直す' }))
+    expect(h.onReport).toHaveBeenCalledTimes(1)
+    expect(h.onOpen).not.toHaveBeenCalled()
   })
 
   it('報告できない人にはボタンを出さない。カードを押すと開く', () => {

@@ -64,6 +64,30 @@ describe('DayScreen', () => {
     )
   })
 
+  it('失敗しても（時間切れ含め）DayScreen は握りつぶし、ボタンは押せる状態に戻る', async () => {
+    const failing = vi.fn(async () => {
+      throw new Error('結果の更新に失敗しました。')
+    })
+    render(<DayScreen {...base} onUpdateResult={failing} role="staff" currentStaffId={1} />)
+    fireEvent.click(screen.getByRole('button', { name: /開始/ }))
+    await waitFor(() => expect(failing).toHaveBeenCalledTimes(1))
+    await waitFor(() => expect(screen.getByRole('button', { name: /開始/ })).not.toBeDisabled())
+  })
+
+  it('報告ボタンで報告モーダルが開き（カードは開かない）、保存すると結果と時刻とメモを渡す', async () => {
+    render(<DayScreen {...base} role="staff" currentStaffId={1} />)
+    fireEvent.click(screen.getByRole('button', { name: '結果を報告・直す' }))
+    expect(screen.getByText('作業対応の報告')).toBeInTheDocument()
+    expect(base.onOpenDetail).not.toHaveBeenCalled()
+    fireEvent.click(screen.getByRole('button', { name: '作業中' }))
+    fireEvent.change(screen.getByPlaceholderText(/現地での対応結果/), { target: { value: '鍵が無かった' } })
+    fireEvent.click(screen.getByRole('button', { name: '報告を保存' }))
+    await waitFor(() =>
+      expect(base.onUpdateResult).toHaveBeenCalledWith(1, '作業中', expect.stringMatching(/^\d{2}:\d{2}$/), null, '鍵が無かった'),
+    )
+    await waitFor(() => expect(screen.queryByText('作業対応の報告')).toBeNull())
+  })
+
   it('スタッフ一覧に自分が無い現地対応者には、理由を出す', () => {
     render(<DayScreen {...base} role="staff" currentStaffId={null} />)
     expect(screen.getByText(/スタッフ一覧にあなたのメールアドレスが無いため/)).toBeInTheDocument()

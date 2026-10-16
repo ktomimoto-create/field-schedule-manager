@@ -6,8 +6,8 @@ import { useViewport } from '../../hooks/useViewport'
 import { addDays, nowHmJst, todayJst, weekdayJa } from '../../utils/timeline/dates'
 import { progressOf } from '../../utils/timeline/progress'
 import { isFieldJob, isHoliday } from '../../utils/timeline/workTone'
-import { TimeoutError, withTimeout } from '../../utils/withTimeout'
 import { ActionCardView } from '../action/ActionCardView'
+import { ReportModal } from '../ReportModal'
 import { DayGanttView } from './DayGanttView'
 import './DayScreen.css'
 
@@ -16,6 +16,7 @@ type UpdateResult = (
   resultValue: string,
   startedAt?: string | null,
   completedAt?: string | null,
+  reportNotes?: string | null,
 ) => Promise<void>
 
 interface Props {
@@ -41,6 +42,7 @@ export function DayScreen({ schedules, staff, role, currentStaffId, date, onDate
   const canManage = canManageSchedules(role)
   const [showAll, setShowAll] = useState(false)
   // 送信中の予定（押した順に重なっても、互いの状態を消さない）
+  const [reportTarget, setReportTarget] = useState<Schedule | null>(null)
   const [busyIds, setBusyIds] = useState<ReadonlySet<string>>(new Set())
 
   const useGantt = canManage && !isMobile
@@ -67,13 +69,12 @@ export function DayScreen({ schedules, staff, role, currentStaffId, date, onDate
     try {
       const now = nowHmJst()
       if (kind === 'start') {
-        await withTimeout(onUpdateResult(s.id, '作業中', now, null), 15_000, '開始の記録')
+        await onUpdateResult(s.id, '作業中', now, null)
       } else {
-        await withTimeout(onUpdateResult(s.id, '完了', s.started_at || now, now), 15_000, '完了の記録')
+        await onUpdateResult(s.id, '完了', s.started_at || now, now)
       }
-    } catch (e) {
-      // 通信の失敗は onUpdateResult（App）がアラートで知らせるので、ここでは時間切れだけ知らせる
-      if (e instanceof TimeoutError) alert(e.message)
+    } catch {
+      // 時間切れを含む失敗は onUpdateResult（App）がアラートで知らせ済み。ここでは握りつぶして busy だけ戻す
     } finally {
       setBusyIds(prev => {
         const next = new Set(prev)
@@ -153,9 +154,19 @@ export function DayScreen({ schedules, staff, role, currentStaffId, date, onDate
             onOpen={canManage ? onOpenEdit : onOpenDetail}
             onStart={s => report(s, 'start')}
             onComplete={s => report(s, 'complete')}
+            onReport={setReportTarget}
           />
         )}
       </div>
+
+      {reportTarget && (
+        <ReportModal
+          isOpen
+          schedule={reportTarget}
+          onClose={() => setReportTarget(null)}
+          onSave={onUpdateResult}
+        />
+      )}
     </div>
   )
 }

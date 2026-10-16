@@ -4,7 +4,7 @@ import { ActionCardView } from './ActionCardView'
 import { makeSchedule, makeStaff } from '../../test/factories'
 
 const staff = [makeStaff({ id: 1, name: '佐藤 太郎' }), makeStaff({ id: 2, name: '築地 次郎', default_course: '2' })]
-const props = { staff, canReportFor: () => true, isBusy: () => false, onOpen: vi.fn(), onStart: vi.fn(), onComplete: vi.fn() }
+const props = { staff, canReportFor: () => true, isBusy: () => false, onOpen: vi.fn(), onStart: vi.fn(), onComplete: vi.fn(), onReport: vi.fn() }
 
 describe('ActionCardView', () => {
   it('全員を見るときは人ごとに見出し（完了数/件数）を付け、休暇はカードにしない', () => {
