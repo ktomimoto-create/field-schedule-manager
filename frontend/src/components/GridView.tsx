@@ -1114,6 +1114,7 @@ export const GridView: React.FC<GridViewProps> = ({
                 canEdit={isAdmin}
                 activeLocks={activeLocks}
                 onOpenEditModal={onOpenEditModal}
+                onReorder={onReorder}
                 feEvents={feEvents}
               />
             </div>

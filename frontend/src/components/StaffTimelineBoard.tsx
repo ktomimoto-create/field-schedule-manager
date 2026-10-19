@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { CarFront, Footprints, Route, TrainFront } from 'lucide-react';
 import type { Schedule, Staff } from '../types';
 import { compareSchedules, normalizeTargetTime } from '../types';
 import { hmToMin, parseTimeSlot, progressOf, statusMeta } from '../utils/scheduleDisplay';
@@ -6,19 +7,29 @@ import { jstHm, type FeEvent } from '../utils/feEvents';
 import { StaffAvatar } from './ScheduleCards';
 import { VisitCardBody } from './StaffLaneBoard';
 import { usePlaceLabel } from '../utils/usePlaceLabel';
+import { isSameSite, planRoute, sameBuilding, totalTravel, travelLeg, travelModeOf, useSitePositions, WORK_MIN, type LegKind, type TravelMode } from '../utils/route';
+import { usesVehicle } from '../utils/vehicleUsers';
+import type { LatLng } from '../utils/geocode';
 import './StaffLaneBoard.css';
 import './StaffTimelineBoard.css';
 
 // 予定表の時間軸（カード表示を基にした形）: 1 人 1 行、左に担当、右に時間の軸。
-// 訪問カードを時刻の位置に置く。時間の指定が無い訪問は、順番どおりに 1 件 60 分・移動 15 分で並べた「見込み」の位置（点線の枠）。
+// 訪問カードを時刻の位置に置く。時間の指定が無い訪問は、出動から順番どおりに 1 件 60 分・移動（距離からの見込み＋10 分）で並べた「見込み」の位置（点線の枠）。
+// 「近い順に並べ替え」で、時間指定を守りながら移動が短くなる順番にする。
 // カードの下の細い帯は実績（青＝移動、緑＝作業）。
 
 type LockInfo = { userEmail: string; userName: string; startedAt: number; sessionId?: string; mode?: string };
 
-const WORK_MIN = 60;
-const MOVE_MIN = 15;
 const DAY_START = 9 * 60;
 const LANE_H = 98;
+/** 重ねたカードをずらす量（px）。3 枚目以降は同じ位置 */
+const STACK_SHIFT = 6;
+const STACK_MAX = 2;
+const TRACK_H = LANE_H + 12 + STACK_SHIFT * STACK_MAX;
+
+const LEG_ICON: Partial<Record<LegKind, typeof CarFront>> = { car: CarFront, train: TrainFront, walk: Footprints };
+const LEG_LABEL: Record<LegKind, string> = { car: '車', train: '電車・バスと徒歩', walk: '徒歩', same: '同じ建物', unknown: '位置が分からないため 15 分' };
+const fmtDur = (m: number) => (m >= 60 ? `${Math.floor(m / 60)}時間${m % 60 ? `${m % 60}分` : ''}` : `${m}分`);
 
 interface Placed {
   schedule: Schedule;
@@ -27,7 +38,14 @@ interface Placed {
   end: number;
   estimated: boolean;
   late: boolean;
-  lane: number;
+  /** 前の場所（出動なら拠点）からの移動（分）と、そのしかた */
+  move: number;
+  legKind: LegKind;
+  /** 前の訪問が終わってから移動を始めるまでの待ち（時刻指定の訪問の前など） */
+  waitFrom: number;
+  /** 同じ時間帯に重なっている訪問の中での順番（0 が先頭）と、重なりの件数 */
+  stackIndex: number;
+  stackSize: number;
 }
 
 interface Row {
@@ -39,7 +57,11 @@ interface Row {
   /** 出動（勤務開始）の時刻。記録が無ければ 9:00 の見込み */
   depart: number;
   departRecorded: boolean;
-  lanes: number;
+  /** 今の順番の移動の合計と、近い順にしたときの順番・合計 */
+  travelNow: number;
+  travelBest: number;
+  bestOrder: Schedule[];
+  mode: TravelMode;
   done: number;
   live: number;
 }
@@ -51,6 +73,7 @@ interface Props {
   canEdit: boolean;
   activeLocks: Record<number, LockInfo>;
   onOpenEditModal: (s: Schedule) => void;
+  onReorder?: (orders: { id: number | string; sort_order: number }[]) => Promise<void>;
   feEvents?: FeEvent[];
 }
 
@@ -64,9 +87,11 @@ const todayStr = () => {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 };
 
-export const StaffTimelineBoard: React.FC<Props> = ({ schedules, staff, date, canEdit, activeLocks, onOpenEditModal, feEvents = [] }) => {
+export const StaffTimelineBoard: React.FC<Props> = ({ schedules, staff, date, canEdit, activeLocks, onOpenEditModal, onReorder, feEvents = [] }) => {
   const [now, setNow] = useState(nowMin);
   const placeOf = usePlaceLabel(schedules);
+  const sitePos = useSitePositions(schedules);
+  const [busy, setBusy] = useState(false);
   useEffect(() => {
     const t = setInterval(() => setNow(nowMin()), 60_000);
     return () => clearInterval(t);
@@ -88,44 +113,67 @@ export const StaffTimelineBoard: React.FC<Props> = ({ schedules, staff, date, ca
     for (const g of map.values()) {
       g.items.sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0) || compareSchedules(a, b));
       // 出動（勤務開始）して拠点を出たところから移動が始まる。1 件目は出動＋移動の後ろ
-      const departRec = g.member
+      const shiftEv = g.member
         ? feEvents
             .filter(e => e.staff_id === g.member!.id && e.work_date === date && e.kind === 'shift_start')
-            .map(e => hmToMin(jstHm(e.occurred_at)))
-            .filter((m): m is number => m != null)
-            .sort((a, b) => a - b)[0]
+            .sort((a, b) => a.occurred_at.localeCompare(b.occurred_at))[0]
         : undefined;
+      const departRec = shiftEv ? hmToMin(jstHm(shiftEv.occurred_at)) ?? undefined : undefined;
       const depart = departRec ?? DAY_START;
-      // 順番どおりに時刻を割り当てる（指定がある訪問はその時刻、無い訪問は前の訪問の後ろ）
-      let cursor = depart + MOVE_MIN;
+      // 拠点の位置: 出動を押した場所（分からなければ 1 件目の移動は 25 分の見込み）
+      const base: LatLng | null = shiftEv?.lat != null && shiftEv?.lng != null ? { lat: shiftEv.lat, lng: shiftEv.lng } : null;
+      const posOf = (x: Schedule) => sitePos[(x.unit_number || '').trim()] ?? null;
+      // 移動の手段: 車両の基本利用者（または交通手段が車）なら車、それ以外は電車・徒歩
+      const mode = travelModeOf(g.items, usesVehicle(g.name));
+      // 順番どおりに時刻を割り当てる（前の場所から移動して着いた時刻。時刻指定はその時刻、〜迄・AM/PM は枠の始まりより前には始めない）
+      let cursor = depart;
+      let here: LatLng | null = base;
+      let prevS: Schedule | null = null;
       const placed: Placed[] = g.items.map((s, i) => {
         const slot = parseTimeSlot(s.target_time);
+        const pos = posOf(s);
+        const same = sameBuilding(prevS, s) || isSameSite(here, pos);
+        const leg = same ? { min: 0, kind: 'same' as LegKind } : travelLeg(here, pos, mode);
+        const move = leg.min;
+        prevS = s;
+        const waitFrom = cursor;
+        const arrive = cursor + move;
         let start: number;
         let estimated = false;
         if (!slot) {
-          start = cursor;
+          start = arrive;
           estimated = true;
         } else if (slot.kind === 'at') {
           start = slot.from;
         } else {
-          start = Math.max(cursor, slot.from);
+          start = Math.max(arrive, slot.from);
         }
         const end = start + WORK_MIN;
-        const late = !!slot && slot.kind === 'until' && end > slot.to;
-        cursor = Math.max(cursor, end + MOVE_MIN);
-        return { schedule: s, no: i + 1, start, end, estimated, late, lane: 0 };
+        const late = !!slot && ((slot.kind === 'until' && end > slot.to) || (slot.kind === 'at' && arrive > slot.from && !same));
+        cursor = Math.max(cursor, end);
+        here = pos ?? here;
+        return { schedule: s, no: i + 1, start, end, estimated, late, move, legKind: leg.kind, waitFrom, stackIndex: 0, stackSize: 1 };
       });
-      // 重なるカードは段をずらす
-      const laneEnds: number[] = [];
+      const live = g.items.filter(x => x.status !== 'cancelled');
+      const bestOrder = [...planRoute(live, posOf, base, depart, mode), ...g.items.filter(x => x.status === 'cancelled')];
+      const travelNow = totalTravel(live, posOf, base, mode);
+      const travelBest = totalTravel(bestOrder.filter(x => x.status !== 'cancelled'), posOf, base, mode);
+      // 時間が重なる訪問は、行の高さを変えずに少しずつずらして重ねる（カーソルを乗せると前に出る）
+      let group: Placed[] = [];
+      let groupEnd = -Infinity;
+      const closeGroup = () => group.forEach((p, k) => {
+        p.stackIndex = k;
+        p.stackSize = group.length;
+      });
       [...placed].sort((a, b) => a.start - b.start).forEach(p => {
-        let lane = laneEnds.findIndex(e => e <= p.start);
-        if (lane === -1) {
-          lane = laneEnds.length;
-          laneEnds.push(0);
+        if (p.start >= groupEnd) {
+          closeGroup();
+          group = [];
         }
-        laneEnds[lane] = p.end;
-        p.lane = lane;
+        group.push(p);
+        groupEnd = Math.max(groupEnd, p.end);
       });
+      closeGroup();
       out.push({
         key: g.key,
         name: g.name,
@@ -134,13 +182,16 @@ export const StaffTimelineBoard: React.FC<Props> = ({ schedules, staff, date, ca
         placed,
         depart,
         departRecorded: departRec != null,
-        lanes: Math.max(1, laneEnds.length),
+        travelNow,
+        travelBest,
+        bestOrder,
+        mode,
         done: g.items.filter(x => x.result === '完了').length,
         live: g.items.filter(x => x.status !== 'cancelled').length,
       });
     }
     return out.sort((a, b) => a.course - b.course || a.name.localeCompare(b.name, 'ja'));
-  }, [schedules, staff, feEvents, date]);
+  }, [schedules, staff, feEvents, date, sitePos]);
 
   // 実績（FE のボタン記録・開始/完了時刻）
   const actuals = useMemo(() => {
@@ -196,6 +247,21 @@ export const StaffTimelineBoard: React.FC<Props> = ({ schedules, staff, date, ca
   const isToday = date === todayStr();
   const showNow = isToday && now > start && now < end;
 
+  // 近い順に並べ替え（時間指定は守る）。順番は sort_order に保存（お試しモードではこの端末の中だけ）
+  const canRoute = canEdit && !!onReorder;
+  const improvable = rows.filter(r => r.travelBest < r.travelNow && r.bestOrder.some((x, i) => x.id !== r.placed[i]?.schedule.id));
+  const applyRoute = async (targets: Row[]) => {
+    if (!onReorder || busy || targets.length === 0) return;
+    setBusy(true);
+    try {
+      for (const r of targets) await onReorder(r.bestOrder.map((x, i) => ({ id: x.id, sort_order: i })));
+    } catch (e) {
+      alert(e instanceof Error ? e.message : '並べ替えられませんでした');
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return (
     <div className="stl-board">
       <div className="stl-legend">
@@ -204,10 +270,24 @@ export const StaffTimelineBoard: React.FC<Props> = ({ schedules, staff, date, ca
         <span><i className="stl-lg is-free" />通常</span>
         <span><i className="stl-lg is-est" />時間指定なし（順番から出した見込み）</span>
         <span><i className="stl-lg is-depart" />出動（勤務開始。記録が無ければ 9:00 の見込み）</span>
+        <span><i className="stl-lg is-late" />指定の時刻・締切に間に合わない見込み</span>
+        <span><CarFront size={12} /><TrainFront size={12} /><Footprints size={12} />移動の見込み（車／電車・バス／徒歩）</span>
         <span><i className="stl-lg is-move" />移動（実績）</span>
         <span><i className="stl-lg is-work" />作業（実績）</span>
         {showNow && <span><i className="stl-lg is-now" />いま</span>}
-        <span className="stl-note">出動から 1 件 {WORK_MIN} 分・移動 {MOVE_MIN} 分として置いています</span>
+        <span className="stl-note">出動から 1 件 {WORK_MIN} 分・移動は距離からの見込み（車両を使う人は車、それ以外は電車・徒歩）＋10 分で置いています</span>
+        {canRoute && (
+          <button
+            type="button"
+            className="stl-route-all"
+            onClick={() => void applyRoute(improvable)}
+            disabled={busy || improvable.length === 0}
+            title={improvable.length ? `${improvable.length} 人の順番を、時間指定を守って移動が短くなる順にします` : '並べ替えで短くなる人はいません'}
+          >
+            <Route size={14} />
+            近い順に並べ替え{improvable.length > 0 && <b className="stl-num">{improvable.length}人</b>}
+          </button>
+        )}
       </div>
 
       <div className="stl-head">
@@ -226,9 +306,28 @@ export const StaffTimelineBoard: React.FC<Props> = ({ schedules, staff, date, ca
             <span className="lane-person-text">
               <span className="lane-name">{r.name}</span>
               <span className="lane-meta"><b>{r.live}</b>件・完了 <b>{r.done}</b></span>
+              <span className="lane-meta stl-travel">
+                <span title={`今の順番で回ったときの移動の合計（${r.mode === 'car' ? '車' : '電車・徒歩'}）`}>
+                  {r.mode === 'car' ? <CarFront size={12} /> : <TrainFront size={12} />} <b>{r.travelNow}</b>分
+                </span>
+                {canRoute && r.travelBest < r.travelNow && (
+              <button
+                type="button"
+                className="stl-route-btn"
+                onClick={() => void applyRoute([r])}
+                disabled={busy}
+                title={`近い順に並べ替える（時間指定は守る）
+移動 ${r.travelNow}分 → ${r.travelBest}分`}
+                aria-label="近い順に並べ替える"
+              >
+                  <Route size={12} />
+                  <b>-{r.travelNow - r.travelBest}</b>
+                </button>
+                )}
+              </span>
             </span>
           </div>
-          <div className="stl-track" style={{ height: r.lanes * LANE_H + 12 }}>
+          <div className="stl-track" style={{ height: TRACK_H }}>
             {hours.map(h => <span key={h} className="stl-grid" style={{ left: `${pct(h)}%` }} />)}
             <span
               className={`stl-depart${r.departRecorded ? '' : ' is-est'}`}
@@ -245,12 +344,38 @@ export const StaffTimelineBoard: React.FC<Props> = ({ schedules, staff, date, ca
               const isDone = progress === 'done';
               const lock = typeof s.id === 'number' ? activeLocks[s.id] : undefined;
               const act = actuals.get(s.id);
-              const barTop = 6 + p.lane * LANE_H + LANE_H - 9;
+              const shift = Math.min(p.stackIndex, STACK_MAX) * STACK_SHIFT;
+              const top = 6 + shift;
+              const barTop = top + LANE_H - 9;
+              const LegIcon = LEG_ICON[p.legKind];
+              const moveFrom = p.start - p.move;
+              const wait = moveFrom - p.waitFrom;
               return (
                 <React.Fragment key={s.id}>
+                {p.stackIndex === 0 && wait >= 15 && (
+                  <span
+                    className="stl-wait"
+                    style={{ left: `${pct(p.waitFrom)}%`, width: `${pct(moveFrom) - pct(p.waitFrom)}%`, top: top + 40 }}
+                    title={`待ち ${fmtDur(wait)}（${time || ''} の指定に合わせて出る見込み）`}
+                  >
+                    <span>待ち {fmtDur(wait)}</span>
+                  </span>
+                )}
+                {p.move > 0 && p.stackIndex === 0 && (
+                  <span
+                    className={`stl-move leg-${p.legKind}`}
+                    style={{ left: `${pct(moveFrom)}%`, width: `${pct(p.start) - pct(moveFrom)}%`, top: top + 40 }}
+                    title={`移動 ${p.move} 分の見込み（${LEG_LABEL[p.legKind]}・余裕 10 分を含む）`}
+                  >
+                    <span>
+                      {LegIcon && <LegIcon size={11} />}
+                      {p.move}分
+                    </span>
+                  </span>
+                )}
                 <div
-                  className={`lane-card stl-card tone-${meta.tone} p-${progress}${isDone ? ' is-done' : ''}${p.estimated ? ' is-est' : ''}${p.late ? ' is-late' : ''}`}
-                  style={{ left: `${pct(p.start)}%`, width: `calc(${pct(p.end) - pct(p.start)}% - 4px)`, top: 6 + p.lane * LANE_H }}
+                  className={`lane-card stl-card tone-${meta.tone} p-${progress}${isDone ? ' is-done' : ''}${p.estimated ? ' is-est' : ''}${p.late ? ' is-late' : ''}${p.stackIndex > 0 ? ' is-stacked' : ''}`}
+                  style={{ left: `calc(${pct(p.start)}% + ${shift}px)`, width: `calc(${pct(p.end) - pct(p.start)}% - 4px)`, top, zIndex: 1 + p.stackIndex }}
                   onDoubleClick={() => {
                     if (!canEdit) return;
                     if (lock) {
@@ -259,9 +384,12 @@ export const StaffTimelineBoard: React.FC<Props> = ({ schedules, staff, date, ca
                     }
                     onOpenEditModal(s);
                   }}
-                  title={`${p.no}. ${time || '時間指定なし'}（${p.estimated ? '見込み ' : ''}${fmt(p.start)}〜${fmt(p.end)}）${p.late ? ' 締切に間に合わない見込み' : ''}\n${s.unit_number || ''} ${s.property_name}\n${s.work_type || ''} ${s.description || ''}${canEdit ? '\nダブルクリックで編集' : ''}`}
+                  title={`${p.no}. ${time || '時間指定なし'}（${p.estimated ? '見込み ' : ''}${fmt(p.start)}〜${fmt(p.end)}）${p.late ? '\n赤い枠: 指定の時刻・締切に間に合わない見込み' : ''}\n${s.unit_number || ''} ${s.property_name}\n${s.work_type || ''} ${s.description || ''}${canEdit ? '\nダブルクリックで編集' : ''}`}
                 >
                   <VisitCardBody schedule={s} no={p.no} progress={progress} lock={!!lock} timeOverride={fmt(p.start)} place={placeOf(s)} />
+                  {p.stackIndex === p.stackSize - 1 && p.stackSize > 1 && (
+                    <span className="stl-stack-count" title={`この時間帯に ${p.stackSize} 件重なっています（カーソルを乗せると前に出ます）`}>{p.stackSize}件</span>
+                  )}
                 </div>
                 {act?.move && (
                   <span
