@@ -4,13 +4,14 @@ import type { Schedule, Staff, UserRole, WorkType } from '../types';
 import { getShortName, cleanMetadata, splitCoWorkers, canManageSchedules, normalizeTargetTime, compareSchedules, toHalfWidth, findStaffByName } from '../types';
 import { buildFcAutofillPatch } from '../utils/fcAutofill';
 
-import { Plus, ChevronLeft, ChevronRight, Calendar as CalendarIcon, Filter, CheckCircle2, Download, Eye, EyeOff, Printer, Lock, ArrowUpDown, RotateCcw, Edit2, LayoutList, ChartGantt, Table2, Columns3, UserRound } from 'lucide-react';
+import { Plus, ChevronLeft, ChevronRight, Calendar as CalendarIcon, Filter, CheckCircle2, Download, Eye, EyeOff, Printer, Lock, ArrowUpDown, RotateCcw, Edit2, LayoutList, ChartGantt, Table2, Columns3, UserRound, CalendarCheck } from 'lucide-react';
 import { PrintPreviewModal } from './PrintPreviewModal';
 import { DayScheduleCards } from './ScheduleCards';
 import { ScheduleTimeAxis } from './ScheduleTimeAxis';
 import { TimelineView } from './TimelineView';
 import { jstDate, type FeEvent } from '../utils/feEvents';
 import { Select } from './shared/Select';
+import DatePicker from './shared/DatePicker';
 import './GridView.css';
 
 const parseTSV = (text: string): string[][] => {
@@ -136,7 +137,6 @@ export const GridView: React.FC<GridViewProps> = ({
   onUpdateResult,
   onReorder,
 }) => {
-  const dateInputRef = useRef<HTMLInputElement>(null);
   const [localDate, setLocalDate] = useState<string>(() => jstDate());
   const selectedDate = viewDate ?? localDate;
   const setSelectedDate = (d: string) => {
@@ -144,15 +144,6 @@ export const GridView: React.FC<GridViewProps> = ({
     onViewDateChange?.(d);
   };
 
-  const triggerDatePicker = () => {
-    if (dateInputRef.current) {
-      if (typeof dateInputRef.current.showPicker === 'function') {
-        dateInputRef.current.showPicker();
-      } else {
-        dateInputRef.current.click();
-      }
-    }
-  };
 
   const exportToExcel = () => {
     const headers = [
@@ -896,29 +887,38 @@ export const GridView: React.FC<GridViewProps> = ({
               <button className="btn btn-secondary btn-sm-nav" onClick={() => changeDate(-1)} title="前日へ">
                 <ChevronLeft size={16} />
               </button>
-              <div className="date-picker-wrapper" onClick={triggerDatePicker} title="クリックして日付を選択" style={{ cursor: 'pointer' }}>
-                <input
-                  ref={dateInputRef}
-                  type="date"
-                  className="date-picker-input"
-                  value={selectedDate}
-                  onChange={(e) => {
-                    if (e.target.value) {
-                      setSelectedDate(e.target.value);
-                    }
-                  }}
-                />
-                <span className="current-date-display">
-                  <CalendarIcon size={16} style={{ marginRight: '6px' }} />
-                  {formatJapaneseDate(selectedDate)}
-                </span>
-              </div>
-              <button className="btn btn-secondary btn-sm-nav" onClick={setToday}>
-                今日
-              </button>
+              <DatePicker
+                value={selectedDate}
+                onChange={v => {
+                  if (v) setSelectedDate(v);
+                }}
+                noClear
+                trigger={
+                  <span className="current-date-display">
+                    <CalendarIcon size={16} style={{ marginRight: '6px' }} />
+                    {formatJapaneseDate(selectedDate)}
+                  </span>
+                }
+                triggerClassName="grid-date-trigger"
+                title="日付を選ぶ"
+                aria-label="日付を選ぶ"
+              />
               <button className="btn btn-secondary btn-sm-nav" onClick={() => changeDate(1)} title="翌日へ">
                 <ChevronRight size={16} />
               </button>
+              <button className="btn btn-secondary btn-sm-nav btn-today-icon" onClick={setToday} title="今日へ" aria-label="今日へ">
+                <CalendarCheck size={16} />
+              </button>
+              {isAdmin && (
+                <button
+                  className="btn btn-primary btn-add-schedule btn-add-inline"
+                  onClick={() => onOpenAddModal(selectedDate)}
+                  title="新規予定を追加"
+                >
+                  <Plus size={16} />
+                  予定を追加
+                </button>
+              )}
             </div>
           </div>
 
@@ -1489,18 +1489,7 @@ export const GridView: React.FC<GridViewProps> = ({
       )}
 
       <div className="grid-view-footer">
-        {isAdmin ? (
-          <button 
-            className="btn btn-primary btn-add-schedule"
-            onClick={() => onOpenAddModal(selectedDate)}
-            title="新規予定を追加"
-          >
-            <Plus size={16} />
-            予定を追加
-          </button>
-        ) : (
-          <div></div>
-        )}
+        <div></div>
         <span className="grid-row-count">
           表示件数: {filteredSchedules.length} 件
         </span>

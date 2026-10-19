@@ -6,6 +6,7 @@ import { buildFcAutofillPatch } from '../utils/fcAutofill';
 import { ChevronLeft, ChevronRight, Edit2, Plus, Search, Lock, LayoutList, Table2, ChevronDown, CalendarSearch, CalendarCheck, WrapText, ClipboardPaste } from 'lucide-react';
 import { CompactScheduleCard } from './ScheduleCards';
 import { Select } from './shared/Select';
+import DatePicker from './shared/DatePicker';
 import './CalendarView.css';
 
 // ローカルタイムゾーン基準で YYYY-MM-DD 形式の日付文字列を生成する
@@ -285,7 +286,6 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
   zoomLevel = 100,
 }) => {
   const [currentDate, setCurrentDate] = useState(new Date());
-  const dateInputRef = useRef<HTMLInputElement>(null);
 
   // 全文表示モード状態管理（物件名・作業内容・備考などのテキストを折り返して全表示）
   const [showFullText, setShowFullText] = useState<boolean>(() => {
@@ -318,15 +318,6 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
     try { localStorage.setItem('field_app_calendar_view_mode', viewMode); } catch { /* noop */ }
   }, [viewMode]);
 
-  const triggerDatePicker = () => {
-    if (dateInputRef.current) {
-      if (typeof dateInputRef.current.showPicker === 'function') {
-        dateInputRef.current.showPicker();
-      } else {
-        dateInputRef.current.click();
-      }
-    }
-  };
 
   // クイック追加用の状態変数
   const [activeAddFormDate, setActiveAddFormDate] = useState<string | null>(null);
@@ -2615,20 +2606,17 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                 <ChevronRight size={16} />
               </button>
             </div>
-            <div className="date-picker-wrapper cal-icon-btn" onClick={triggerDatePicker} title="日付を指定して移動" role="button" aria-label="日付を指定して移動">
-              <input
-                ref={dateInputRef}
-                type="date"
-                className="date-picker-input"
-                value={currentDate.toISOString().split('T')[0]}
-                onChange={(e) => {
-                  if (e.target.value) {
-                    setCurrentDate(new Date(e.target.value));
-                  }
-                }}
-              />
-              <CalendarSearch size={16} />
-            </div>
+            <DatePicker
+              value={getLocalDateString(currentDate)}
+              onChange={v => {
+                if (v) setCurrentDate(new Date(`${v}T00:00:00`));
+              }}
+              noClear
+              trigger={<CalendarSearch size={16} />}
+              triggerClassName="cal-icon-btn"
+              title="日付を指定して移動"
+              aria-label="日付を指定して移動"
+            />
             <button type="button" className="cal-icon-btn" onClick={handleToday} title="今日へ" aria-label="今日へ">
               <CalendarCheck size={16} />
             </button>
@@ -3928,13 +3916,12 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                 <label className="form-label" style={{ fontWeight: 'bold' }}>
                   移動先の日付 <span style={{ color: 'var(--danger)' }}>*</span>
                 </label>
-                <input
-                  type="date"
-                  className="form-control"
+                <DatePicker
                   value={destinationDate}
-                  onChange={(e) => setDestinationDate(e.target.value)}
+                  onChange={setDestinationDate}
                   disabled={isMoving}
-                  required
+                  noClear
+                  aria-label="移動先の日付"
                 />
               </div>
 

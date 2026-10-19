@@ -2063,3 +2063,32 @@
   width: 32px !important;
   padding: 0 !important;
 }
+
+/* 表示の切替（カード / 表 など）は切り替えタブの見た目: 薄い面の中で、選んでいる方だけ色付き */
+.view-mode-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  border: none !important;
+  border-radius: var(--radius-sm);
+  background: var(--bg-tertiary) !important;
+}
+.view-mode-switch .view-mode-btn {
+  height: 30px !important;
+  border: none !important;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-muted);
+}
+.view-mode-switch .view-mode-btn.active {
+  background: var(--bg-secondary) !important;
+  color: var(--primary);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+}
+
+/* 検索窓は最初から 220px（フォーカスで広げない） */
+.calendar-search-input,
+.calendar-search-input:focus {
+  width: 220px !important;
+}

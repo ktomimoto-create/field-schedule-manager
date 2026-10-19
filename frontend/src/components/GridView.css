@@ -1055,3 +1055,71 @@ tr:hover .cell-edit-modal-btn {
   font-size: 0.85rem !important;
   padding: 0 0.75rem !important;
 }
+
+/* 今日へはアイコンだけ・予定を追加は日付の操作の右（下から移した） */
+.date-nav-controls {
+  gap: 6px;
+}
+.date-nav-controls .btn-today-icon {
+  width: 32px;
+  padding: 0 !important;
+}
+.date-nav-controls .btn-add-inline {
+  box-sizing: border-box;
+  height: 32px;
+  margin-left: 6px;
+  padding: 0 12px !important;
+  font-size: 0.8rem;
+  line-height: 1.4;
+}
+/* Excel で開く・印刷プレビューを同じ大きさ（34px・同じ余白と文字）にそろえる */
+.grid-actions-right .btn-action-excel,
+.grid-actions-right .btn-action-print {
+  box-sizing: border-box;
+  height: 34px !important;
+  padding: 0 12px !important;
+  font-size: 0.8rem !important;
+  line-height: 1.4;
+  border-width: 1px !important;
+}
+
+/* 表示の切替（カード / 表 など）は切り替えタブの見た目: 薄い面の中で、選んでいる方だけ色付き */
+.view-mode-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  border: none !important;
+  border-radius: var(--radius-sm);
+  background: var(--bg-tertiary) !important;
+}
+.view-mode-switch .view-mode-btn {
+  height: 30px !important;
+  border: none !important;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-muted);
+}
+.view-mode-switch .view-mode-btn.active {
+  background: var(--bg-secondary) !important;
+  color: var(--primary);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+}
+
+/* 日付の文字を押すと共有の DatePicker が開く */
+.grid-date-trigger {
+  display: inline-flex;
+  align-items: center;
+  height: 32px;
+  padding: 0 6px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-primary);
+  font: inherit;
+  line-height: 1.4;
+  cursor: pointer;
+}
+.grid-date-trigger:hover {
+  background: var(--bg-card-hover);
+}

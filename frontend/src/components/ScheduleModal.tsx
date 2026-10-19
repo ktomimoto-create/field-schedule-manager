@@ -5,6 +5,7 @@ import { Select } from './shared/Select';
 import { resolveAddress } from '../utils/addressResolver';
 import { supabase } from '../supabaseClient';
 import { findStaffByName, getShortName, toHalfWidth, normalizeTargetTime, splitCoWorkers, canManageSchedules } from '../types';
+import DatePicker from './shared/DatePicker';
 
 interface ScheduleModalProps {
   isOpen: boolean;
@@ -836,15 +837,7 @@ ${description || ''}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.85rem', marginBottom: '0.85rem' }}>
               <div className="form-group" style={{ marginBottom: 0 }}>
                 <label htmlFor="date">対応予定日 *</label>
-                <input
-                  type="date"
-                  id="date"
-                  className="form-control"
-                  value={date}
-                  onChange={(e) => setDate(e.target.value)}
-                  required
-                  disabled={isInputDisabled}
-                />
+                <DatePicker id="date" value={date} onChange={setDate} disabled={isInputDisabled} noClear aria-label="対応予定日" />
               </div>
               <div className="form-group" style={{ marginBottom: 0 }}>
                 <label htmlFor="target_time">時間（指定時間）</label>
