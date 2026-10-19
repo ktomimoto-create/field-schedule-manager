@@ -649,3 +649,14 @@
     min-width: 0;
   }
 }
+
+/* 右上のアカウント: 名前を外したので、外側の枠（pill）も外してアイコンだけにする */
+.user-profile-trigger {
+  padding: 0 !important;
+  background: transparent !important;
+  border: none !important;
+}
+.user-profile-trigger:hover {
+  background: transparent !important;
+  filter: brightness(1.12);
+}

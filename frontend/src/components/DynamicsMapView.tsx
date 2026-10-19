@@ -169,13 +169,13 @@ ${v.schedule.unit_number || ''} ${v.schedule.property_name}`,
       if (p.pos) {
         const st = STATUS[p.status];
         const face = p.member?.avatar_url ? `<img src="${escapeHtml(p.member.avatar_url)}" alt="" />` : `<span>${escapeHtml(getShortName(p.name).slice(0, 1))}</span>`;
-        // 名札（顔＋苗字）の下にピンを挿す。ピンの先が地点
+        // 名札（顔＋苗字）の下に矢印。矢印の先が地点
         out.push({
           id: `fe-${p.key}`,
           lat: p.pos.lat,
           lng: p.pos.lng,
           zIndex: 1000,
-          html: `<div class="dm-fe${isSel ? ' is-selected' : ''}" style="--c:${st.color}"><div class="dm-fe-tag"><span class="dm-fe-face">${face}</span><span class="dm-fe-name">${escapeHtml(getShortName(p.name))}</span></div><div class="dm-fe-stem"></div><div class="dm-fe-tip"></div></div>`,
+          html: `<div class="dm-fe${isSel ? ' is-selected' : ''}" style="--c:${st.color}"><div class="dm-fe-tag"><span class="dm-fe-face">${face}</span><span class="dm-fe-name">${escapeHtml(getShortName(p.name))}</span></div><div class="dm-fe-arrow"></div></div>`,
           tooltip: `${p.name} ${st.label}（${jstHm(p.pos.at)} の位置）`,
           onClick: () => setSelectedKey(p.key),
         });
