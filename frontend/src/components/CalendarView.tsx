@@ -3595,7 +3595,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                 }}
                 style={{ color: '#ef4444', fontWeight: 600 }}
               >
-                選択した予定を【確定】に変更
+                まとめて【確定】に変更
               </button>
               <button 
                 type="button" 
@@ -3606,7 +3606,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                 }}
                 style={{ color: '#eab308', fontWeight: 600 }}
               >
-                選択した予定を【仮】に変更
+                まとめて【仮】に変更
               </button>
               <button 
                 type="button" 
@@ -3617,7 +3617,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                 }}
                 style={{ color: '#94a3b8' }}
               >
-                選択した予定を【キャンセル】に変更
+                まとめて【キャンセル】に変更
               </button>
               <button 
                 type="button" 
@@ -3639,7 +3639,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                   handleBulkDelete(ids);
                 }}
               >
-                選択した予定を一括削除
+                まとめて削除
               </button>
             </>
           ) : contextMenu.schedule && !isTempSchedule(contextMenu.schedule) ? (
@@ -3661,7 +3661,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                   copyToastTimerRef.current = setTimeout(() => setCopyToast(null), 2000);
                 }}
               >
-                予定をコピー
+                コピー
               </button>
               <button 
                 type="button" 
@@ -3670,7 +3670,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                   setContextMenu(null);
                 }}
               >
-                ✏️ 予定を編集
+                編集
               </button>
               <button 
                 type="button" 
@@ -3695,7 +3695,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                     });
                   }}
                 >
-                  予定を【フリー】に変更
+                  【フリー】に変更
                 </button>
               )}
               {contextMenu.schedule.status !== 'confirmed' && (
@@ -3710,7 +3710,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                   }}
                   style={{ color: '#ef4444', fontWeight: 600 }}
                 >
-                  予定を【確定】に変更
+                  【確定】に変更
                 </button>
               )}
               {contextMenu.schedule.status !== 'draft' && (
@@ -3725,7 +3725,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                   }}
                   style={{ color: '#eab308', fontWeight: 600 }}
                 >
-                  予定を【仮】に変更
+                  【仮】に変更
                 </button>
               )}
               {contextMenu.schedule.status !== 'cancelled' && (
@@ -3744,7 +3744,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                   }}
                   style={{ color: '#94a3b8' }}
                 >
-                  予定を【キャンセル】に変更
+                  【キャンセル】に変更
                 </button>
               )}
               <button 
@@ -3759,7 +3759,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                   setContextMenu(null);
                 }}
               >
-                予定を削除
+                削除
               </button>
             </>
           ) : (
