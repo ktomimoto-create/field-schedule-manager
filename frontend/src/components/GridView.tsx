@@ -10,6 +10,7 @@ import { DayScheduleCards } from './ScheduleCards';
 import { ScheduleTimeAxis } from './ScheduleTimeAxis';
 import { TimelineView } from './TimelineView';
 import { jstDate, type FeEvent } from '../utils/feEvents';
+import { Select } from './shared/Select';
 import './GridView.css';
 
 const parseTSV = (text: string): string[][] => {
@@ -935,34 +936,36 @@ export const GridView: React.FC<GridViewProps> = ({
           <div className="grid-filters-left">
             <div className="filter-item">
               <Filter size={14} style={{ color: 'var(--text-muted)' }} />
-              <select 
+              <Select
                 className="form-control filter-select"
                 value={filterStaff}
-                onChange={(e) => {
-                  setFilterStaff(e.target.value);
+                onChange={(v) => {
+                  setFilterStaff(v);
                   setMyScheduleOnly(false);
                 }}
-              >
-                <option value="all">すべての担当者</option>
-                {staff
-                  .filter(st => st.is_active !== 0 || String(st.id) === filterStaff)
-                  .map(st => (
-                    <option key={st.id} value={st.id}>{getShortName(st.name)}</option>
-                  ))}
-              </select>
+                options={[
+                  { value: 'all', label: 'すべての担当者' },
+                  ...staff
+                    .filter(st => st.is_active !== 0 || String(st.id) === filterStaff)
+                    .map(st => ({ value: String(st.id), label: getShortName(st.name) })),
+                ]}
+                aria-label="担当者で絞り込み"
+              />
             </div>
 
             <div className="filter-item">
-              <select 
+              <Select
                 className="form-control filter-select"
                 value={filterStatus}
-                onChange={(e) => setFilterStatus(e.target.value)}
-              >
-                <option value="all">すべての状況</option>
-                <option value="confirmed">確定予定</option>
-                <option value="draft">仮予定</option>
-                <option value="cancelled">キャンセル</option>
-              </select>
+                onChange={setFilterStatus}
+                options={[
+                  { value: 'all', label: 'すべての状況' },
+                  { value: 'confirmed', label: '確定予定' },
+                  { value: 'draft', label: '仮予定' },
+                  { value: 'cancelled', label: 'キャンセル' },
+                ]}
+                aria-label="状況で絞り込み"
+              />
             </div>
 
             {currentStaffId !== null && (

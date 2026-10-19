@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import type { Schedule, Staff } from '../types';
 import { getShortName, splitCoWorkers } from '../types';
 import { Printer, X } from 'lucide-react';
+import { Select } from './shared/Select';
 import './PrintPreviewModal.css';
 
 interface PrintPreviewModalProps {
@@ -100,18 +101,18 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({
             <h2 className="print-title">印刷プレビュー</h2>
             <div className="filter-staff-selector">
               <span className="selector-label">印刷対象：</span>
-              <select
+              <Select
                 className="form-control filter-select"
                 value={filterStaff}
-                onChange={(e) => setFilterStaff(e.target.value)}
-              >
-                <option value="all">全員分</option>
-                {staff
-                  .filter(st => st.is_active !== 0 || String(st.id) === filterStaff)
-                  .map(st => (
-                    <option key={st.id} value={st.id}>{getShortName(st.name)}</option>
-                  ))}
-              </select>
+                onChange={setFilterStaff}
+                options={[
+                  { value: 'all', label: '全員分' },
+                  ...staff
+                    .filter(st => st.is_active !== 0 || String(st.id) === filterStaff)
+                    .map(st => ({ value: String(st.id), label: getShortName(st.name) })),
+                ]}
+                aria-label="印刷対象"
+              />
             </div>
           </div>
           <div className="header-right">

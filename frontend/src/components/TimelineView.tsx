@@ -6,6 +6,7 @@ import { Calendar, Clock, MapPin, ChevronLeft, ChevronRight, GripVertical, Chevr
 import { ReportModal } from './ReportModal';
 import { ScheduleTimeAxis } from './ScheduleTimeAxis';
 import { jstDate, type FeEvent } from '../utils/feEvents';
+import { Select } from './shared/Select';
 import './TimelineView.css';
 
 interface TimelineViewProps {
@@ -517,16 +518,18 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
                         {/* 右部：完了切り替え */}
                         <div className="card-action-side">
                           {canEdit ? (
-                            <select 
+                            <Select
                               className="select-result"
-                              value={schedule.result || ''} 
-                              onChange={(e) => onUpdateResult(schedule.id, e.target.value)}
-                            >
-                              <option value="">- 未定 -</option>
-                              <option value="作業中">作業中</option>
-                              <option value="完了">完了</option>
-                              <option value="キャンセル">キャンセル</option>
-                            </select>
+                              value={schedule.result || ''}
+                              onChange={(v) => onUpdateResult(schedule.id, v)}
+                              options={[
+                                { value: '', label: '- 未定 -' },
+                                { value: '作業中', label: '作業中' },
+                                { value: '完了', label: '完了' },
+                                { value: 'キャンセル', label: 'キャンセル' },
+                              ]}
+                              aria-label="結果"
+                            />
                           ) : (
                             <span className={`status-badge-text ${
                               schedule.result === '完了' ? 'text-success' : 

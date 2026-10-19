@@ -65,7 +65,7 @@
 }
 
 .grid-actions-right button,
-.grid-filters-left select,
+.grid-filters-left .select-trigger,
 .grid-filters-left button {
   height: 30px;
   font-size: 0.78rem !important;
@@ -76,7 +76,7 @@
 
 @media (max-width: 1400px) {
   .grid-actions-right button,
-  .grid-filters-left select,
+  .grid-filters-left .select-trigger,
   .grid-filters-left button {
     padding: 0 0.45rem !important;
     font-size: 0.75rem !important;
@@ -288,11 +288,6 @@
   padding: 0.4rem 0.5rem !important;
   font-size: 0.85rem;
   width: auto;
-  color: var(--text-primary);
-}
-
-.filter-select option {
-  background: var(--bg-secondary);
   color: var(--text-primary);
 }
 
@@ -643,7 +638,7 @@
 
   .filter-select {
     width: 100%;
-    text-align-last: center;
+    text-align: center;
   }
 
   .grid-view-footer {

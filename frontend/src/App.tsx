@@ -1,5 +1,5 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
-import type { Schedule, Staff, WorkType, UserRole } from './types';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import type { Schedule, Staff, WorkType, UserRole, Branch } from './types';
 import { GridView } from './components/GridView';
 import { CalendarView } from './components/CalendarView';
 import { FeActionView } from './components/FeActionView';
@@ -14,8 +14,9 @@ import { HelpGuideModal } from './components/HelpGuideModal';
 import { Calendar, RefreshCw, AlertCircle, List, Settings, Sun, Moon, BarChart3, HelpCircle, ZoomIn, ZoomOut, Smartphone, MapPinned, Download } from 'lucide-react';
 import { supabase, talkScriptSupabase } from './supabaseClient';
 import { resolveAddress } from './utils/addressResolver';
-import { findStaffByName, canManageSchedules, normalizeRole } from './types';
+import { findStaffByName, canManageSchedules, normalizeRole, BRANCH_NAMES, resolveScheduleBranch, resolveStaffBranch } from './types';
 import './App.css';
+import { Spinner, SpinnerBlock } from './components/shared/Spinner';
 
 
 
@@ -24,8 +25,31 @@ function App() {
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
     return (localStorage.getItem('theme') as 'light' | 'dark') || 'light';
   });
+
+  // 拠点区分（東京: 東日本 / 大阪: 西日本）の状態管理
+  const [currentBranch, setCurrentBranch] = useState<Branch>(() => {
+    const saved = localStorage.getItem('field_app_current_branch');
+    if (saved === 'tokyo' || saved === 'osaka') return saved;
+    return 'tokyo';
+  });
+
   const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [staff, setStaff] = useState<Staff[]>([]);
+
+  // 選択拠点に応じたスケジュールおよびスタッフの抽出（東京と大阪の完全分離）
+  const branchSchedules = useMemo(() => {
+    return schedules.filter(s => resolveScheduleBranch(s) === currentBranch);
+  }, [schedules, currentBranch]);
+
+  const branchStaff = useMemo(() => {
+    return staff.filter(st => resolveStaffBranch(st) === currentBranch);
+  }, [staff, currentBranch]);
+
+  const handleSwitchBranch = (branch: Branch) => {
+    setCurrentBranch(branch);
+    localStorage.setItem('field_app_current_branch', branch);
+  };
+
   // ログインユーザーのアバター表示用: talkscript-flow profiles のメール→avatar_url 対応表
   // （Azure ログインの user_metadata には写真URLが入らず、staff 未登録の管理側ユーザーもいるため）
   const [profileAvatarByEmail, setProfileAvatarByEmail] = useState<Record<string, string>>({});
@@ -215,6 +239,12 @@ frontend/public/_sandbox/${viewDate}.json を置いてください。`);
         setCurrentUserRole('developer');
         const matched = staff.find(s => s.email && s.email.toLowerCase().trim() === loginEmail);
         setCurrentStaffId(matched ? matched.id : null);
+
+        // 黒川様はデフォルトで大阪支店を初期選択（未設定時）
+        if (loginEmail === 'h_kurokawa@fts.co.jp' && !localStorage.getItem('field_app_current_branch')) {
+          setCurrentBranch('osaka');
+          localStorage.setItem('field_app_current_branch', 'osaka');
+        }
         return;
       }
 
@@ -317,9 +347,22 @@ frontend/public/_sandbox/${viewDate}.json を置いてください。`);
     });
   };
 
+  const handleDemoOsakaLogin = () => {
+    setUser({
+      id: 'demo-osaka-id',
+      email: 'h_kurokawa@fts.co.jp',
+      user_metadata: {
+        full_name: '黒川（大阪支店・開発者デモ）',
+        avatar_url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=100&h=100&q=80'
+      }
+    });
+    setCurrentBranch('osaka');
+    localStorage.setItem('field_app_current_branch', 'osaka');
+  };
+
   const handleLogout = async () => {
     try {
-      if (user && (user.id === 'demo-user-id' || user.id === 'demo-admin-id' || user.id === 'demo-manager-id')) {
+      if (user && (user.id === 'demo-user-id' || user.id === 'demo-admin-id' || user.id === 'demo-manager-id' || user.id === 'demo-osaka-id')) {
         setUser(null);
         setShowUserMenu(false);
         return;
@@ -458,17 +501,33 @@ frontend/public/_sandbox/${viewDate}.json を置いてください。`);
 
   const handleTransferSchedules = async (dateStr: string) => {
     try {
+      // 対象日付かつ現在の拠点に属する未移行予定を抽出
+      const targetBranchSchedules = schedules.filter(
+        s => s.date === dateStr && resolveScheduleBranch(s) === currentBranch && s.is_transferred !== 1
+      );
+
+      if (targetBranchSchedules.length === 0) {
+        alert(`${BRANCH_NAMES[currentBranch]} の ${dateStr} に移行対象の予定はありません。`);
+        return;
+      }
+
+      const targetIds = targetBranchSchedules.map(s => s.id);
+
       // お試しモード時はローカルのschedules配列のみ更新
       if (isSandboxMode) {
         setSchedules(prev => {
-          const updated = prev.map(s => s.date === dateStr ? { ...s, is_transferred: 1 } : s);
+          const idSet = new Set(targetIds);
+          const updated = prev.map(s => idSet.has(s.id) ? { ...s, is_transferred: 1 } : s);
           localStorage.setItem('field_app_sandbox_schedules', JSON.stringify(updated));
           return updated;
         });
         return;
       }
 
-      const { error: transferError } = await supabase.from('schedules').update({ is_transferred: 1 }).eq('date', dateStr);
+      const { error: transferError } = await supabase
+        .from('schedules')
+        .update({ is_transferred: 1 })
+        .in('id', targetIds);
 
       if (transferError) {
         throw new Error('予定の移行に失敗しました。');
@@ -477,8 +536,8 @@ frontend/public/_sandbox/${viewDate}.json を置いてください。`);
       await saveAuditLog(
         null,
         'transfer',
-        `日付: ${dateStr}`,
-        `${dateStr} の予定を行動予定表へ移行しました。`
+        `日付: ${dateStr} (${BRANCH_NAMES[currentBranch]})`,
+        `${dateStr} の予定 (${BRANCH_NAMES[currentBranch]} ${targetIds.length}件) を行動予定表へ移行しました。`
       );
 
       await fetchData(true); // サイレント更新
@@ -817,6 +876,22 @@ frontend/public/_sandbox/${viewDate}.json を置いてください。`);
         payload.updated_by = editorName;
       }
 
+      // 拠点メタデータの安全な付与（[__branch:osaka__] または [__branch:tokyo__]）
+      // 編集時は元の拠点を尊重し、新規作成時は現在の選択拠点（currentBranch）を割り当てる
+      let targetBranch: Branch = currentBranch;
+      if (isEdit) {
+        const existing = schedules.find(s => s.id === Number(scheduleData.id));
+        if (existing) {
+          targetBranch = resolveScheduleBranch(existing);
+        }
+      }
+      const existingNotes = payload.notes || '';
+      const strippedNotes = existingNotes.replace(/\s*\[__branch:\w+__\]/g, '').trim();
+      payload.notes = strippedNotes ? `${strippedNotes}\n\n[__branch:${targetBranch}__]` : `[__branch:${targetBranch}__]`;
+
+      // DBにbranchカラムが存在しない場合のPGRST204エラー回避
+      delete (payload as any).branch;
+
       // FTSのスタッフで、かつコース番号が未設定の場合、27以降の空き番号を自動採番
       const matchedStaff = payload.staff_id 
         ? staff.find(st => st.id === Number(payload.staff_id)) 
@@ -932,6 +1007,7 @@ frontend/public/_sandbox/${viewDate}.json を置いてください。`);
             ...(existingRec || {}),
             ...payload,
             id: idVal,
+            branch: targetBranch,
             created_by: existingRec?.created_by || editorName,
             updated_by: editorName,
             created_at: existingRec?.created_at || nowIso,
@@ -1222,6 +1298,9 @@ frontend/public/_sandbox/${viewDate}.json を置いてください。`);
               <button className="btn btn-secondary" onClick={handleDemoUserLogin}>
                 一般作業者でデモログイン
               </button>
+              <button className="btn btn-secondary" onClick={handleDemoOsakaLogin} style={{ borderColor: '#f97316' }}>
+                🐙 黒川（大阪支店デモ）
+              </button>
             </div>
           </div>
         </div>
@@ -1258,6 +1337,30 @@ frontend/public/_sandbox/${viewDate}.json を置いてください。`);
               <span className="badge badge-dev">
                 {currentUserRole === 'developer' ? '開発者環境' : currentUserRole === 'manager' ? '予定管理者環境' : '一般作業者環境'}
               </span>
+
+              {/* 拠点切り替えスイッチ（東京 / 大阪） */}
+              <div className="branch-switcher" role="group" aria-label="拠点切り替え">
+                <button
+                  type="button"
+                  className={`branch-btn ${currentBranch === 'tokyo' ? 'active tokyo' : ''}`}
+                  onClick={() => handleSwitchBranch('tokyo')}
+                  title="東京 (東日本) の予定・スタッフを表示"
+                >
+                  <span className="branch-icon">🏢</span>
+                  <span className="branch-label">東京</span>
+                  <span className="branch-tag">東日本</span>
+                </button>
+                <button
+                  type="button"
+                  className={`branch-btn ${currentBranch === 'osaka' ? 'active osaka' : ''}`}
+                  onClick={() => handleSwitchBranch('osaka')}
+                  title="大阪 (西日本) の予定・スタッフを表示"
+                >
+                  <span className="branch-icon">🐙</span>
+                  <span className="branch-label">大阪</span>
+                  <span className="branch-tag">西日本</span>
+                </button>
+              </div>
             </div>
 
             {/* 切り替えタブ（広い画面では画面の中央線上に置く）と、その右の FE画面ボタン */}
@@ -1445,10 +1548,7 @@ frontend/public/_sandbox/${viewDate}.json を置いてください。`);
 
           <main className="main-content">
             {loading && schedules.length === 0 ? (
-              <div className="loading-container">
-                <div className="spinner"></div>
-                <p>データを読み込み中...</p>
-              </div>
+              <SpinnerBlock />
             ) : error ? (
               <div className="card" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem', padding: '3rem', textAlign: 'center' }}>
                 <AlertCircle size={48} style={{ color: 'var(--danger)' }} />
@@ -1472,7 +1572,7 @@ frontend/public/_sandbox/${viewDate}.json を置いてください。`);
               >
                 {loading && (
                   <div className="loading-overlay">
-                    <div className="spinner"></div>
+                    <Spinner size={32} />
                   </div>
                 )}
                 {activeTab === 'grid' && (
@@ -1482,8 +1582,8 @@ frontend/public/_sandbox/${viewDate}.json を置いてください。`);
                     onReorder={handleReorderSchedules}
                     viewDate={viewDate}
                     onViewDateChange={setViewDate}
-                    schedules={schedules.filter(s => s.is_transferred === 1)}
-                    staff={staff}
+                    schedules={branchSchedules.filter(s => s.is_transferred === 1)}
+                    staff={branchStaff}
                     workTypes={workTypes}
                     onOpenAddModal={handleOpenAddModal}
                     onOpenEditModal={handleOpenEditModal}
@@ -1500,8 +1600,8 @@ frontend/public/_sandbox/${viewDate}.json を置いてください。`);
                 )}
                 {canManageSchedules(currentUserRole) && activeTab === 'map' && (
                   <DynamicsMapView
-                    schedules={schedules}
-                    staff={staff}
+                    schedules={branchSchedules}
+                    staff={branchStaff}
                     feEvents={feEvents}
                     fePositions={fePositions}
                     isSandbox={isSandboxMode}
@@ -1524,8 +1624,8 @@ frontend/public/_sandbox/${viewDate}.json を置いてください。`);
                 )}
                 {canManageSchedules(currentUserRole) && activeTab === 'calendar' && (
                   <CalendarView
-                    schedules={schedules}
-                    staff={staff}
+                    schedules={branchSchedules}
+                    staff={branchStaff}
                     onOpenAddModal={handleOpenAddModal}
                     onOpenEditModal={handleOpenEditModal}
                     onSave={handleSaveSchedule}
@@ -1552,8 +1652,8 @@ frontend/public/_sandbox/${viewDate}.json を置いてください。`);
                 )}
                 {canManageSchedules(currentUserRole) && activeTab === 'analytics' && (
                   <AnalyticsView
-                    schedules={schedules}
-                    staff={staff}
+                    schedules={branchSchedules}
+                    staff={branchStaff}
                   />
                 )}
               </div>
@@ -1564,8 +1664,8 @@ frontend/public/_sandbox/${viewDate}.json を置いてください。`);
           <ScheduleModal
             isOpen={isModalOpen}
             onClose={() => setIsModalOpen(false)}
-            staff={staff}
-            schedules={schedules}
+            staff={branchStaff}
+            schedules={branchSchedules}
             selectedDate={selectedDate}
             selectedSchedule={selectedSchedule}
             onSave={handleSaveSchedule}
@@ -1582,11 +1682,12 @@ frontend/public/_sandbox/${viewDate}.json を置いてください。`);
             isOpen={isImportOpen}
             onClose={() => setIsImportOpen(false)}
             onImportSuccess={() => fetchData(false)}
-            staff={staff}
+            staff={branchStaff}
             userEmail={user?.email || 'system'}
             isSandboxMode={isSandboxMode}
-            existingSchedules={schedules}
+            existingSchedules={branchSchedules}
             onSandboxImport={handleSandboxImport}
+            currentBranch={currentBranch}
           />
 
           <HelpGuideModal

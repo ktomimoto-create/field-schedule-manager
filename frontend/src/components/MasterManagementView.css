@@ -292,9 +292,6 @@
   box-sizing: border-box;
 }
 
-.master-table select.form-control-sm {
-  padding-right: 1.5rem;
-}
 
 /* 予定項目（種別）カード */
 .worktype-items-list {
@@ -383,18 +380,5 @@
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(5px); }
   to { opacity: 1; transform: translateY(0); }
-}
-
-.spin-animation {
-  animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
 }
 

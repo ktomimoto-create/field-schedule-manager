@@ -26,6 +26,8 @@ import {
 } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import './AuditLogView.css';
+import { Spinner, SpinnerBlock } from './shared/Spinner';
+import { Select } from './shared/Select';
 
 interface AuditLogViewProps {
   currentUserRole: UserRole;
@@ -580,7 +582,7 @@ export const AuditLogView: React.FC<AuditLogViewProps> = ({ currentUserRole, sta
           onClick={handleRefresh} 
           disabled={loading || loadingMore}
         >
-          <RefreshCw size={14} className={loading ? 'spinning' : ''} />
+          {loading ? <Spinner size={14} /> : <RefreshCw size={14} />}
           最新に更新
         </button>
       </div>
@@ -679,16 +681,18 @@ export const AuditLogView: React.FC<AuditLogViewProps> = ({ currentUserRole, sta
         {/* 期間選択セレクト */}
         <div className="audit-date-filter">
           <Calendar size={14} className="date-filter-icon" />
-          <select 
+          <Select
             className="date-filter-select"
             value={dateFilter}
-            onChange={(e: any) => setDateFilter(e.target.value)}
-          >
-            <option value="all">全期間</option>
-            <option value="today">今日</option>
-            <option value="7days">直近 7 日間</option>
-            <option value="30days">直近 30 日間</option>
-          </select>
+            onChange={(v) => setDateFilter(v as typeof dateFilter)}
+            options={[
+              { value: 'all', label: '全期間' },
+              { value: 'today', label: '今日' },
+              { value: '7days', label: '直近 7 日間' },
+              { value: '30days', label: '直近 30 日間' },
+            ]}
+            aria-label="期間"
+          />
         </div>
       </div>
 
@@ -712,10 +716,7 @@ export const AuditLogView: React.FC<AuditLogViewProps> = ({ currentUserRole, sta
 
       {/* メインコンテンツ */}
       {loading && logs.length === 0 ? (
-        <div className="loading-container">
-          <div className="spinner"></div>
-          <p>変更履歴を読み込み中...</p>
-        </div>
+        <SpinnerBlock />
       ) : error ? (
         <div className="audit-error-card">
           <AlertCircle size={36} className="text-danger" />
@@ -866,7 +867,7 @@ export const AuditLogView: React.FC<AuditLogViewProps> = ({ currentUserRole, sta
                 disabled={loadingMore}
               >
                 {loadingMore ? (
-                  <span className="spinner spinner-sm"></span>
+                  <Spinner size={16} />
                 ) : (
                   <>
                     <ChevronDown size={16} />

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import type { Schedule, Staff, ScheduleStatus, WorkType, UserRole } from '../types';
 import { X, Mail, Lock } from 'lucide-react';
+import { Select } from './shared/Select';
 import { resolveAddress } from '../utils/addressResolver';
 import { supabase } from '../supabaseClient';
 import { findStaffByName, getShortName, toHalfWidth, normalizeTargetTime, splitCoWorkers, canManageSchedules } from '../types';
@@ -891,12 +892,12 @@ ${description || ''}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.85rem', marginBottom: '0.85rem' }}>
               <div className="form-group" style={{ marginBottom: 0 }}>
                 <label htmlFor="staff-input">対応者</label>
-                <select
+                <Select
                   id="staff-input"
                   className="form-control"
                   value={isCustomStaff ? '__custom__' : staffName}
-                  onChange={(e) => {
-                    const val = e.target.value;
+                  placeholder={staffName}
+                  onChange={(val) => {
                     if (val === '__custom__') {
                       setIsCustomStaff(true);
                       setStaffName('');
@@ -910,17 +911,17 @@ ${description || ''}
                     }
                   }}
                   disabled={isInputDisabled}
-                >
-                  <option value="">-- 未設定（フリー） --</option>
-                  {staff
-                    .filter((st) => st.is_active !== 0 || st.name === staffName)
-                    .map((st) => (
-                      <option key={st.id} value={st.name}>
-                        {st.name}{st.default_course ? ` (${st.default_course}コース)` : ''}
-                      </option>
-                    ))}
-                  <option value="__custom__">その他（自由入力）</option>
-                </select>
+                  options={[
+                    { value: '', label: '-- 未設定（フリー） --' },
+                    ...staff
+                      .filter((st) => st.is_active !== 0 || st.name === staffName)
+                      .map((st) => ({
+                        value: st.name,
+                        label: `${st.name}${st.default_course ? ` (${st.default_course}コース)` : ''}`,
+                      })),
+                    { value: '__custom__', label: 'その他（自由入力）' },
+                  ]}
+                />
                 {isCustomStaff && (
                   <input
                     type="text"
@@ -954,33 +955,31 @@ ${description || ''}
                   disabled={isInputDisabled}
                 />
                 {/* プルダウン選択（複数選択可能・クリックで追加/解除） */}
-                <select
+                <Select
                   id="co_worker_select"
                   className="form-control"
                   style={{ marginTop: '6px', fontSize: '0.8rem' }}
                   value=""
-                  onChange={(e) => {
-                    const val = e.target.value;
+                  placeholder="-- 同行者をプルダウン選択 --"
+                  aria-label="同行者をプルダウン選択"
+                  onChange={(val) => {
                     if (val) {
                       handleToggleCoWorker(val);
                     }
                   }}
                   disabled={isInputDisabled}
-                >
-                  <option value="">-- 同行者をプルダウン選択 --</option>
-                  {staff
+                  options={staff
                     .filter((st) => st.is_active !== 0)
                     .map((st) => {
                       const shortName = getShortName(st.name);
                       const isSelected = splitCoWorkers(coWorker, staff)
                         .some(val => val === st.name.trim() || val === shortName || getShortName(val) === shortName);
-                      return (
-                        <option key={st.id} value={st.name}>
-                          {isSelected ? '✓ ' : ''}{st.name}{st.default_course ? ` (${st.default_course}コース)` : ''}
-                        </option>
-                      );
+                      return {
+                        value: st.name,
+                        label: `${isSelected ? '✓ ' : ''}${st.name}${st.default_course ? ` (${st.default_course}コース)` : ''}`,
+                      };
                     })}
-                </select>
+                />
                 {/* クイック選択チップ */}
                 <div className="co-worker-quick-select" style={{ marginTop: '6px', display: 'flex', flexWrap: 'wrap', gap: '4px', maxHeight: '72px', overflowY: 'auto', padding: '2px' }}>
                   {staff
@@ -1048,18 +1047,20 @@ ${description || ''}
               </div>
               <div className="form-group" style={{ marginBottom: 0 }}>
                 <label htmlFor="division" style={{ fontSize: '0.78rem' }}>区分</label>
-                <select
+                <Select
                   id="division"
                   className="form-control"
                   value={division}
-                  onChange={(e) => setDivision(e.target.value)}
+                  placeholder={division}
+                  onChange={setDivision}
                   disabled={isInputDisabled}
-                >
-                  <option value="FTS">FTS</option>
-                  <option value="委託">委託</option>
-                  <option value="未定">未定</option>
-                  <option value="直行直帰">直行直帰</option>
-                </select>
+                  options={[
+                    { value: 'FTS', label: 'FTS' },
+                    { value: '委託', label: '委託' },
+                    { value: '未定', label: '未定' },
+                    { value: '直行直帰', label: '直行直帰' },
+                  ]}
+                />
               </div>
               <div className="form-group" style={{ marginBottom: 0 }}>
                 <label htmlFor="transport" style={{ fontSize: '0.78rem' }}>移動手段</label>
@@ -1088,12 +1089,11 @@ ${description || ''}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.85rem', marginBottom: '0.85rem' }}>
               <div className="form-group" style={{ marginBottom: 0 }}>
                 <label htmlFor="work_type">種別</label>
-                <select
+                <Select
                   id="work_type"
                   className="form-control"
                   value={isCustomWorkType ? '__custom__' : (fieldWorkTypeList.includes(workType) ? workType : (workType ? '__custom__' : ''))}
-                  onChange={(e) => {
-                    const val = e.target.value;
+                  onChange={(val) => {
                     if (val === '__custom__') {
                       setIsCustomWorkType(true);
                       setWorkType('');
@@ -1103,13 +1103,12 @@ ${description || ''}
                     }
                   }}
                   disabled={isInputDisabled}
-                >
-                  <option value="">-- 種別を選択 --</option>
-                  {fieldWorkTypeList.map(name => (
-                    <option key={name} value={name}>{name}</option>
-                  ))}
-                  <option value="__custom__">その他（自由入力）</option>
-                </select>
+                  options={[
+                    { value: '', label: '-- 種別を選択 --' },
+                    ...fieldWorkTypeList.map(name => ({ value: name, label: name })),
+                    { value: '__custom__', label: 'その他（自由入力）' },
+                  ]}
+                />
                 {isCustomWorkType && (
                   <input
                     type="text"

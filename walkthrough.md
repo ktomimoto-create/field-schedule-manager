@@ -1012,9 +1012,175 @@ GoogleスプレッドシートやExcel Webが超高速に動く理由は、**「
 - `specification.md`（第27.28章を追加）
 - `walkthrough.md`（本ドキュメント）
 
+---
+
+## 2026-10-16: 東京／大阪 拠点分離（マルチブランチ）機能の開発環境（develop）実装
+
+### 1. ユーザーからのご要望
+- **「黒川さんは大阪支店側の設計をしていきたい（大阪にも西日本担当のディスパッチャーがいる）。同じシステムを使うが東京と大阪の予定が同じ画面にバッティングしないようにできる？」➔「拠点分離（東京／大阪）の実装開発環境でお願い」**
+  - 単一のシステム・同一DB基盤を維持したまま、東京（東日本）と大阪（西日本）の予定データおよびスタッフが同一画面上でバッティング（混在・干渉）せず、完全分離して操作できる構造を開発環境（`develop` ブランチ）に構築。
+
+---
+
+### 2. 実施した対応内容
+1. **型定義および判定基盤の拡張 ([types.ts](file:///C:/Users/000644/.gemini/antigravity/scratch/field-schedule-manager/frontend/src/types.ts))**:
+   - `Branch = 'tokyo' | 'osaka'` 型および表示名定数 `BRANCH_NAMES` を定義。
+   - `cleanMetadata` に `[__branch:\w+__]` の除去ロジックを追加し、画面上の備考欄に暗黙タグが露出しない仕様を担保。
+   - `resolveScheduleBranch(schedule)`:
+     - `schedule.branch === 'osaka'` または `schedule.notes` 内の `[__branch:osaka__]` を検知して `'osaka'`、それ以外は `'tokyo'` を返すハイブリッドメタデータ解決関数を実装。
+     - DBテーブルに `branch` カラムが存在しない現行Supabase環境でも PGRST204 エラーを起こさず安全に稼働し、将来的なカラム追加にも即応する前方互換性を確保。
+   - `resolveStaffBranch(member)`:
+     - 黒川裕之様（`h_kurokawa@fts.co.jp`、大文字小文字・空白正規化済み）をデフォルトで `'osaka'` にマッピングし、他スタッフは `'tokyo'` に解決。
+2. **ヘッダー拠点切り替えスイッチの導入 ([App.tsx](file:///C:/Users/000644/.gemini/antigravity/scratch/field-schedule-manager/frontend/src/App.tsx), [App.css](file:///C:/Users/000644/.gemini/antigravity/scratch/field-schedule-manager/frontend/src/App.css))**:
+   - タイトルロゴの横に、直感的なトグルスイッチ（`.branch-switcher`）を配置。
+     - 🏢 **東京 (東日本)**: コーポレートブルー（`#2563eb`）アクティブハイライト。
+     - 🐙 **大阪 (西日本)**: アンバーオレンジ（`#ea580c`）アクティブハイライト。
+   - 選択された拠点は `localStorage` に保存され、リロード後も状態を維持。
+   - 開発者・管理者はワンクリックでいつでも東京と大阪を行き来して確認・操作可能。
+3. **黒川様ログイン時の自動初期化 ＆ 大阪デモログインボタンの追加**:
+   - 黒川裕之様がログインした際、`localStorage` に未保存であれば自動的に「大阪 (西日本)」を初期選択。
+   - 開発環境のテストを円滑化するため、ログイン画面に「🐙 黒川（大阪支店デモ）」ボタンを追加。
+4. **全画面ビューへのデータ分離適用 (`useMemo`)**:
+   - `branchSchedules = schedules.filter(s => resolveScheduleBranch(s) === currentBranch)`
+   - `branchStaff = staff.filter(st => resolveStaffBranch(st) === currentBranch)`
+   - 予定表グリッド（`GridView`）、当日行動予定表（`TimelineView`）、月間予定表（`CalendarView`）、集計分析（`AnalyticsView`）、予定詳細モーダル（`ScheduleModal`）、コピペインポート（`PasteImportModal`）のすべてに `branchSchedules` と `branchStaff` を供給し、表示・担当者候補・集計を完全分離。
+5. **行動予定への移行（`handleTransferSchedules`）の拠点限定保護**:
+   - 指定日の全予定を一括移行するのではなく、**選択中拠点（`currentBranch`）に属する未移行予定の ID リストのみ** を抽出して `supabase.from('schedules').update({ is_transferred: 1 }).in('id', targetIds)` を実行。
+   - 東京ディスパッチャーが移行を実行しても、大阪側の予定が誤って移行される事故を物理的に根絶。
+6. **予定保存（`handleSaveSchedule`）およびコピペインポートのメタデータ自動付与**:
+   - 新規作成・編集・コピペ登録時、現在の拠点に応じたタグ（`[__branch:osaka__]` または `[__branch:tokyo__]`）を `notes` に自動付与。
+   - Supabase 保存ペイロードから `branch` プロパティを除外して未定義カラムエラーを回避。
+   - 同行者の子予定にも親の拠点タグが自動継承されるため、親子予定が拠点間で分裂しない。
+
+---
+
+### 3. 検証結果
+1. **ユニット・統合テスト検証**:
+   - `resolveScheduleBranch`、`resolveStaffBranch`、`cleanMetadata`、拠点別フィルタリング、および移行保護シミュレーションのテストスクリプトを実行し、**全ケース100%成功**。
+   - 東京画面で大阪予定が一切出ず、大阪画面で東京予定が一切出ないこと、移行時に他拠点データが保護されることを確認。
+2. **ビルド検証**:
+   - `cmd.exe /c npm run build` を実行し、TypeScript 型検査（tsc）および Vite 本番バンドルともにエラー 0 件でビルド成功（2.04s）。
+3. **開発サーバー稼働確認**:
+   - Vite 開発サーバー（`http://localhost:5173/`）が HTTP 200 で正常配信されていることを確認。
+
+---
+
+### 4. 更新したドキュメント
+- `specification.md`（第27.29章を追加）
+- `walkthrough.md`（本ドキュメント）
 
 
 
+## 2026-10-16: 読み込み中の表示を共通の輪（Spinner）に統一 ＆ プルダウンを共有 Select 部品に統一
 
+- **担当**: 上田 晃平（Claude Code で実装）
+- **日時**: 2026-10-16 10:39（読み込み中の輪）／11:10（共有 Select）。同日 11:15 頃に main へ反映
+- **方法**: ブランチ `chore/unified-spinner` で作業し、main へ早送りで反映（main 側に新しいコミットが無かったためマージ無し）
+- **コミット**: `bf78d28`（読み込み中の輪）、`5751562`（共有 Select）
 
+---
+
+### 1. 背景
+- 社内アプリ全体の決まり（2026-10-16 確定）: **読み込み中は「尾を引いて回る輪」だけを出し、「読み込み中…」などの文字は出さない**。fe-dotai で作った輪を全アプリで共通にした。
+- 社内アプリ全体の決まり（2026-09-16 確定）: **プルダウンはブラウザ標準の `<select>` を使わず、共有の Select 部品に統一する**（見た目の基準は Knowledge DB の GlassSelect）。
+
+---
+
+### 2. 実施した修正内容
+
+#### ① 読み込み中の表示（`bf78d28`）
+- 新規 `frontend/src/components/shared/Spinner.tsx`（`Spinner` / `SpinnerBlock`）。CSS は `frontend/src/index.css` の末尾。輪の色は主色の `--primary`。
+- 「データを読み込み中...」（App.tsx）、「変更履歴を読み込み中...」（AuditLogView）を `SpinnerBlock` に置き換え。
+- 古い `.spinner` の輪 4 か所（更新中のオーバーレイ、「さらに過去の履歴を表示」ボタンなど）を `Spinner` に置き換え。
+- 回していた `RefreshCw` アイコン 2 か所（変更履歴の「最新に更新」、マスタ同期）は、処理中だけ `Spinner` に差し替える形に変更。
+- 使われなくなった `.loading-container`、古い `.spinner`、`@keyframes spin`（3 ファイル）、`.spinning`、`.spin-animation` を削除。
+
+#### ② プルダウン（`5751562`）
+- 新規 `frontend/src/components/shared/Select.tsx`（app-template の共有 Select を移植）。角丸パネル・pill 状の項目・選択中にチェック・画面下半分では上向きに開く・Esc で閉じる。
+- `<select>` 17 か所を置き換え: AnalyticsView 1、AuditLogView 1、CalendarView 3、GridView 2、MasterManagementView 4、PrintPreviewModal 1、ScheduleModal 4、TimelineView 1。
+- 読み込み中（社員一覧の取得中など）は `loading` 指定で、ボタンに輪だけを出して操作できなくする。
+- CSS: `frontend/src/index.css` に `.select-*` を追加し、`select.form-control` の矢印画像を削除。`GridView.css` / `MasterManagementView.css` の `<select>` 向けの指定を整理。
+
+---
+
+### 3. 挙動が変わる点・注意点
+- **一覧に無い値のとき**: 以前は先頭の選択肢が見えていたが、今は今の値の文字がそのまま見える（種別のセル編集、簡易登録の種別の初期値「休暇」、区分、対応者）。
+- 同じ項目を選び直しても onChange は呼ばれない（標準の select と同じ。担当者セルで無駄な保存が走らない）。
+- 表のセル編集（種別・担当者）の autoFocus / onBlur での保存タイミングは従来どおり。
+- 一覧は画面の最前面（z-index 13000）に出る。HelpGuideModal（12000）より前。
+
+---
+
+### 4. 検証結果
+1. **ビルド検証**: `npm run build`（tsc -b + vite build）成功。
+2. **lint**: `eslint src` の既存エラー 134 件 → 133 件（増加なし）。
+3. **画面確認**: ログイン用の .env が無いため実画面は未確認。Select だけを置いた確認用ページで、overflow: hidden の枠内でも一覧が切れないこと、画面下部では上向きに開きモーダルより前に出ること、読み込み中は輪だけになることを確認。
+
+---
+
+## 2026-10-16: 東京／大阪 拠点分離（マルチブランチ）機能の本番環境（main）適用完了
+
+### 1. ユーザーからのご要望
+- **「本番環境への適用」**
+  - 開発環境（`develop`）で先行実装・テストを完了した東京（東日本）／大阪（西日本）の拠点分離機能を、本番環境（`main` ブランチ）へ正式に適用・デプロイ。
+
+---
+
+### 2. 実施した対応内容
+1. **ブランチマージと統合調整**:
+   - `origin/main` の最新コミット（UI Spinner 統一・共有 Select 部品統一 `1e3ea08`）を取り込み、`develop` ブランチの拠点分離機能（`002a45a`）と安全にマージ（マージコミット: `698bff9`）。
+   - 両ブランチの最新仕様（SpinnerBlock による統一ローディング表示 ＋ 拠点分離・自動切り替えスイッチ）が完全に共存するよう統合。
+2. **両ブランチの完全同期**:
+   - `main` ブランチおよび `develop` ブランチの双方を `698bff9` で完全同期し、`origin/main` および `origin/develop` へプッシュ完了。
+
+---
+
+### 3. 検証結果
+1. **ビルド検証**:
+   - `cmd.exe /c npm run build`（tsc -b + vite build）を実行し、本番バンドルが 1.87s、エラー 0 件で正常ビルド完了を確認。
+2. **単体・統合テスト検証**:
+   - 拠点解決関数、メタデータ除去、拠点別フィルタリング、移行時のデータ保護シミュレーションの全テストがマージ後の `main` ブランチでも **100% 成功**することを確認。
+
+---
+
+### 4. 更新したドキュメント
+- `specification.md`（第27.29章）
+- `walkthrough.md`（本ドキュメント）
+
+---
+
+## 2026-10-16: 高田晴規様アバター表示の復旧 ＆ カレンダー備考欄メタデータ非表示の修正
+
+### 1. ユーザーからのご要望
+- **「高田顔アイコン表示されなくなっている」**
+  - 同行者欄等で高田様の顔写真アイコンが表示されず、青丸のイニシャルアイコン（「高」）になっていた問題を解決。
+  - あわせて、カレンダーグリッドの備考欄に暗黙メタデータ `[__branch:tokyo__]` が露出していた事象を修正。
+
+---
+
+### 2. 原因と対策
+1. **苗字切り出し辞書（`SURNAMES`）の拡充**:
+   - スタッフマスタ上の登録名「高田晴規」に姓名間のスペースが無かったため、`getShortName("高田晴規")` が「高田」ではなく「高田晴規」を返しており、同行者に入力された「高田」と照合不一致になっていた。
+   - `SURNAMES` に「高田」をはじめとする未スペーススタッフ（高田、村木、熊切、杉山、芳野、下田、上田、黒川、川上、武田、土屋、宮本、金谷、岡崎）をすべて追加。
+   - `FE`、`FR` などの委託プレフィックス（`FE武田`、`FR土屋` 等）を自動認識して苗字を抽出する正規表現ルールを追加。
+2. **スタッフ照合アルゴリズム（`findStaffByName`）の強化**:
+   - 完全一致、スペース除去一致、`getShortName` 一致、前方一致（`高田晴規` startsWith `高田`）、逆前方一致の多段フォールバックを実装。
+3. **カレンダー画面のメタデータ除去関数の統一**:
+   - `CalendarView.tsx` 内でローカル定義されていた古い `cleanMetadata` を撤廃し、`types.ts` の共通 `cleanMetadata`（`[__branch:\w+__]` 除去対応）へ統一。
+
+---
+
+### 3. 検証結果
+1. **照合・メタデータ除去テスト**:
+   - `findStaffByName(staffList, "高田")` ➔ `高田晴規 (id:46)` が完全マッチすることを確認。
+   - `getShortName("高田晴規")` ➔ `高田` が返ることを確認。
+   - `cleanMetadata("[__branch:tokyo__]")` ➔ `""`（完全に空文字化）を確認。
+2. **ビルド検証**:
+   - `cmd.exe /c npm run build` を実行し、TypeScript 型検査、Vite バンドルともにエラー 0 件でビルド成功（1.90s）。
+
+---
+
+### 4. 更新したドキュメント
+- `specification.md`（第27.30章を追加）
+- `walkthrough.md`（本ドキュメント）
 
