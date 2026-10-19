@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo, useState } from 'react';
-import { BadgeCheck, CalendarClock, ClipboardList, HardHat, Lock, PackagePlus, Repeat2, Tag, TriangleAlert, type LucideIcon } from 'lucide-react';
+import { BadgeCheck, Boxes, ClipboardList, Lock, PackagePlus, Repeat2, Stethoscope, Tag } from 'lucide-react';
 import type { Schedule, Staff } from '../types';
 import { compareSchedules, findStaffByName, normalizeTargetTime } from '../types';
 import { progressOf, statusMeta, summarizeDescription, workTypeKey, type Progress } from '../utils/scheduleDisplay';
@@ -14,14 +14,27 @@ export const UNASSIGNED = '担当未定';
 
 const PROGRESS_LABEL: Record<Progress, string> = { todo: '未着手', working: '対応中', done: '完了' };
 
-/** 種別のアイコン（色は種類ごと。赤・緑は使わない）。名前はカーソルを乗せると出る */
-const WT_ICON: Record<string, LucideIcon> = {
-  fault: TriangleAlert,
+/** ドライバーとスパナ（アフタートラブル＝障害）。lucide に無いので同じ線の太さで描く */
+const ScrewdriverWrench: React.FC<{ size?: number }> = ({ size = 12 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+    {/* スパナ（右上 → 左下） */}
+    <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.1-3.1a6 6 0 0 1-7.9 7.9l-6.6 6.6a2.1 2.1 0 0 1-3-3l6.6-6.6a6 6 0 0 1 7.9-7.9z" />
+    {/* ドライバー（左上 → 右下） */}
+    <path d="M3 3l2 2" />
+    <path d="M5 5l6 6" />
+    <path d="M13 13l2.5-1 5.6 5.6a1.8 1.8 0 0 1-2.5 2.5L13 14.5z" />
+  </svg>
+);
+
+/** 種別のアイコン（色は種類ごと。赤・緑は使わない）。名前はカーソルを乗せると出る
+ *  障害（アフタートラブル）＝ドライバーとスパナ／工事（コンストラクション）＝全ボックス入庫／定期・保守＝診断 */
+const WT_ICON: Record<string, React.FC<{ size?: number }>> = {
+  fault: ScrewdriverWrench,
   second: Repeat2,
   approved: BadgeCheck,
-  construct: HardHat,
+  construct: Boxes,
   install: PackagePlus,
-  periodic: CalendarClock,
+  periodic: Stethoscope,
   survey: ClipboardList,
   other: Tag,
 };
