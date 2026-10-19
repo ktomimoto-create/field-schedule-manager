@@ -9,7 +9,7 @@ import { UNASSIGNED, VisitCardBody } from './StaffLaneBoard';
 import { usePlaceLabel } from '../utils/usePlaceLabel';
 import { ProgressMenu, type StatusHistoryItem } from './ProgressMenu';
 import type { Progress } from '../utils/scheduleDisplay';
-import { isSameSite, planRoute, sameBuilding, totalTravel, travelLeg, travelModeOf, useSitePositions, WORK_MIN, type LegKind, type TravelMode } from '../utils/route';
+import { isSameSite, planRoute, sameBuilding, totalTravel, travelLeg, travelModeOf, useHomeBase, useSitePositions, WORK_MIN, type LegKind, type TravelMode } from '../utils/route';
 import { useFunnaviReservations, usesVehicle } from '../utils/vehicleUsers';
 import type { LatLng } from '../utils/geocode';
 import './StaffLaneBoard.css';
@@ -123,6 +123,7 @@ export const StaffTimelineBoard: React.FC<Props> = ({ schedules, staff, date, ca
   }, [menuId, loadStatusHistory]);
   const closeMenu = useCallback(() => setMenu(null), []);
   const sitePos = useSitePositions(schedules);
+  const homeBase = useHomeBase();
   const reservations = useFunnaviReservations(date);
   const [busy, setBusy] = useState(false);
   // 横に広げている重なりの組（クリックで広げる・もう一度か外をクリックで閉じる）
@@ -171,8 +172,8 @@ export const StaffTimelineBoard: React.FC<Props> = ({ schedules, staff, date, ca
             .sort((a, b) => a.occurred_at.localeCompare(b.occurred_at))[0]
         : undefined;
       const departRec = shiftEv ? hmToMin(jstHm(shiftEv.occurred_at)) ?? undefined : undefined;
-      // 拠点の位置: 出動を押した場所（分からなければ 1 件目の移動は 25 分の見込み）
-      const base: LatLng | null = shiftEv?.lat != null && shiftEv?.lng != null ? { lat: shiftEv.lat, lng: shiftEv.lng } : null;
+      // 出発地: 出動を押した場所。記録が無ければ拠点（岩本町2丁目10-1）から
+      const base: LatLng | null = shiftEv?.lat != null && shiftEv?.lng != null ? { lat: shiftEv.lat, lng: shiftEv.lng } : homeBase;
       const posOf = (x: Schedule) => sitePos[(x.unit_number || '').trim()] ?? null;
       // 移動の手段: 車両の基本利用者（または交通手段が車）なら車、それ以外は電車・徒歩
       const mode = travelModeOf(g.items, usesVehicle(g.name, reservations, knownSurnames));
@@ -376,7 +377,7 @@ export const StaffTimelineBoard: React.FC<Props> = ({ schedules, staff, date, ca
     }
     // 時間軸は自社の技術員（マスタに登録のある人）だけ。協力会社・担当未定は出さない
     return out.filter(r => r.member).sort((a, b) => a.course - b.course || a.name.localeCompare(b.name, 'ja'));
-  }, [schedules, staff, feEvents, date, sitePos, reservations]);
+  }, [schedules, staff, feEvents, date, sitePos, reservations, homeBase]);
 
   // 実績（FE のボタン記録・開始/完了時刻）
   const actuals = useMemo(() => {
