@@ -176,7 +176,7 @@ export const StaffTimelineBoard: React.FC<Props> = ({ schedules, staff, date, ca
       const firstSlot = g.items[0] ? parseTimeSlot(g.items[0].target_time) : null;
       const firstNeed = firstSlot && firstSlot.kind !== 'until' ? firstSlot.from - travelLeg(base, posOf(g.items[0]), mode).min : Infinity;
       const depart = departRec ?? Math.min(DAY_START, firstNeed);
-      // 順番どおりに時刻を割り当てる（前の場所から移動して着いた時刻。時刻指定はその時刻、〜迄・AM/PM は枠の始まりより前には始めない）
+      // 順番どおりに時刻を割り当てる（前の場所から移動して着いた時刻。時刻指定はその時刻、AM/PM は枠の始まりより前には始めない、〜迄は着いたらすぐ）
       let cursor = depart;
       let here: LatLng | null = base;
       let prevS: Schedule | null = null;
@@ -209,6 +209,9 @@ export const StaffTimelineBoard: React.FC<Props> = ({ schedules, staff, date, ca
           estimated = true;
         } else if (slot.kind === 'at') {
           start = slot.from;
+        } else if (slot.kind === 'until') {
+          // 「〜迄」は締切までに終わればよいので、着いたらすぐ始める（早く着いても待たない）
+          start = arrive;
         } else {
           start = Math.max(arrive, slot.from);
         }
