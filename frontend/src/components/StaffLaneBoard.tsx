@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { GripVertical, Lock } from 'lucide-react';
 import type { Schedule, Staff } from '../types';
-import { compareSchedules, getShortName, normalizeTargetTime } from '../types';
+import { compareSchedules, normalizeTargetTime } from '../types';
 import { progressOf, statusMeta, summarizeDescription, workTypeKey, type Progress } from '../utils/scheduleDisplay';
 import type { FeEvent } from '../utils/feEvents';
 import { StaffAvatar } from './ScheduleCards';
@@ -106,7 +106,7 @@ export const StaffLaneBoard: React.FC<Props> = ({ schedules, staff, canEdit, act
             <div className="lane-person">
               <StaffAvatar member={lane.member} name={lane.name} size={30} />
               <span className="lane-person-text">
-                <span className="lane-name">{lane.member ? getShortName(lane.name) : lane.name}</span>
+                <span className="lane-name">{lane.name}</span>
                 <span className="lane-meta"><b>{live}</b>件・完了 <b>{done}</b></span>
               </span>
             </div>

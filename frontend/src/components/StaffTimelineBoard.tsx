@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import type { Schedule, Staff } from '../types';
-import { compareSchedules, getShortName, normalizeTargetTime } from '../types';
+import { compareSchedules, normalizeTargetTime } from '../types';
 import { hmToMin, parseTimeSlot, progressOf, statusMeta } from '../utils/scheduleDisplay';
 import { jstHm, type FeEvent } from '../utils/feEvents';
 import { StaffAvatar } from './ScheduleCards';
@@ -196,7 +196,7 @@ export const StaffTimelineBoard: React.FC<Props> = ({ schedules, staff, date, ca
           <div className="lane-person">
             <StaffAvatar member={r.member} name={r.name} size={30} />
             <span className="lane-person-text">
-              <span className="lane-name">{r.member ? getShortName(r.name) : r.name}</span>
+              <span className="lane-name">{r.name}</span>
               <span className="lane-meta"><b>{r.live}</b>件・完了 <b>{r.done}</b></span>
             </span>
           </div>
