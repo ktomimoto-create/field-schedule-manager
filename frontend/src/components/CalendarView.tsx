@@ -3,8 +3,8 @@ import type { Schedule, Staff, WorkType, UserRole } from '../types';
 import { getShortName, findStaffByName, toHalfWidth, normalizeTargetTime, splitCoWorkers, compareSchedules, cleanMetadata } from '../types';
 import { buildFcAutofillPatch } from '../utils/fcAutofill';
 
-import { ChevronLeft, ChevronRight, Edit2, Plus, Search, Lock, LayoutList, Table2, ChevronDown, CalendarSearch, CalendarCheck, WrapText, ClipboardPaste } from 'lucide-react';
-import { CompactScheduleCard } from './ScheduleCards';
+import { ChevronLeft, ChevronRight, Edit2, Plus, Search, Lock, LayoutList, Table2, ChevronDown, CalendarSearch, CalendarCheck, WrapText, ClipboardPaste, Check } from 'lucide-react';
+import { CompactScheduleCard, StaffAvatar } from './ScheduleCards';
 import { Select } from './shared/Select';
 import DatePicker from './shared/DatePicker';
 import './CalendarView.css';
@@ -298,6 +298,16 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
 
   // カード表示で「空き」の名前を開いている日
   const [openFreeDays, setOpenFreeDays] = useState<Set<string>>(() => new Set());
+  // 月カレンダー: 右の詳細に出している日と、詳細で開いている担当
+  const [cardDay, setCardDay] = useState<string>(() => getLocalDateString(new Date()));
+  const [openStaffKeys, setOpenStaffKeys] = useState<Set<string>>(() => new Set());
+  const toggleStaffKey = (key: string) =>
+    setOpenStaffKeys(prev => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
   const toggleFreeDay = (dateStr: string) =>
     setOpenFreeDays(prev => {
       const next = new Set(prev);
@@ -2589,6 +2599,9 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
     return `${d.getMonth() + 1}月`;
   };
 
+  // 月カレンダーの右の詳細（週の描画の中で、選んだ日のときに組み立てる）
+  let cardPanel: React.ReactNode = null;
+
   return (
     <div className="matrix-board-container card">
       <div className="matrix-header">
@@ -2718,6 +2731,15 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
             className="calendar-copy-overlay"
           />
 
+        <div className={viewMode === 'card' ? 'month-layout' : 'weeks-plain'}>
+        <div className={viewMode === 'card' ? 'month-weeks' : 'weeks-plain'}>
+        {viewMode === 'card' && (
+          <div className="month-weekday-head">
+            {['月', '火', '水', '木', '金', '土', '日'].map((w, i) => (
+              <span key={w} className={i === 5 ? 'is-sat' : i === 6 ? 'is-sun' : ''}>{w}</span>
+            ))}
+          </div>
+        )}
         {weeks.map((weekDays, weekIndex) => {
           // 各曜日のスケジュール配列と休みスケジュールの配列を取得
           const parsedDaysData = weekDays.map(day => {
@@ -3134,117 +3156,175 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
 
                   if (viewMode === 'card') {
                     const realSchedules = daySchedules.filter(s => !isTempSchedule(s));
+                    const liveSchedules = realSchedules.filter(s => s.status !== 'cancelled');
                     const freeStaffSchedules = daySchedules.filter(s => isTempSchedule(s) && !String(s.id).startsWith('temp-unassigned-'));
                     const q = searchQuery.toLowerCase();
-                    // 埋まり具合: 予定がある人（キャンセル以外・対応者あり）と空いている人
                     const busyCount = new Set(
-                      realSchedules.filter(s => s.status !== 'cancelled' && (s.staff_id || s.staff_name)).map(s => (s.staff_id ? `id-${s.staff_id}` : `n-${s.staff_name}`))
+                      liveSchedules.filter(s => s.staff_id || s.staff_name).map(s => (s.staff_id ? `id-${s.staff_id}` : `n-${s.staff_name}`))
                     ).size;
                     const freeCount = freeStaffSchedules.length;
                     const capTotal = busyCount + freeCount;
-                    const isFreeOpen = openFreeDays.has(day.dateStr);
+                    const holidayNames = freeSpaceSchedules
+                      .filter((g: GroupedSchedule) => g.work_type === '休暇')
+                      .flatMap((g: GroupedSchedule) => g.staff_names.map(n => getShortName(n)));
+                    const isOtherMonth = day.date.getMonth() !== currentDate.getMonth();
+                    const isSelectedDay = cardDay === day.dateStr;
+                    const matchCount = q ? realSchedules.filter(s => [s.property_name, s.staff_name, s.unit_number].some(v => v && v.toLowerCase().includes(q))).length : 0;
+
+                    if (isSelectedDay) {
+                      // 担当ごとにまとめる（並びは予定の並びのまま）
+                      const groups: { key: string; name: string; member?: Staff; items: Schedule[] }[] = [];
+                      for (const sch of realSchedules) {
+                        const member = staff.find(st => st.id === sch.staff_id);
+                        const key = member ? `id-${member.id}` : `n-${sch.staff_name || '未設定'}`;
+                        let g = groups.find(x => x.key === key);
+                        if (!g) {
+                          g = { key, name: member ? member.name : sch.staff_name || '未設定', member, items: [] };
+                          groups.push(g);
+                        }
+                        g.items.push(sch);
+                      }
+                      const isFreeOpen = openFreeDays.has(day.dateStr);
+                      cardPanel = (
+                        <div className={`month-panel-inner ${dayClass}`}>
+                          <div className="month-panel-head">
+                            {dayHeaderContent}
+                          </div>
+                          <div className="day-capacity" title={`予定あり ${busyCount}人 / 空き ${freeCount}人`}>
+                            <span className="day-capacity-bar">
+                              <i style={{ width: `${capTotal ? (busyCount / capTotal) * 100 : 0}%` }} />
+                            </span>
+                            <span className="day-capacity-text">
+                              予定あり <b className="day-capacity-num">{busyCount}</b>人
+                              <span className="day-capacity-sep">／</span>
+                              空き <b className="day-capacity-num is-free">{freeCount}</b>人
+                              <span className="day-capacity-sep">／</span>
+                              <b className="day-capacity-num">{liveSchedules.length}</b>件
+                            </span>
+                          </div>
+                          <div className="matrix-freespace-header day-card-freespace">{freeSpaceContent}</div>
+                          <button type="button" className="month-panel-add" onClick={() => onOpenAddModal(day.dateStr)}>
+                            <Plus size={16} />
+                            この日に予定を追加
+                          </button>
+                          <div className="month-panel-list">
+                            {groups.length === 0 && <div className="day-card-empty">予定なし</div>}
+                            {groups.map(g => {
+                              const openKey = `${day.dateStr}|${g.key}`;
+                              const isOpen = openStaffKeys.has(openKey);
+                              const live = g.items.filter(x => x.status !== 'cancelled').length;
+                              const firstTime = g.items.map(x => normalizeTargetTime(x.target_time)).find(Boolean);
+                              return (
+                                <div key={g.key} className={`month-staff${isOpen ? ' is-open' : ''}`}>
+                                  <button type="button" className="month-staff-row" onClick={() => toggleStaffKey(openKey)} aria-expanded={isOpen}>
+                                    <StaffAvatar member={g.member} name={g.name} size={26} />
+                                    <span className="month-staff-name">{g.member ? getShortName(g.name) : g.name}</span>
+                                    <span className="month-staff-first">{firstTime || ''}</span>
+                                    <span className="month-staff-count"><b>{live}</b>件</span>
+                                    <ChevronDown size={16} className="month-staff-chevron" />
+                                  </button>
+                                  {isOpen && (
+                                    <div className="month-staff-cards">
+                                      {g.items.map(schedule => {
+                                        const isMatch = q ? [schedule.property_name, schedule.staff_name, schedule.unit_number].some(v => v && v.toLowerCase().includes(q)) : false;
+                                        return (
+                                          <CompactScheduleCard
+                                            key={schedule.id}
+                                            schedule={schedule}
+                                            staff={staff}
+                                            selected={typeof schedule.id === 'number' && (selectedScheduleIds.includes(schedule.id) || selectedScheduleId === schedule.id)}
+                                            searchState={q ? (isMatch ? 'match' : 'no-match') : ''}
+                                            lock={typeof schedule.id === 'number' ? activeLocks[schedule.id] : undefined}
+                                            onClick={(e) => {
+                                              if (e.ctrlKey || e.shiftKey || e.metaKey) {
+                                                handleSelectRow(e, schedule);
+                                              } else {
+                                                setSelectedScheduleIds([]);
+                                                setSelectedScheduleId(schedule.id);
+                                                lastSelectedScheduleIdRef.current = typeof schedule.id === 'number' ? schedule.id : null;
+                                              }
+                                            }}
+                                            onEdit={() => onOpenEditModal(schedule)}
+                                            onContextMenu={(e) => {
+                                              e.preventDefault();
+                                              const menuWidth = 240;
+                                              const menuHeight = 360;
+                                              const x = e.clientX + menuWidth > window.innerWidth ? Math.max(0, window.innerWidth - menuWidth - 10) : e.clientX;
+                                              const y = e.clientY + menuHeight > window.innerHeight ? Math.max(0, window.innerHeight - menuHeight - 10) : e.clientY;
+                                              let currentSelectedIds: number[] = [];
+                                              if (selectedScheduleIds.length > 1 && typeof schedule.id === 'number' && selectedScheduleIds.includes(schedule.id)) {
+                                                currentSelectedIds = selectedScheduleIds;
+                                              } else {
+                                                currentSelectedIds = typeof schedule.id === 'number' ? [schedule.id] : [];
+                                                setSelectedScheduleIds([]);
+                                                setSelectedScheduleId(schedule.id);
+                                                lastSelectedScheduleIdRef.current = typeof schedule.id === 'number' ? schedule.id : null;
+                                              }
+                                              setContextMenu({ x, y, schedule, selectedIds: currentSelectedIds });
+                                            }}
+                                          />
+                                        );
+                                      })}
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
+                            {freeStaffSchedules.length > 0 && (
+                              <div className={`day-card-free${isFreeOpen ? ' is-open' : ''}`}>
+                                <button type="button" className="day-card-free-toggle" onClick={() => toggleFreeDay(day.dateStr)} aria-expanded={isFreeOpen} title={isFreeOpen ? '空いている人を閉じる' : '空いている人を見る（押すとその人の予定を追加）'}>
+                                  <span>空いている人</span>
+                                  <b className="day-capacity-num is-free">{freeCount}</b>
+                                  <span>人</span>
+                                  <ChevronDown size={16} className="day-card-free-chevron" />
+                                </button>
+                                {isFreeOpen && (
+                                  <span className="day-card-free-names">
+                                    {freeStaffSchedules.map(s => (
+                                      <button key={s.id} type="button" className="day-card-free-chip" title={`${s.staff_name} さんの予定を追加`} onClick={() => onOpenAddModal(day.dateStr)}>
+                                        {getShortName(s.staff_name || '')}
+                                      </button>
+                                    ))}
+                                  </span>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    }
+
                     return (
-                      <div
+                      <button
+                        type="button"
                         key={day.dateStr}
                         id={`day-block-${day.dateStr}`}
-                        className={`day-column-block day-card-column ${isToday ? 'today-column' : ''} ${dayClass}`}
+                        className={`month-cell ${dayClass}${isToday ? ' is-today' : ''}${isSelectedDay ? ' is-selected' : ''}${isOtherMonth ? ' is-other-month' : ''}${q && matchCount === 0 ? ' is-dim' : ''}`}
+                        onClick={() => setCardDay(day.dateStr)}
+                        aria-pressed={isSelectedDay}
+                        title={`${day.date.getMonth() + 1}/${day.date.getDate()} の予定を右に表示`}
                       >
-                        <div className={`matrix-day-header-super day-card-header ${isToday ? 'today-header' : ''}`}>
-                          {dayHeaderContent}
-                        </div>
-                        <div className="day-capacity" title={`予定あり ${busyCount}人 / 空き ${freeCount}人`}>
-                          <span className="day-capacity-bar">
-                            <i style={{ width: `${capTotal ? (busyCount / capTotal) * 100 : 0}%` }} />
+                        <span className="month-cell-top">
+                          <span className="month-cell-date">{day.date.getDate()}</span>
+                          {holidayName && <span className="month-cell-holiday">{holidayName}</span>}
+                          {isAllTransferred && <span className="month-cell-flag is-done" title="行動予定表へ移行済み"><Check size={12} /></span>}
+                          {hasUnprocessedTransfer && <span className="month-cell-flag is-pending" title={`未移行 ${unprocessedCount}件`}>{unprocessedCount}</span>}
+                        </span>
+                        <span className="month-cell-count">
+                          {liveSchedules.length > 0 ? <><b>{liveSchedules.length}</b>件</> : <span className="month-cell-none">予定なし</span>}
+                          {q && matchCount > 0 && <span className="month-cell-match">該当 {matchCount}</span>}
+                        </span>
+                        <span className="month-cell-bar" title={`予定あり ${busyCount}人 / 空き ${freeCount}人`}>
+                          <i style={{ width: `${capTotal ? (busyCount / capTotal) * 100 : 0}%` }} />
+                        </span>
+                        {holidayNames.length > 0 && (
+                          <span className="month-cell-off" title={`休暇: ${holidayNames.join('・')}`}>
+                            休 {holidayNames.slice(0, 3).join('・')}{holidayNames.length > 3 ? ` 他${holidayNames.length - 3}` : ''}
                           </span>
-                          <span className="day-capacity-text">
-                            予定あり <b className="day-capacity-num">{busyCount}</b>人
-                            <span className="day-capacity-sep">／</span>
-                            空き <b className="day-capacity-num is-free">{freeCount}</b>人
-                          </span>
-                        </div>
-                        <div className="matrix-freespace-header day-card-freespace">
-                          {freeSpaceContent}
-                        </div>
-                        <div className="day-card-list">
-                          {realSchedules.length === 0 && (
-                            <div className="day-card-empty">予定なし</div>
-                          )}
-                          {realSchedules.map(schedule => {
-                            const isMatch = q ? [schedule.property_name, schedule.staff_name, schedule.unit_number].some(v => v && v.toLowerCase().includes(q)) : false;
-                            return (
-                              <CompactScheduleCard
-                                key={schedule.id}
-                                schedule={schedule}
-                                staff={staff}
-                                selected={typeof schedule.id === 'number' && (selectedScheduleIds.includes(schedule.id) || selectedScheduleId === schedule.id)}
-                                searchState={q ? (isMatch ? 'match' : 'no-match') : ''}
-                                lock={typeof schedule.id === 'number' ? activeLocks[schedule.id] : undefined}
-                                onClick={(e) => {
-                                  if (e.ctrlKey || e.shiftKey || e.metaKey) {
-                                    handleSelectRow(e, schedule);
-                                  } else {
-                                    setSelectedScheduleIds([]);
-                                    setSelectedScheduleId(schedule.id);
-                                    lastSelectedScheduleIdRef.current = typeof schedule.id === 'number' ? schedule.id : null;
-                                  }
-                                }}
-                                onEdit={() => onOpenEditModal(schedule)}
-                                onContextMenu={(e) => {
-                                  e.preventDefault();
-                                  const menuWidth = 240;
-                                  const menuHeight = 360;
-                                  const x = e.clientX + menuWidth > window.innerWidth ? Math.max(0, window.innerWidth - menuWidth - 10) : e.clientX;
-                                  const y = e.clientY + menuHeight > window.innerHeight ? Math.max(0, window.innerHeight - menuHeight - 10) : e.clientY;
-                                  let currentSelectedIds: number[] = [];
-                                  if (selectedScheduleIds.length > 1 && typeof schedule.id === 'number' && selectedScheduleIds.includes(schedule.id)) {
-                                    currentSelectedIds = selectedScheduleIds;
-                                  } else {
-                                    currentSelectedIds = typeof schedule.id === 'number' ? [schedule.id] : [];
-                                    setSelectedScheduleIds([]);
-                                    setSelectedScheduleId(schedule.id);
-                                    lastSelectedScheduleIdRef.current = typeof schedule.id === 'number' ? schedule.id : null;
-                                  }
-                                  setContextMenu({ x, y, schedule, selectedIds: currentSelectedIds });
-                                }}
-                              />
-                            );
-                          })}
-                          {freeStaffSchedules.length > 0 && (
-                            <div className={`day-card-free${isFreeOpen ? ' is-open' : ''}`}>
-                              <button
-                                type="button"
-                                className="day-card-free-toggle"
-                                onClick={() => toggleFreeDay(day.dateStr)}
-                                aria-expanded={isFreeOpen}
-                                title={isFreeOpen ? '空いている人を閉じる' : '空いている人を見る（押すとその人の予定を追加）'}
-                              >
-                                <span>空いている人</span>
-                                <b className="day-capacity-num is-free">{freeCount}</b>
-                                <span>人</span>
-                                <ChevronDown size={16} className="day-card-free-chevron" />
-                              </button>
-                              {isFreeOpen && (
-                              <span className="day-card-free-names">
-                                {freeStaffSchedules.map(s => (
-                                  <button
-                                    key={s.id}
-                                    type="button"
-                                    className="day-card-free-chip"
-                                    title={`${s.staff_name} さんの予定を追加`}
-                                    onClick={() => onOpenAddModal(day.dateStr)}
-                                  >
-                                    {getShortName(s.staff_name || '')}
-                                  </button>
-                                ))}
-                              </span>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      </div>
+                        )}
+                      </button>
                     );
                   }
-
                   return (
                     <div
                       key={day.dateStr}
@@ -3571,6 +3651,9 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
           );
 
         })}
+        </div>
+        {viewMode === 'card' && <aside className="month-day-panel">{cardPanel}</aside>}
+        </div>
         </div>
       </div>
 
