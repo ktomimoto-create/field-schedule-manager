@@ -1518,7 +1518,23 @@ frontend/public/_sandbox/${viewDate}.json を置いてください。`);
                   {showUserMenu && (
                     <div className="user-menu-dropdown">
                       <div className="user-menu-info">
-                        <p className="user-menu-name">{user.user_metadata?.full_name || 'ユーザー'}</p>
+                        <div className="user-menu-name-row">
+                          <p className="user-menu-name">{user.user_metadata?.full_name || 'ユーザー'}</p>
+                          <button
+                            type="button"
+                            role="switch"
+                            aria-checked={theme === 'dark'}
+                            className={`theme-switch${theme === 'dark' ? ' is-dark' : ''}`}
+                            onClick={e => {
+                              e.stopPropagation();
+                              setTheme(theme === 'light' ? 'dark' : 'light');
+                            }}
+                            title={theme === 'light' ? 'ダークモードにする' : 'ライトモードにする'}
+                            aria-label="ダークモード"
+                          >
+                            <span className="theme-switch-knob">{theme === 'dark' ? <Moon size={12} /> : <Sun size={12} />}</span>
+                          </button>
+                        </div>
                         <p className="user-menu-email">{user.email}</p>
                         <p className="user-menu-role">権限: {currentUserRole === 'developer' ? '開発者' : currentUserRole === 'manager' ? '予定管理者' : '一般作業者'}</p>
                       </div>
@@ -1556,17 +1572,6 @@ frontend/public/_sandbox/${viewDate}.json を置いてください。`);
                           <span>設定（マスタ管理）</span>
                         </button>
                       )}
-                      <button
-                        type="button"
-                        className="user-menu-item menu-action"
-                        onClick={e => {
-                          e.stopPropagation();
-                          setTheme(theme === 'light' ? 'dark' : 'light');
-                        }}
-                      >
-                        {theme === 'light' ? <Moon size={16} /> : <Sun size={16} />}
-                        <span>{theme === 'light' ? 'ダークモードにする' : 'ライトモードにする'}</span>
-                      </button>
                       <button
                         type="button"
                         className="user-menu-item menu-action"

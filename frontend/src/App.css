@@ -904,3 +904,55 @@
   font-size: 0.7rem;
   line-height: 1.4;
 }
+
+/* アカウントのメニュー: 名前の横のテーマ切り替えスイッチ（右＝ダーク） */
+.user-menu-name-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.theme-switch {
+  position: relative;
+  flex-shrink: 0;
+  width: 44px;
+  height: 24px;
+  padding: 0;
+  border: 1px solid var(--border-glass);
+  border-radius: 999px;
+  background: #fde68a;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+.theme-switch.is-dark {
+  background: #334155;
+}
+.theme-switch-knob {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #fff;
+  color: #d97706;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+  transition: left 0.15s ease;
+}
+.theme-switch.is-dark .theme-switch-knob {
+  left: 22px;
+  background: #0f172a;
+  color: #facc15;
+}
+
+/* 操作ガイドなどが使っていて未定義だった色の変数を、テーマの色に結び付ける
+   （未定義だと白に戻り、ダークモードで白地に白い文字になっていた） */
+:root,
+.dark-theme {
+  --bg-card: var(--bg-secondary);
+  --bg-header: var(--bg-column-header);
+  --border-color: var(--border-glass);
+}
