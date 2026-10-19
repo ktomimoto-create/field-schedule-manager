@@ -13,7 +13,7 @@ const PROGRESS_LABEL: Record<Progress, string> = { todo: '未着手', working: '
 /** 訪問カードの中身（カード表示と時間軸で共通）:
  *  1 行目 番号・号機・時間指定・種別 ／ 2 行目 物件名 ／ 3 行目 作業内容の要約 ／ 4 行目 エリア・県別
  *  番号の丸の色が対応状況（未着手＝紫・対応中＝赤・完了＝緑）。種別は種類ごとの色。「必ず」はオレンジ */
-export const VisitCardBody: React.FC<{ schedule: Schedule; no: number; progress: Progress; lock?: boolean; timeOverride?: string; grip?: boolean; place?: string }> = ({ schedule: s, no, progress, lock, timeOverride, grip, place: placeProp }) => {
+export const VisitCardBody: React.FC<{ schedule: Schedule; no: number; noLabel?: string; progress: Progress; lock?: boolean; timeOverride?: string; grip?: boolean; place?: string }> = ({ schedule: s, no, noLabel, progress, lock, timeOverride, grip, place: placeProp }) => {
   const time = normalizeTargetTime(s.target_time);
   const summary = summarizeDescription(s.description);
   const place = placeProp ?? [s.prefecture, s.area].filter(Boolean).join(' ');
@@ -21,7 +21,7 @@ export const VisitCardBody: React.FC<{ schedule: Schedule; no: number; progress:
     <>
       <div className="lane-card-top">
         {grip && <GripVertical size={12} className="lane-grip" />}
-        <span className={`lane-no p-${progress}`} title={PROGRESS_LABEL[progress]}>{no}</span>
+        <span className={`lane-no p-${progress}`} title={PROGRESS_LABEL[progress]}>{noLabel ?? no}</span>
         <span className="lane-unit">{s.unit_number || ''}</span>
         {time === '必ず' ? <span className="lane-must">必ず</span> : (time || timeOverride) ? <span className={`lane-time${time ? ' is-set' : ''}`}>{time || timeOverride}</span> : null}
         {s.status === 'draft' && <span className="lane-draft">仮</span>}

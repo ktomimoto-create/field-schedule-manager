@@ -313,3 +313,12 @@
   color: var(--text-muted);
   font-weight: 400;
 }
+/* 号機は識別の文字なので「…」で切らない（狭いカードでは右の時間・種別の方が隠れる） */
+.lane-card-top {
+  overflow: hidden;
+}
+.lane-card-top .lane-unit {
+  flex-shrink: 0;
+  overflow: visible;
+  text-overflow: clip;
+}

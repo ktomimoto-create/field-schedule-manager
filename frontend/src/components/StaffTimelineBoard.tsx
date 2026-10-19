@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { CarFront, Footprints, Route, TrainFront } from 'lucide-react';
+import { CarFront, Footprints, Route, TrainFront, UtensilsCrossed } from 'lucide-react';
 import type { Schedule, Staff } from '../types';
 import { compareSchedules, normalizeTargetTime } from '../types';
 import { hmToMin, parseTimeSlot, progressOf, statusMeta } from '../utils/scheduleDisplay';
@@ -21,6 +21,9 @@ import './StaffTimelineBoard.css';
 type LockInfo = { userEmail: string; userName: string; startedAt: number; sessionId?: string; mode?: string };
 
 const DAY_START = 9 * 60;
+/** 昼休憩 60 分（12:00 以降、最初に手が空いたところで取る） */
+const LUNCH_FROM = 12 * 60;
+const LUNCH_MIN = 60;
 /** 重ねたカードをずらす量（px）。3 枚目以降は同じ位置 */
 const STACK_SHIFT = 6;
 const STACK_MAX = 2;
@@ -53,6 +56,8 @@ interface Placed {
   stackSize: number;
   /** 重なりの組の目印（先頭の訪問の id） */
   stackKey: string;
+  /** 重ねているときに先頭のカードへ出す番号（例「1〜3」） */
+  stackLabel: string;
 }
 
 interface Row {
@@ -69,6 +74,8 @@ interface Row {
   travelBest: number;
   bestOrder: Schedule[];
   mode: TravelMode;
+  /** 昼休憩（取った位置）。午前で終わる人は無し */
+  lunch: [number, number] | null;
   done: number;
   live: number;
 }
@@ -102,6 +109,8 @@ export const StaffTimelineBoard: React.FC<Props> = ({ schedules, staff, date, ca
   const [busy, setBusy] = useState(false);
   // 横に広げている重なりの組（クリックで広げる・もう一度か外をクリックで閉じる）
   const [spread, setSpread] = useState<string | null>(null);
+  // 広げた重なりの中でのドラッグ並べ替え
+  const [dragId, setDragId] = useState<number | string | null>(null);
   useEffect(() => {
     if (!spread) return;
     const close = (e: MouseEvent) => {
@@ -156,6 +165,7 @@ export const StaffTimelineBoard: React.FC<Props> = ({ schedules, staff, date, ca
       let cursor = depart;
       let here: LatLng | null = base;
       let prevS: Schedule | null = null;
+      let lunch: [number, number] | null = null;
       const placed: Placed[] = g.items.map((s, i) => {
         const slot = parseTimeSlot(s.target_time);
         const pos = posOf(s);
@@ -163,6 +173,12 @@ export const StaffTimelineBoard: React.FC<Props> = ({ schedules, staff, date, ca
         const leg = same ? { min: 0, kind: 'same' as LegKind } : travelLeg(here, pos, mode);
         const move = leg.min;
         prevS = s;
+        // 昼休憩: 12:00 を過ぎて手が空いたとき（または次の移動で 12:00 をまたぐとき）に 60 分
+        if (!lunch && cursor + move > LUNCH_FROM) {
+          const ls = Math.max(cursor, LUNCH_FROM);
+          lunch = [ls, ls + LUNCH_MIN];
+          cursor = ls + LUNCH_MIN;
+        }
         const waitFrom = cursor;
         const arrive = cursor + move;
         let start: number;
@@ -179,7 +195,7 @@ export const StaffTimelineBoard: React.FC<Props> = ({ schedules, staff, date, ca
         const late = !!slot && ((slot.kind === 'until' && end > slot.to) || (slot.kind === 'at' && arrive > slot.from && !same));
         cursor = Math.max(cursor, end);
         here = pos ?? here;
-        return { schedule: s, no: i + 1, start, end, estimated, late, move, legKind: leg.kind, waitFrom, stackIndex: 0, stackSize: 1, stackKey: String(s.id) };
+        return { schedule: s, no: i + 1, start, end, estimated, late, move, legKind: leg.kind, waitFrom, stackIndex: 0, stackSize: 1, stackKey: String(s.id), stackLabel: String(i + 1) };
       });
       const live = g.items.filter(x => x.status !== 'cancelled');
       const bestOrder = [...planRoute(live, posOf, base, depart, mode), ...g.items.filter(x => x.status === 'cancelled')];
@@ -191,7 +207,9 @@ export const StaffTimelineBoard: React.FC<Props> = ({ schedules, staff, date, ca
       const closeGroup = () => group.forEach((p, k) => {
         p.stackIndex = k;
         p.stackSize = group.length;
-        p.stackKey = String(group[0].schedule.id);
+        p.stackKey = `${g.key}@${Math.min(...group.map(x => x.start))}`;
+        const nos = group.map(x => x.no);
+        p.stackLabel = group.length > 1 ? `${Math.min(...nos)}〜${Math.max(...nos)}` : String(p.no);
       });
       [...placed].sort((a, b) => a.start - b.start).forEach(p => {
         if (p.start >= groupEnd) {
@@ -214,6 +232,7 @@ export const StaffTimelineBoard: React.FC<Props> = ({ schedules, staff, date, ca
         travelBest,
         bestOrder,
         mode,
+        lunch,
         done: g.items.filter(x => x.result === '完了').length,
         live: g.items.filter(x => x.status !== 'cancelled').length,
       });
@@ -365,6 +384,18 @@ export const StaffTimelineBoard: React.FC<Props> = ({ schedules, staff, date, ca
             >
               出動
             </span>
+            {r.lunch && (
+              <span
+                className="stl-lunch"
+                style={{ left: `${pct(r.lunch[0])}%`, width: `${pct(r.lunch[1]) - pct(r.lunch[0])}%`, top: MOVE_Y }}
+                title={`昼休憩 ${fmt(r.lunch[0])}〜${fmt(r.lunch[1])}（60 分）`}
+              >
+                <span>
+                  <UtensilsCrossed size={10} />
+                  昼
+                </span>
+              </span>
+            )}
             {r.placed.map(p => {
               const s = p.schedule;
               const meta = statusMeta(s.status);
@@ -410,6 +441,28 @@ export const StaffTimelineBoard: React.FC<Props> = ({ schedules, staff, date, ca
                 <div
                   className={`lane-card stl-card tone-${meta.tone} p-${progress}${isDone ? ' is-done' : ''}${p.estimated ? ' is-est' : ''}${p.late ? ' is-late' : ''}${k > 0 && !isSpread ? ' is-stacked' : ''}${p.stackSize > 1 ? ' in-stack' : ''}${isSpread ? ' is-spread' : ''}`}
                   style={{ left, width: `calc(${w}% - 4px)`, top, zIndex: isSpread ? 30 + k : 1 + k }}
+                  draggable={isSpread && canEdit && !!onReorder}
+                  onDragStart={e => {
+                    setDragId(s.id);
+                    e.dataTransfer.effectAllowed = 'move';
+                  }}
+                  onDragOver={e => {
+                    if (isSpread && dragId != null && dragId !== s.id) e.preventDefault();
+                  }}
+                  onDrop={e => {
+                    e.preventDefault();
+                    if (!onReorder || dragId == null || dragId === s.id) return;
+                    // 広げた組の中で、落とした位置へ入れ替える（行全体の順番として保存）
+                    const list = r.placed.map(x => x.schedule);
+                    const from = list.findIndex(x => x.id === dragId);
+                    const to = list.findIndex(x => x.id === s.id);
+                    if (from < 0 || to < 0) return;
+                    const [moved] = list.splice(from, 1);
+                    list.splice(to, 0, moved);
+                    setDragId(null);
+                    void onReorder(list.map((x, i) => ({ id: x.id, sort_order: i })));
+                  }}
+                  onDragEnd={() => setDragId(null)}
                   onClick={e => {
                     // 重なっているときは 1 クリックで横に広げる／閉じる（ダブルクリックの 2 回目は数えない）
                     if (p.stackSize < 2 || e.detail > 1) return;
@@ -423,9 +476,18 @@ export const StaffTimelineBoard: React.FC<Props> = ({ schedules, staff, date, ca
                     }
                     onOpenEditModal(s);
                   }}
-                  title={`${p.no}. ${time || '時間指定なし'}（${p.estimated ? '見込み ' : ''}${fmt(p.start)}〜${fmt(p.end)}）${p.late ? '\n赤い枠: 指定の時刻・締切に間に合わない見込み' : ''}\n${s.unit_number || ''} ${s.property_name}\n${s.work_type || ''} ${s.description || ''}${canEdit ? '\nダブルクリックで編集' : ''}`}
+                  title={`${p.no}. ${time || '時間指定なし'}（${p.estimated ? '見込み ' : ''}${fmt(p.start)}〜${fmt(p.end)}）${p.late ? '\n赤い枠: 指定の時刻・締切に間に合わない見込み' : ''}\n${s.unit_number || ''} ${s.property_name}\n${s.work_type || ''} ${s.description || ''}${p.stackSize > 1 ? (isSpread ? '\n広げた中はドラッグで並べ替え' : '\nクリックで重なりを広げる') : ''}${canEdit ? '\nダブルクリックで編集' : ''}`}
                 >
-                  <VisitCardBody schedule={s} no={p.no} progress={progress} lock={!!lock} timeOverride={fmt(p.start)} place={placeOf(s)} />
+                  <VisitCardBody
+                    schedule={s}
+                    no={p.no}
+                    noLabel={p.stackSize > 1 && !isSpread && k === p.stackSize - 1 ? p.stackLabel : undefined}
+                    progress={progress}
+                    lock={!!lock}
+                    timeOverride={fmt(p.start)}
+                    place={placeOf(s)}
+                    grip={isSpread && canEdit && !!onReorder}
+                  />
                   {k === p.stackSize - 1 && p.stackSize > 1 && !isSpread && (
                     <span className="stl-stack-count" title={`この時間帯に ${p.stackSize} 件重なっています。クリックで横に広げます`}>{p.stackSize}件</span>
                   )}

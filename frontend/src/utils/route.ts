@@ -114,7 +114,13 @@ export const planRoute = (items: Schedule[], posOf: (s: Schedule) => LatLng | nu
   let t = departMin;
   let here: LatLng | null = base;
   const rest = [...known];
+  let lunch = false;
   while (rest.length) {
+    // 昼休憩 60 分（12:00 を過ぎて手が空いたところで取る）
+    if (!lunch && t >= 12 * 60) {
+      t += 60;
+      lunch = true;
+    }
     const cand = rest.map((s, idx) => {
       const slot = parseTimeSlot(s.target_time);
       const move = here ? travelMin(here, posOf(s), mode) : MOVE_UNKNOWN_MIN;
