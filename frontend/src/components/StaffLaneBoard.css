@@ -337,3 +337,46 @@
 .lane-card > * {
   flex-shrink: 0;
 }
+/* ===== シンプルにした 1 行目（2026-10-19）: 番号・号機・時間・種別のアイコンを 1 行に。折り返さない ===== */
+.lane-card-top {
+  flex-wrap: nowrap;
+  height: 18px;
+  overflow: hidden;
+}
+.lane-wt-icon {
+  --wt: #64748b;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  margin-left: auto;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--wt) 16%, transparent);
+  color: var(--wt);
+}
+.lane-wt-icon.wt-fault { --wt: #ea580c; }
+.lane-wt-icon.wt-second { --wt: #9333ea; }
+.lane-wt-icon.wt-approved { --wt: #db2777; }
+.lane-wt-icon.wt-construct { --wt: #2563eb; }
+.lane-wt-icon.wt-install { --wt: #4f46e5; }
+.lane-wt-icon.wt-periodic { --wt: #0891b2; }
+.lane-wt-icon.wt-survey { --wt: #a16207; }
+.dark-theme .lane-wt-icon.wt-fault { --wt: #fb923c; }
+.dark-theme .lane-wt-icon.wt-second { --wt: #c084fc; }
+.dark-theme .lane-wt-icon.wt-approved { --wt: #f472b6; }
+.dark-theme .lane-wt-icon.wt-construct { --wt: #60a5fa; }
+.dark-theme .lane-wt-icon.wt-install { --wt: #818cf8; }
+.dark-theme .lane-wt-icon.wt-periodic { --wt: #22d3ee; }
+.dark-theme .lane-wt-icon.wt-survey { --wt: #facc15; }
+.lane-card-top .lane-time,
+.lane-card-top .lane-must {
+  flex-shrink: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+/* 仮の予定は点線の枠（「仮」の文字は出さない） */
+.lane-card.tone-draft {
+  border-style: dashed;
+}

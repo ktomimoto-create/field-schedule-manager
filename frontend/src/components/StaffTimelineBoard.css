@@ -348,3 +348,14 @@
   line-height: 1.4;
   white-space: nowrap;
 }
+/* 担当の欄の数字と「分」「件」を別の行に分けない */
+.stl-row .lane-meta,
+.stl-travel,
+.stl-travel > span {
+  white-space: nowrap;
+}
+.stl-travel > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}

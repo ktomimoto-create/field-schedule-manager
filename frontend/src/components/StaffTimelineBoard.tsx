@@ -1,11 +1,11 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { CarFront, Footprints, Route, TrainFront, UtensilsCrossed } from 'lucide-react';
 import type { Schedule, Staff } from '../types';
-import { compareSchedules, normalizeTargetTime } from '../types';
+import { compareSchedules, findStaffByName, normalizeTargetTime } from '../types';
 import { hmToMin, parseTimeSlot, progressOf, statusMeta } from '../utils/scheduleDisplay';
 import { jstHm, type FeEvent } from '../utils/feEvents';
 import { StaffAvatar } from './ScheduleCards';
-import { VisitCardBody } from './StaffLaneBoard';
+import { UNASSIGNED, VisitCardBody } from './StaffLaneBoard';
 import { usePlaceLabel } from '../utils/usePlaceLabel';
 import { ProgressMenu, type StatusHistoryItem } from './ProgressMenu';
 import type { Progress } from '../utils/scheduleDisplay';
@@ -146,8 +146,9 @@ export const StaffTimelineBoard: React.FC<Props> = ({ schedules, staff, date, ca
   const rows = useMemo<Row[]>(() => {
     const map = new Map<string, { key: string; name: string; member?: Staff; course: number; items: Schedule[] }>();
     for (const s of schedules) {
-      const member = staff.find(st => st.id === s.staff_id);
-      const name = member ? member.name : s.staff_name || '未設定';
+      // 担当の ID が無くても、名前がマスタの人に当たればその人（例: 高田）
+      const member = staff.find(st => st.id === s.staff_id) ?? findStaffByName(staff, s.staff_name);
+      const name = member ? member.name : s.staff_name || UNASSIGNED;
       const key = member ? `id-${member.id}` : `n-${name}`;
       if (!map.has(key)) {
         const c = Number(member?.default_course ?? s.course);
@@ -180,6 +181,12 @@ export const StaffTimelineBoard: React.FC<Props> = ({ schedules, staff, date, ca
       let here: LatLng | null = base;
       let prevS: Schedule | null = null;
       let lunch: [number, number] | null = null;
+      // 時刻指定（10:00 など）の訪問はその時間を押さえておき、時間指定の無い訪問はそこを避けて空いた所に置く
+      const fixed = g.items
+        .filter(x => x.status !== 'cancelled')
+        .map(x => ({ s: x, slot: parseTimeSlot(x.target_time) }))
+        .filter(x => x.slot?.kind === 'at')
+        .map(x => ({ s: x.s, from: x.slot!.from, to: x.slot!.from + WORK_MIN }));
       const placed: Placed[] = g.items.map((s, i) => {
         const slot = parseTimeSlot(s.target_time);
         const pos = posOf(s);
@@ -204,6 +211,14 @@ export const StaffTimelineBoard: React.FC<Props> = ({ schedules, staff, date, ca
           start = slot.from;
         } else {
           start = Math.max(arrive, slot.from);
+        }
+        if (!slot || slot.kind !== 'at') {
+          for (let guard = 0; guard < 10; guard++) {
+            const hit = fixed.find(f => f.s.id !== s.id && start < f.to && start + WORK_MIN > f.from);
+            if (!hit) break;
+            const after = sameBuilding(hit.s, s) ? 0 : travelLeg(posOf(hit.s), pos, mode).min;
+            start = hit.to + after;
+          }
         }
         const end = start + WORK_MIN;
         const late = !!slot && ((slot.kind === 'until' && end > slot.to) || (slot.kind === 'at' && arrive > slot.from && !same));
@@ -251,7 +266,8 @@ export const StaffTimelineBoard: React.FC<Props> = ({ schedules, staff, date, ca
         live: g.items.filter(x => x.status !== 'cancelled').length,
       });
     }
-    return out.sort((a, b) => a.course - b.course || a.name.localeCompare(b.name, 'ja'));
+    // 時間軸は自社の技術員（マスタに登録のある人）だけ。協力会社・担当未定は出さない
+    return out.filter(r => r.member).sort((a, b) => a.course - b.course || a.name.localeCompare(b.name, 'ja'));
   }, [schedules, staff, feEvents, date, sitePos, reservations]);
 
   // 実績（FE のボタン記録・開始/完了時刻）
@@ -292,6 +308,8 @@ export const StaffTimelineBoard: React.FC<Props> = ({ schedules, staff, date, ca
     return byId;
   }, [feEvents, schedules, date]);
 
+  // 時間軸に出さない予定（協力会社・担当未定）
+  const hiddenCount = schedules.filter(x => x.status !== 'cancelled' && !(staff.find(st => st.id === x.staff_id) ?? findStaffByName(staff, x.staff_name))).length;
   if (rows.length === 0) return <div className="lane-empty">登録された予定はありません</div>;
 
   let start = 8 * 60;
@@ -337,7 +355,7 @@ export const StaffTimelineBoard: React.FC<Props> = ({ schedules, staff, date, ca
         <span><i className="stl-lg is-move" />移動（実績）</span>
         <span><i className="stl-lg is-work" />作業（実績）</span>
         {showNow && <span><i className="stl-lg is-now" />いま</span>}
-        <span className="stl-note">出動から 1 件 {WORK_MIN} 分・移動は距離からの見込み（Fun-navi の予約がある人・専用車の人は車、それ以外は電車・徒歩）＋10 分で置いています{reservations == null && '（予約を読めないため専用車の人だけ車）'}</span>
+        <span className="stl-note">出動から 1 件 {WORK_MIN} 分・移動は距離からの見込み（Fun-navi の予約がある人・専用車の人は車、それ以外は電車・徒歩）＋10 分で置いています{reservations == null && '（予約を読めないため専用車の人だけ車）'}{hiddenCount > 0 && `。協力会社・${UNASSIGNED}の ${hiddenCount} 件はカード表示だけに出しています`}</span>
         {canRoute && (
           <button
             type="button"

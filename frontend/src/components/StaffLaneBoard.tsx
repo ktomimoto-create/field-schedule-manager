@@ -1,7 +1,7 @@
 import React, { useCallback, useMemo, useState } from 'react';
-import { GripVertical, Lock } from 'lucide-react';
+import { BadgeCheck, CalendarClock, ClipboardList, HardHat, Lock, PackagePlus, Repeat2, Tag, TriangleAlert, type LucideIcon } from 'lucide-react';
 import type { Schedule, Staff } from '../types';
-import { compareSchedules, normalizeTargetTime } from '../types';
+import { compareSchedules, findStaffByName, normalizeTargetTime } from '../types';
 import { progressOf, statusMeta, summarizeDescription, workTypeKey, type Progress } from '../utils/scheduleDisplay';
 import type { FeEvent } from '../utils/feEvents';
 import { StaffAvatar } from './ScheduleCards';
@@ -9,24 +9,44 @@ import { usePlaceLabel } from '../utils/usePlaceLabel';
 import { ProgressMenu, type StatusHistoryItem } from './ProgressMenu';
 import './StaffLaneBoard.css';
 
+/** 担当が入っていない予定のまとめ */
+export const UNASSIGNED = '担当未定';
+
 const PROGRESS_LABEL: Record<Progress, string> = { todo: '未着手', working: '対応中', done: '完了' };
 
+/** 種別のアイコン（色は種類ごと。赤・緑は使わない）。名前はカーソルを乗せると出る */
+const WT_ICON: Record<string, LucideIcon> = {
+  fault: TriangleAlert,
+  second: Repeat2,
+  approved: BadgeCheck,
+  construct: HardHat,
+  install: PackagePlus,
+  periodic: CalendarClock,
+  survey: ClipboardList,
+  other: Tag,
+};
+
 /** 訪問カードの中身（カード表示と時間軸で共通）:
- *  1 行目 番号・号機・時間指定・種別 ／ 2 行目 物件名 ／ 3 行目 作業内容の要約 ／ 4 行目 エリア・県別
- *  番号の丸の色が対応状況（未着手＝紫・対応中＝赤・完了＝緑）。種別は種類ごとの色。「必ず」はオレンジ */
+ *  1 行目 番号・号機・時間指定・種別のアイコン ／ 2 行目 物件名 ／ 3 行目 作業内容の要約 ／ 4 行目 エリア・県別
+ *  番号の丸の色が対応状況（未着手＝紫・対応中＝赤・完了＝緑）。種別は種類ごとの色のアイコン。「必ず」はオレンジ。仮の予定は点線の枠 */
 export const VisitCardBody: React.FC<{ schedule: Schedule; no: number; noLabel?: string; progress: Progress; lock?: boolean; timeOverride?: string; grip?: boolean; place?: string }> = ({ schedule: s, no, noLabel, progress, lock, timeOverride, grip, place: placeProp }) => {
   const time = normalizeTargetTime(s.target_time);
   const summary = summarizeDescription(s.description);
   const place = placeProp ?? [s.prefecture, s.area].filter(Boolean).join(' ');
+  const wtKey = workTypeKey(s.work_type);
+  const WtIcon = WT_ICON[wtKey];
+  void grip; // ドラッグはカード全体で受ける（つまみのアイコンは出さない）
   return (
     <>
       <div className="lane-card-top">
-        {grip && <GripVertical size={12} className="lane-grip" />}
         <span className={`lane-no p-${progress}`} title={PROGRESS_LABEL[progress]}>{noLabel ?? no}</span>
         <span className="lane-unit">{s.unit_number || ''}</span>
         {time === '必ず' ? <span className="lane-must">必ず</span> : (time || timeOverride) ? <span className={`lane-time${time ? ' is-set' : ''}`}>{time || timeOverride}</span> : null}
-        {s.status === 'draft' && <span className="lane-draft">仮</span>}
-        {s.work_type && <span className={`lane-wt wt-${workTypeKey(s.work_type)}`}>{s.work_type}</span>}
+        {s.work_type && WtIcon && (
+          <span className={`lane-wt-icon wt-${wtKey}`} title={s.work_type} aria-label={s.work_type}>
+            <WtIcon size={12} />
+          </span>
+        )}
         {lock && <Lock size={12} className="lane-lock" />}
       </div>
       <div className="lane-property">{s.property_name}</div>
@@ -80,8 +100,9 @@ export const StaffLaneBoard: React.FC<Props> = ({ schedules, staff, canEdit, act
   const lanes = useMemo<Lane[]>(() => {
     const map = new Map<string, Lane>();
     for (const s of schedules) {
-      const member = staff.find(st => st.id === s.staff_id);
-      const name = member ? member.name : s.staff_name || '未設定';
+      // 担当の ID が無くても、名前がマスタの人に当たればその人（例: 高田）
+      const member = staff.find(st => st.id === s.staff_id) ?? findStaffByName(staff, s.staff_name);
+      const name = member ? member.name : s.staff_name || UNASSIGNED;
       const key = member ? `id-${member.id}` : `n-${name}`;
       if (!map.has(key)) {
         const c = Number(member?.default_course ?? s.course);
@@ -90,7 +111,9 @@ export const StaffLaneBoard: React.FC<Props> = ({ schedules, staff, canEdit, act
       map.get(key)!.items.push(s);
     }
     for (const l of map.values()) l.items.sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0) || compareSchedules(a, b));
-    return [...map.values()].sort((a, b) => a.course - b.course || a.name.localeCompare(b.name, 'ja'));
+    // 自社の技術員（マスタに登録のある人）をコース順 → 協力会社など → 担当未定
+    const rank = (l: Lane) => (l.member ? 0 : l.name === UNASSIGNED ? 2 : 1);
+    return [...map.values()].sort((a, b) => rank(a) - rank(b) || a.course - b.course || a.name.localeCompare(b.name, 'ja'));
   }, [schedules, staff]);
 
   if (lanes.length === 0) return <div className="lane-empty">登録された予定はありません</div>;
