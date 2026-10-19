@@ -72,6 +72,18 @@ export default function TooltipLayer() {
     };
   }, []);
 
+  // 乗せていた要素が画面の切り替えなどで消えたら、吹き出しも消す
+  useEffect(() => {
+    if (!tip) return;
+    const t = window.setInterval(() => {
+      if (!current.current || !current.current.isConnected) {
+        current.current = null;
+        setTip(null);
+      }
+    }, 300);
+    return () => window.clearInterval(t);
+  }, [tip]);
+
   // 画面の端からはみ出さないように横位置をそろえる（描画直後に実寸で直す。state は使わない）
   const boxRef = useRef<HTMLDivElement | null>(null);
   useLayoutEffect(() => {

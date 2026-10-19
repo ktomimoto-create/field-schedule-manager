@@ -2387,3 +2387,6 @@
     max-height: none;
   }
 }
+.cal-icon-btn.is-placeholder {
+  visibility: hidden;
+}

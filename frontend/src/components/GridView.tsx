@@ -4,9 +4,9 @@ import type { Schedule, Staff, UserRole, WorkType } from '../types';
 import { getShortName, cleanMetadata, splitCoWorkers, canManageSchedules, normalizeTargetTime, compareSchedules, toHalfWidth, findStaffByName } from '../types';
 import { buildFcAutofillPatch } from '../utils/fcAutofill';
 
-import { Plus, ChevronLeft, ChevronRight, Calendar as CalendarIcon, Filter, CheckCircle2, Download, Eye, EyeOff, Printer, Lock, ArrowUpDown, RotateCcw, Edit2, LayoutList, ChartGantt, Table2, Columns3, UserRound, CalendarCheck } from 'lucide-react';
+import { Plus, ChevronLeft, ChevronRight, Calendar as CalendarIcon, Filter, CheckCircle2, Download, Printer, Lock, ArrowUpDown, RotateCcw, Edit2, LayoutList, ChartGantt, Table2, Columns3, UserRound, CalendarCheck, WrapText } from 'lucide-react';
 import { PrintPreviewModal } from './PrintPreviewModal';
-import { DayScheduleCards } from './ScheduleCards';
+import { StaffLaneBoard } from './StaffLaneBoard';
 import { ScheduleTimeAxis } from './ScheduleTimeAxis';
 import { TimelineView } from './TimelineView';
 import { jstDate, type FeEvent } from '../utils/feEvents';
@@ -1022,16 +1022,19 @@ export const GridView: React.FC<GridViewProps> = ({
               </button>
             )}
 
-            {viewMode === 'table' && (
-            <button 
-              className={`btn btn-toggle-view ${showFullText ? 'active' : ''}`} 
+            {/* 全文表示（表のときだけ使える。ボタンの位置がずれないよう、表以外でも場所は取っておく） */}
+            <button
+              type="button"
+              className={`btn btn-toggle-view btn-icon-only ${showFullText ? 'active' : ''}${viewMode !== 'table' ? ' is-placeholder' : ''}`}
               onClick={() => setShowFullText(!showFullText)}
-              title={showFullText ? "2〜3行の標準折り返し表示に戻します" : "すべての予定の物件名・作業内容・備考のテキストを折り返して全行展開します"}
+              title={showFullText ? '全文表示中（押すと 2〜3 行の表示に戻す）' : '物件名・作業内容・備考を折り返して全文表示する'}
+              aria-label="全文表示"
+              aria-pressed={showFullText}
+              disabled={viewMode !== 'table'}
+              tabIndex={viewMode !== 'table' ? -1 : 0}
             >
-              {showFullText ? <EyeOff size={15} /> : <Eye size={15} />}
-              <span>{showFullText ? '標準表示に戻す' : '全文表示に切替'}</span>
+              <WrapText size={16} />
             </button>
-            )}
 
             <button 
               className="btn btn-action-excel" 
@@ -1083,13 +1086,13 @@ export const GridView: React.FC<GridViewProps> = ({
             />
           ) : viewMode === 'card' ? (
             <div style={zoomLevel !== 100 ? { zoom: `${zoomLevel}%` } : undefined}>
-              <DayScheduleCards
+              <StaffLaneBoard
                 schedules={sortedSchedules}
                 staff={staff}
                 canEdit={isAdmin}
                 activeLocks={activeLocks}
                 onOpenEditModal={onOpenEditModal}
-                onToggleComplete={handleQuickCompleteToggle}
+                onReorder={onReorder}
               />
             </div>
           ) : (

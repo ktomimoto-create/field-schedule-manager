@@ -1123,3 +1123,15 @@ tr:hover .cell-edit-modal-btn {
 .grid-date-trigger:hover {
   background: var(--bg-card-hover);
 }
+
+/* 全文表示はアイコンだけ。表以外では場所だけ取って見せない（ボタンの位置をずらさない） */
+.grid-actions-right .btn-toggle-view.btn-icon-only {
+  box-sizing: border-box;
+  width: 34px;
+  height: 34px !important;
+  padding: 0 !important;
+  justify-content: center;
+}
+.btn-toggle-view.is-placeholder {
+  visibility: hidden;
+}

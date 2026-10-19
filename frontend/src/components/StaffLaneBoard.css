@@ -1,0 +1,186 @@
+/* 予定表のカード表示: 1 人 1 行、訪問を順番どおり横に並べる */
+
+.lane-board {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 6px 8px 10px;
+  line-height: 1.4;
+}
+.lane-empty {
+  padding: 3rem 1rem;
+  text-align: center;
+  color: var(--text-muted);
+}
+.lane-row {
+  display: grid;
+  grid-template-columns: 150px minmax(0, 1fr);
+  align-items: stretch;
+  border: 1px solid var(--border-glass);
+  border-radius: var(--radius-sm);
+  background: var(--bg-secondary);
+  overflow: hidden;
+}
+.lane-person {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-right: 1px solid var(--border-glass);
+  background: var(--bg-column-header);
+}
+.lane-person-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.lane-name {
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+.lane-meta {
+  color: var(--text-muted);
+  font-size: 0.72rem;
+}
+.lane-meta b {
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+/* 訪問のカード（横に並べ、入らなければ行の中だけ横にスクロール） */
+.lane-cards {
+  display: flex;
+  gap: 6px;
+  padding: 6px 8px;
+  overflow-x: auto;
+  min-width: 0;
+}
+.lane-card {
+  flex: 0 0 190px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 6px 8px;
+  border: 1px solid var(--border-glass);
+  border-bottom: 3px solid var(--tone);
+  border-radius: 6px;
+  background: var(--bg-primary);
+  cursor: default;
+}
+.lane-card[draggable='true'] {
+  cursor: grab;
+}
+.lane-card.tone-confirmed,
+.lane-card.tone-draft {
+  background: linear-gradient(var(--tone-bg), var(--tone-bg)), var(--bg-primary);
+}
+.lane-card.tone-cancelled {
+  opacity: 0.5;
+}
+.lane-card.tone-cancelled .lane-property {
+  text-decoration: line-through;
+}
+.lane-card.is-done {
+  opacity: 0.6;
+}
+.lane-card.is-drop {
+  box-shadow: -3px 0 0 var(--primary);
+}
+.lane-card:hover {
+  box-shadow: 0 0 0 1px rgba(79, 70, 229, 0.3), 0 4px 12px rgba(79, 70, 229, 0.12);
+}
+.lane-card-top {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.75rem;
+}
+.lane-grip {
+  flex-shrink: 0;
+  color: var(--text-muted);
+}
+.lane-no {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  min-width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  background: var(--tone);
+  color: #fff;
+  font-size: 0.68rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.lane-time {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.lane-time.is-must {
+  color: var(--danger);
+}
+.lane-unit {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+.lane-done {
+  margin-left: auto;
+  color: #059669;
+}
+.lane-lock {
+  margin-left: auto;
+  color: var(--danger);
+}
+/* 物件名は識別テキストなので省略せず、2 行まで折り返す（それ以上は吹き出しで全文） */
+.lane-property {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  font-size: 0.82rem;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+.lane-card-bottom {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  margin-top: auto;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+.lane-badge {
+  display: inline-flex;
+  align-items: center;
+  box-sizing: border-box;
+  height: 20px;
+  padding: 0 6px;
+  border: 1px solid var(--border-glass);
+  border-radius: 999px;
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  font-weight: 600;
+  white-space: nowrap;
+}
+.lane-area {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.lane-summary {
+  padding: 4px 4px 0;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  text-align: right;
+}
+.lane-summary b {
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+}

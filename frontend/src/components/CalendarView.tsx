@@ -2643,10 +2643,12 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                 <Table2 size={16} />
               </button>
             </div>
-            {viewMode === 'table' && (
+            {/* 全文表示（表のときだけ。位置がずれないよう、カードでも場所は取っておく） */}
             <button
               type="button"
-              className={`cal-icon-btn ${showFullText ? 'active' : ''}`}
+              className={`cal-icon-btn ${showFullText ? 'active' : ''}${viewMode !== 'table' ? ' is-placeholder' : ''}`}
+              disabled={viewMode !== 'table'}
+              tabIndex={viewMode !== 'table' ? -1 : 0}
               onClick={() => setShowFullText(!showFullText)}
               title={showFullText ? '全文表示中（押すと 2〜3 行の表示に戻す）' : '物件名・作業内容・備考を折り返して全文表示する'}
               aria-label="全文表示"
@@ -2654,7 +2656,6 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
             >
               <WrapText size={16} />
             </button>
-            )}
             <button
               type="button"
               className="cal-icon-btn"
