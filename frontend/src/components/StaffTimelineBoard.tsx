@@ -226,6 +226,10 @@ export const StaffTimelineBoard: React.FC<Props> = ({ schedules, staff, date, ca
         here = pos ?? here;
         return { schedule: s, no: i + 1, start, end, estimated, late, move, legKind: leg.kind, waitFrom, stackIndex: 0, stackSize: 1, stackKey: String(s.id), stackLabel: String(i + 1) };
       });
+      // 番号は実際に回る順（時刻の早い順）。行動予定表の行の順と違っても、時間軸では回る順で数える
+      [...placed].sort((a, b) => a.start - b.start || a.no - b.no).forEach((p, k) => {
+        p.no = k + 1;
+      });
       const live = g.items.filter(x => x.status !== 'cancelled');
       const bestOrder = [...planRoute(live, posOf, base, depart, mode), ...g.items.filter(x => x.status === 'cancelled')];
       const travelNow = totalTravel(live, posOf, base, mode);
