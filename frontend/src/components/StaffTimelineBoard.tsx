@@ -525,7 +525,6 @@ export const StaffTimelineBoard: React.FC<Props> = ({ schedules, staff, date, ca
                     noLabel={p.stackSize > 1 && !isSpread && k === p.stackSize - 1 ? p.stackLabel : undefined}
                     progress={progress}
                     lock={!!lock}
-                    timeOverride={fmt(p.start)}
                     place={placeOf(s)}
                     grip={isSpread && canEdit && !!onReorder}
                   />

@@ -27,7 +27,7 @@ const WT_ICON: Record<string, LucideIcon> = {
 };
 
 /** 訪問カードの中身（カード表示と時間軸で共通）:
- *  1 行目 番号・号機・時間指定・種別のアイコン ／ 2 行目 物件名 ／ 3 行目 作業内容の要約 ／ 4 行目 エリア・県別
+ *  1 行目 番号・号機・時間指定 ／ 2 行目 種別のアイコン・物件名 ／ 3 行目 作業内容の要約 ／ 4 行目 エリア・県別
  *  番号の丸の色が対応状況（未着手＝紫・対応中＝赤・完了＝緑）。種別は種類ごとの色のアイコン。「必ず」はオレンジ。仮の予定は点線の枠 */
 export const VisitCardBody: React.FC<{ schedule: Schedule; no: number; noLabel?: string; progress: Progress; lock?: boolean; timeOverride?: string; grip?: boolean; place?: string }> = ({ schedule: s, no, noLabel, progress, lock, timeOverride, grip, place: placeProp }) => {
   const time = normalizeTargetTime(s.target_time);
@@ -42,14 +42,16 @@ export const VisitCardBody: React.FC<{ schedule: Schedule; no: number; noLabel?:
         <span className={`lane-no p-${progress}`} title={PROGRESS_LABEL[progress]}>{noLabel ?? no}</span>
         <span className="lane-unit">{s.unit_number || ''}</span>
         {time === '必ず' ? <span className="lane-must">必ず</span> : (time || timeOverride) ? <span className={`lane-time${time ? ' is-set' : ''}`}>{time || timeOverride}</span> : null}
+        {lock && <Lock size={12} className="lane-lock" />}
+      </div>
+      <div className="lane-property-row">
         {s.work_type && WtIcon && (
           <span className={`lane-wt-icon wt-${wtKey}`} title={s.work_type} aria-label={s.work_type}>
             <WtIcon size={12} />
           </span>
         )}
-        {lock && <Lock size={12} className="lane-lock" />}
+        <span className="lane-property">{s.property_name}</span>
       </div>
-      <div className="lane-property">{s.property_name}</div>
       <div className="lane-summary-line">{summary || '\u00a0'}</div>
       <div className="lane-place">{place || '\u00a0'}</div>
     </>

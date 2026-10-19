@@ -380,3 +380,23 @@
 .lane-card.tone-draft {
   border-style: dashed;
 }
+/* 「必ず」・時刻は縦に折れないよう 1 行のまま（縮めない） */
+.lane-card-top .lane-must,
+.lane-card-top .lane-time {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+/* 2 行目: 種別のアイコン＋物件名 */
+.lane-property-row {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+}
+.lane-property-row .lane-wt-icon {
+  margin-left: 0;
+}
+.lane-property-row .lane-property {
+  flex: 1;
+  min-width: 0;
+}

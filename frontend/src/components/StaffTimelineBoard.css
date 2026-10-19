@@ -359,3 +359,17 @@
   align-items: center;
   gap: 2px;
 }
+/* 1 時間ぶんの幅では 1 行目（番号・号機・時間）が入らないことがあるので、カードは最低 120px。間隔も少し詰める */
+.lane-card.stl-card {
+  min-width: 120px;
+  padding: 6px 6px;
+}
+.lane-card.stl-card .lane-card-top {
+  gap: 4px;
+}
+.lane-card.stl-card {
+  min-width: 136px;
+}
+.lane-card.stl-card .lane-time.is-set {
+  padding: 0 3px;
+}
