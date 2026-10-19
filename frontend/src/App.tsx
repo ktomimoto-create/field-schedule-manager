@@ -142,6 +142,23 @@ frontend/public/_sandbox/${viewDate}.json を置いてください。`);
     });
   };
 
+  // 開発用: お試しモードで、見ている日の予定表が空なら、行動予定表のデータ（あれば）を自動で読み込む（日ごとに 1 回）
+  const autoLoadedDaysRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    if (!sandboxImportEnabled || !isSandboxMode || staff.length === 0 || loading) return;
+    if (autoLoadedDaysRef.current.has(viewDate)) return;
+    if (schedules.some(s => s.date === viewDate && s.is_transferred === 1)) return;
+    autoLoadedDaysRef.current.add(viewDate);
+    void loadSandboxDay(viewDate, staff).then(rows => {
+      if (!rows) return;
+      setSchedules(prev => {
+        const next = [...prev.filter(s => !(s.date === viewDate && s.is_transferred === 1)), ...rows];
+        localStorage.setItem('field_app_sandbox_schedules', JSON.stringify(next));
+        return next;
+      });
+    });
+  }, [isSandboxMode, viewDate, staff, schedules, loading]);
+
   const handleResetSandboxData = async () => {
     const confirmReset = window.confirm(
       "現在のお試しデータを破棄し、最新の本番データ状態でリセットしますか？\n（本番データには一切影響しません）"
