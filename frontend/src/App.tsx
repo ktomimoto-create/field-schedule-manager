@@ -1434,6 +1434,7 @@ function App() {
                     staff={staff}
                     currentStaffId={currentStaffId}
                     isSandbox={isSandboxMode}
+                    isDemoLogin={typeof user?.id === 'string' && user.id.startsWith('demo-')}
                     feEvents={feEvents}
                     feUnavailable={feUnavailable}
                     onRecorded={() => void refreshFeEvents()}

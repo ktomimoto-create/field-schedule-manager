@@ -41,6 +41,8 @@ interface Props {
   staff: Staff[];
   currentStaffId: number | null;
   isSandbox: boolean;
+  /** デモログイン（Supabase のログインなし）。本番の記録は権限で拒否されるので、押す前に案内する */
+  isDemoLogin?: boolean;
   feEvents: FeEvent[];
   feUnavailable: boolean;
   onRecorded: () => void;
@@ -48,7 +50,7 @@ interface Props {
   onUpdateResult: (scheduleId: number | string, result: string, startedAt?: string | null, completedAt?: string | null) => Promise<void>;
 }
 
-export const FeActionView: React.FC<Props> = ({ schedules, staff, currentStaffId, isSandbox, feEvents, feUnavailable, onRecorded, onUpdateResult }) => {
+export const FeActionView: React.FC<Props> = ({ schedules, staff, currentStaffId, isSandbox, isDemoLogin = false, feEvents, feUnavailable, onRecorded, onUpdateResult }) => {
   const [pickedStaffId, setPickedStaffId] = useState<number | null>(null);
   const [query, setQuery] = useState('');
   const [busy, setBusy] = useState(false);
@@ -146,12 +148,16 @@ export const FeActionView: React.FC<Props> = ({ schedules, staff, currentStaffId
 
   const next = day.next;
   const NextIcon = next ? BUTTON[next.kind].icon : CheckCircle2;
-  const disabled = busy || (!isSandbox && feUnavailable) || !next;
+  const blockedDemo = !isSandbox && isDemoLogin;
+  const disabled = busy || (!isSandbox && feUnavailable) || blockedDemo || !next;
   const doneCount = day.visits.filter(v => v.stage === 'done').length;
 
   return (
     <div className="fe-view">
       {isSandbox && <div className="fe-notice is-sandbox">お試しモードです。記録はこの端末の中だけに残り、本番には届きません。</div>}
+      {blockedDemo && (
+        <div className="fe-notice is-warn">デモログインでは本番に記録できません。Microsoft アカウントでログインするか、右上の「お試しモード」で試してください。</div>
+      )}
       {!isSandbox && feUnavailable && (
         <div className="fe-notice is-warn">データベースの準備（fe_events）がまだのため、記録できません。お試しモードでは試せます。</div>
       )}
