@@ -4,13 +4,14 @@ import { GridView } from './components/GridView';
 import { CalendarView } from './components/CalendarView';
 import { TimelineView } from './components/TimelineView';
 import { FeActionView } from './components/FeActionView';
-import { listFeEvents, subscribeSandboxFeEvents, jstDate, type FeEvent } from './utils/feEvents';
+import { DynamicsMapView } from './components/DynamicsMapView';
+import { listFeEvents, listLatestPositions, subscribeSandboxFeEvents, jstDate, type FeEvent, type FePosition } from './utils/feEvents';
 import { MasterManagementView } from './components/MasterManagementView';
 import { AnalyticsView } from './components/AnalyticsView';
 import { ScheduleModal } from './components/ScheduleModal';
 import { PasteImportModal } from './components/PasteImportModal';
 import { HelpGuideModal } from './components/HelpGuideModal';
-import { Calendar, Layers, RefreshCw, AlertCircle, List, Settings, Sun, Moon, BarChart3, HelpCircle, ZoomIn, ZoomOut, Smartphone } from 'lucide-react';
+import { Calendar, Layers, RefreshCw, AlertCircle, List, Settings, Sun, Moon, BarChart3, HelpCircle, ZoomIn, ZoomOut, Smartphone, MapPinned } from 'lucide-react';
 import { supabase, talkScriptSupabase } from './supabaseClient';
 import { resolveAddress } from './utils/addressResolver';
 import { findStaffByName, canManageSchedules, normalizeRole } from './types';
@@ -19,7 +20,7 @@ import './App.css';
 
 
 function App() {
-  const [activeTab, setActiveTab] = useState<'grid' | 'timeline' | 'calendar' | 'master_management' | 'analytics' | 'fe'>('grid');
+  const [activeTab, setActiveTab] = useState<'grid' | 'timeline' | 'calendar' | 'master_management' | 'analytics' | 'fe' | 'map'>('grid');
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
     return (localStorage.getItem('theme') as 'light' | 'dark') || 'light';
   });
@@ -40,18 +41,42 @@ function App() {
   // FE のボタン記録（出発・到着・作業完了など）。直近 8 日分を持ち、本番は 20 秒ごとに取り直す（FE動態と同じ間隔）
   const [feEvents, setFeEvents] = useState<FeEvent[]>([]);
   const [feUnavailable, setFeUnavailable] = useState(false);
+  const [fePositions, setFePositions] = useState<FePosition[]>([]);
+
+  // 見ている日（予定表・当日行動予定表・動態マップで共通。画面を切り替えても同じ日を見続ける）。
+  // 同じタブの中だけ覚える（日付が変わった翌日に開き直したら今日に戻す）
+  const [viewDate, setViewDate] = useState<string>(() => {
+    try {
+      const saved = JSON.parse(sessionStorage.getItem('field_app_view_date') || 'null') as { date: string; savedOn: string } | null;
+      if (saved && saved.savedOn === jstDate()) return saved.date;
+    } catch { /* noop */ }
+    return jstDate();
+  });
+  useEffect(() => {
+    try { sessionStorage.setItem('field_app_view_date', JSON.stringify({ date: viewDate, savedOn: jstDate() })); } catch { /* noop */ }
+  }, [viewDate]);
   const refreshFeEvents = useCallback(async () => {
     const to = jstDate(new Date(Date.now() + 86400_000));
     const from = jstDate(new Date(Date.now() - 7 * 86400_000));
     const { events, unavailable } = await listFeEvents(from, to, isSandboxMode);
     setFeEvents(events);
     setFeUnavailable(unavailable);
+    setFePositions(await listLatestPositions(isSandboxMode));
   }, [isSandboxMode]);
   useEffect(() => {
-    void refreshFeEvents();
-    if (isSandboxMode) return subscribeSandboxFeEvents(() => void refreshFeEvents());
+    const first = setTimeout(() => void refreshFeEvents(), 0);
+    if (isSandboxMode) {
+      const unsubscribe = subscribeSandboxFeEvents(() => void refreshFeEvents());
+      return () => {
+        clearTimeout(first);
+        unsubscribe();
+      };
+    }
     const t = setInterval(() => void refreshFeEvents(), 20_000);
-    return () => clearInterval(t);
+    return () => {
+      clearTimeout(first);
+      clearInterval(t);
+    };
   }, [refreshFeEvents, isSandboxMode]);
 
   // 同期保存（コピペ等）時の採番競合防止用の一時プール (キー: "YYYY-MM-DD", 値: 使用済みコースのSet)
@@ -195,7 +220,7 @@ function App() {
   useEffect(() => {
     if (
       (currentUserRole !== 'developer' && activeTab === 'master_management') ||
-      (!canManageSchedules(currentUserRole) && (activeTab === 'calendar' || activeTab === 'analytics'))
+      (!canManageSchedules(currentUserRole) && (activeTab === 'calendar' || activeTab === 'analytics' || activeTab === 'map'))
     ) {
       setActiveTab('grid');
     }
@@ -1214,6 +1239,8 @@ function App() {
               </span>
             </div>
 
+            {/* 切り替えタブ（広い画面では画面の中央線上に置く）と、その右の FE画面ボタン */}
+            <div className="header-center">
             <div className="nav-tabs">
               <button
                 className={`tab-btn ${activeTab === 'grid' ? 'active' : ''}`}
@@ -1229,14 +1256,6 @@ function App() {
                 <Layers size={16} />
                 当日行動予定表
               </button>
-              <button
-                className={`tab-btn ${activeTab === 'fe' ? 'active' : ''}`}
-                onClick={() => setActiveTab('fe')}
-                title="FE のスマホ画面（出発・到着・作業完了を押して記録）"
-              >
-                <Smartphone size={16} />
-                FE画面
-              </button>
               {canManageSchedules(currentUserRole) && (
                 <button
                   className={`tab-btn ${activeTab === 'calendar' ? 'active' : ''}`}
@@ -1246,6 +1265,28 @@ function App() {
                   月間予定表
                 </button>
               )}
+              {canManageSchedules(currentUserRole) && (
+                <button
+                  className={`tab-btn ${activeTab === 'map' ? 'active' : ''}`}
+                  onClick={() => setActiveTab('map')}
+                >
+                  <MapPinned size={16} />
+                  動態マップ
+                </button>
+              )}
+            </div>
+
+            {/* FE のスマホ画面（切り替えタブとは別のアイコンボタン） */}
+            <button
+              type="button"
+              className={`btn-fe-screen ${activeTab === 'fe' ? 'active' : ''}`}
+              onClick={() => setActiveTab('fe')}
+              title="FE画面（出発・到着・作業完了を押して記録）"
+              aria-label="FE画面"
+              aria-pressed={activeTab === 'fe'}
+            >
+              <Smartphone size={18} />
+            </button>
             </div>
 
             <div className="header-actions">
@@ -1421,6 +1462,8 @@ function App() {
                 {activeTab === 'grid' && (
                   <GridView
                     feEvents={feEvents}
+                    viewDate={viewDate}
+                    onViewDateChange={setViewDate}
                     schedules={schedules.filter(s => s.is_transferred === 1)}
                     staff={staff}
                     workTypes={workTypes}
@@ -1435,6 +1478,17 @@ function App() {
                     onLockSchedule={handleLockSchedule}
                     onUnlockSchedule={handleUnlockSchedule}
                     zoomLevel={zoomLevel}
+                  />
+                )}
+                {canManageSchedules(currentUserRole) && activeTab === 'map' && (
+                  <DynamicsMapView
+                    schedules={schedules}
+                    staff={staff}
+                    feEvents={feEvents}
+                    fePositions={fePositions}
+                    isSandbox={isSandboxMode}
+                    date={viewDate}
+                    onDateChange={setViewDate}
                   />
                 )}
                 {activeTab === 'fe' && (
@@ -1453,6 +1507,8 @@ function App() {
                 {activeTab === 'timeline' && (
                   <TimelineView
                     feEvents={feEvents}
+                    viewDate={viewDate}
+                    onViewDateChange={setViewDate}
                     schedules={schedules.filter(s => s.is_transferred === 1)}
                     staff={staff}
                     onOpenEditModal={handleOpenEditModal}

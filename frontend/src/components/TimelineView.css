@@ -623,9 +623,9 @@
   align-items: center;
   gap: 2px;
   padding: 2px;
-  border: 1px solid var(--border-glass);
+  border: none;
   border-radius: var(--radius-sm);
-  background: var(--bg-primary);
+  background: transparent;
 }
 .timeline-stats .view-mode-btn {
   display: inline-flex;

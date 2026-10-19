@@ -592,3 +592,60 @@
   border-radius: 3px;
   background: #fff;
 }
+
+/* FE画面のボタン（タブの右に置くアイコンだけのボタン。ゴースト） */
+.btn-fe-screen {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--border-glass);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+.btn-fe-screen:hover {
+  filter: brightness(1.12);
+  color: var(--primary);
+  border-color: rgba(79, 70, 229, 0.35);
+}
+.btn-fe-screen.active {
+  color: var(--primary);
+  border-color: rgba(79, 70, 229, 0.45);
+  background: rgba(79, 70, 229, 0.08);
+}
+
+/* 切り替えタブを画面の中央線上に置く（右側のボタン群と重ならない広い画面だけ） */
+.header-center {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  position: relative;
+}
+@media (min-width: 1801px) {
+  .header-center {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    gap: 0;
+  }
+  .header-center .btn-fe-screen {
+    position: absolute;
+    left: calc(100% + 8px);
+    top: 50%;
+    margin-top: -18px;
+  }
+}
+@media (max-width: 768px) {
+  .header-center {
+    width: 100%;
+  }
+  .header-center .nav-tabs {
+    flex: 1;
+    min-width: 0;
+  }
+}

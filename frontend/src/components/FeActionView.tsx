@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { CheckCircle2, Circle, LogIn, LogOut, MapPin, Navigation, Search, Undo2, Wrench, type LucideIcon } from 'lucide-react';
 import type { Schedule, Staff } from '../types';
 import { getShortName, normalizeTargetTime, compareSchedules } from '../types';
@@ -9,6 +9,9 @@ import {
   jstDate,
   jstHm,
   recordFeEvent,
+  reportPosition,
+  distanceM,
+  TRACKING,
   undoLastFeEvent,
   type FeEvent,
   type FeEventKind,
@@ -70,6 +73,30 @@ export const FeActionView: React.FC<Props> = ({ schedules, staff, currentStaffId
   );
   const myEvents = useMemo(() => feEvents.filter(e => e.staff_id === staffId && e.work_date === today), [feEvents, staffId, today]);
   const day = useMemo(() => buildDayState(visits, myEvents), [visits, myEvents]);
+
+  // 勤務中は、画面を開いている間の位置も送る（50m 以上動いたか 5 分たったときだけ。精度の悪い測位は捨てる）
+  const onShift = !!day.shiftStartAt && !day.shiftEndAt;
+  const lastSent = useRef<{ lat: number; lng: number; at: number } | null>(null);
+  const [tracking, setTracking] = useState<'off' | 'on' | 'denied'>('off');
+  useEffect(() => {
+    if (!onShift || staffId == null || !('geolocation' in navigator)) return;
+    const id = navigator.geolocation.watchPosition(
+      pos => {
+        setTracking('on');
+        if (document.visibilityState !== 'visible') return;
+        const fix = { lat: pos.coords.latitude, lng: pos.coords.longitude, accuracy_m: Math.round(pos.coords.accuracy) };
+        if (fix.accuracy_m > TRACKING.maxAccuracyM) return;
+        const prev = lastSent.current;
+        const now = Date.now();
+        if (prev && distanceM(prev, fix) < TRACKING.minMoveM && now - prev.at < TRACKING.heartbeatMs) return;
+        lastSent.current = { lat: fix.lat, lng: fix.lng, at: now };
+        void reportPosition(staffId, fix, isSandbox).catch(() => { /* 次の測位でまた送る */ });
+      },
+      err => setTracking(err.code === err.PERMISSION_DENIED ? 'denied' : 'off'),
+      { enableHighAccuracy: true, maximumAge: 30_000, timeout: 20_000 }
+    );
+    return () => navigator.geolocation.clearWatch(id);
+  }, [onShift, staffId, isSandbox]);
 
   const press = async () => {
     if (!day.next || staffId == null || busy) return;
@@ -204,6 +231,12 @@ export const FeActionView: React.FC<Props> = ({ schedules, staff, currentStaffId
         </div>
       </div>
 
+      {onShift && tracking !== 'off' && (
+        <div className={`fe-tracking is-${tracking}`}>
+          {tracking === 'on' && '勤務中は、この画面を開いている間の位置を送っています（画面を消すと止まります）'}
+          {tracking === 'denied' && '位置の利用が許可されていません。設定で、このサイトの位置情報を許可してください'}
+        </div>
+      )}
       <div className="fe-shift">
         <span>勤務開始 <b className="sc-num">{day.shiftStartAt ? jstHm(day.shiftStartAt) : '—'}</b></span>
         <span>勤務終了 <b className="sc-num">{day.shiftEndAt ? jstHm(day.shiftEndAt) : '—'}</b></span>

@@ -243,3 +243,57 @@ export const buildDayState = (visitsInOrder: Schedule[], events: FeEvent[]): Day
   }
   return { shiftStartAt: shiftStart?.occurred_at ?? null, shiftEndAt: shiftEnd?.occurred_at ?? null, visits, next, lastEvent: sorted[sorted.length - 1] || null };
 };
+
+/* ---------- 画面を開いている間の位置（fe_positions_latest。sql/fe_positions.sql） ---------- */
+
+export interface FePosition {
+  staff_id: number;
+  lat: number;
+  lng: number;
+  accuracy_m: number | null;
+  recorded_at: string; // ISO
+}
+
+const SANDBOX_POS_KEY = 'field_app_sandbox_fe_positions';
+/** 費用を抑える決まり（FE動態の TRACKING と同じ）: 50m 以上動いたか 5 分たったときだけ送る。精度 100m より悪い測位は捨てる */
+export const TRACKING = { minMoveM: 50, heartbeatMs: 5 * 60_000, maxAccuracyM: 100 } as const;
+
+export const distanceM = (a: { lat: number; lng: number }, b: { lat: number; lng: number }): number => {
+  const R = 6371000;
+  const toRad = (d: number) => (d * Math.PI) / 180;
+  const dLat = toRad(b.lat - a.lat);
+  const dLng = toRad(b.lng - a.lng);
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(a.lat)) * Math.cos(toRad(b.lat)) * Math.sin(dLng / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(h));
+};
+
+/** いちばん新しい位置（1 人 1 件）。表がまだ無いときは空 */
+export const listLatestPositions = async (sandbox: boolean): Promise<FePosition[]> => {
+  if (sandbox) {
+    try {
+      return Object.values(JSON.parse(localStorage.getItem(SANDBOX_POS_KEY) || '{}')) as FePosition[];
+    } catch {
+      return [];
+    }
+  }
+  const { data, error } = await supabase.from('fe_positions_latest').select('staff_id, lat, lng, accuracy_m, recorded_at');
+  if (error) return [];
+  return (data || []) as FePosition[];
+};
+
+let positionRpcMissing = false;
+
+/** 位置を送る（お試しモードは端末内だけ）。表・関数がまだ無ければ黙って止める */
+export const reportPosition = async (staffId: number, fix: PositionFix, sandbox: boolean): Promise<void> => {
+  if (sandbox) {
+    try {
+      const all = JSON.parse(localStorage.getItem(SANDBOX_POS_KEY) || '{}') as Record<string, FePosition>;
+      all[String(staffId)] = { staff_id: staffId, lat: fix.lat, lng: fix.lng, accuracy_m: fix.accuracy_m, recorded_at: new Date().toISOString() };
+      localStorage.setItem(SANDBOX_POS_KEY, JSON.stringify(all));
+    } catch { /* noop */ }
+    return;
+  }
+  if (positionRpcMissing) return;
+  const { error } = await withTimeout(supabase.rpc('fe_report_position', { p_lat: fix.lat, p_lng: fix.lng, p_accuracy_m: fix.accuracy_m }), '位置の送信');
+  if (error && (error.code === 'PGRST202' || error.code === '42883')) positionRpcMissing = true;
+};

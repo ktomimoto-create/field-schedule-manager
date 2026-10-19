@@ -5,7 +5,7 @@ import { getShortName, canManageSchedules } from '../types';
 import { Calendar, Clock, MapPin, ChevronLeft, ChevronRight, GripVertical, ChevronUp, ChevronDown, Check, Columns3, ChartGantt } from 'lucide-react';
 import { ReportModal } from './ReportModal';
 import { ScheduleTimeAxis } from './ScheduleTimeAxis';
-import type { FeEvent } from '../utils/feEvents';
+import { jstDate, type FeEvent } from '../utils/feEvents';
 import './TimelineView.css';
 
 interface TimelineViewProps {
@@ -25,6 +25,9 @@ interface TimelineViewProps {
   zoomLevel?: number;
   /** FE のボタン記録（時間軸の実績に出す） */
   feEvents?: FeEvent[];
+  /** 見ている日（画面を切り替えても同じ日を見続けるため App で持つ） */
+  viewDate?: string;
+  onViewDateChange?: (date: string) => void;
 }
 
 export const TimelineView: React.FC<TimelineViewProps> = ({
@@ -37,6 +40,8 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
   onReorder,
   zoomLevel = 100,
   feEvents = [],
+  viewDate,
+  onViewDateChange,
 }) => {
   // 表示の切替: 担当ごとのカード（既定）/ 時間軸
   const [viewMode, setViewMode] = useState<'board' | 'timeline'>(() => {
@@ -49,9 +54,12 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
   useEffect(() => {
     try { localStorage.setItem('field_app_timeline_view_mode', viewMode); } catch { /* noop */ }
   }, [viewMode]);
-  const [targetDateStr, setTargetDateStr] = useState(
-    new Date().toISOString().split('T')[0]
-  );
+  const [localDate, setLocalDate] = useState<string>(() => jstDate());
+  const targetDateStr = viewDate ?? localDate;
+  const setTargetDateStr = (d: string) => {
+    setLocalDate(d);
+    onViewDateChange?.(d);
+  };
   const [showOnlyMySchedule, setShowOnlyMySchedule] = useState(() => {
     return currentUserRole === 'staff';
   });
@@ -148,7 +156,7 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
   };
 
   const setToday = () => {
-    setTargetDateStr(new Date().toISOString().split('T')[0]);
+    setTargetDateStr(jstDate());
   };
 
   // 当日の対象全予定（通常・確定・仮）

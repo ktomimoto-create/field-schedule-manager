@@ -8,7 +8,7 @@ import { Plus, ChevronLeft, ChevronRight, Calendar as CalendarIcon, Filter, Chec
 import { PrintPreviewModal } from './PrintPreviewModal';
 import { DayScheduleCards } from './ScheduleCards';
 import { ScheduleTimeAxis } from './ScheduleTimeAxis';
-import type { FeEvent } from '../utils/feEvents';
+import { jstDate, type FeEvent } from '../utils/feEvents';
 import './GridView.css';
 
 const parseTSV = (text: string): string[][] => {
@@ -108,6 +108,9 @@ interface GridViewProps {
   onUnlockSchedule?: () => void;
   zoomLevel?: number;
   feEvents?: FeEvent[];
+  /** 見ている日（画面を切り替えても同じ日を見続けるため App で持つ） */
+  viewDate?: string;
+  onViewDateChange?: (date: string) => void;
 }
 
 export const GridView: React.FC<GridViewProps> = ({
@@ -123,11 +126,16 @@ export const GridView: React.FC<GridViewProps> = ({
   onUnlockSchedule: _onUnlockSchedule,
   zoomLevel = 100,
   feEvents = [],
+  viewDate,
+  onViewDateChange,
 }) => {
   const dateInputRef = useRef<HTMLInputElement>(null);
-  const [selectedDate, setSelectedDate] = useState<string>(
-    new Date().toISOString().split('T')[0]
-  );
+  const [localDate, setLocalDate] = useState<string>(() => jstDate());
+  const selectedDate = viewDate ?? localDate;
+  const setSelectedDate = (d: string) => {
+    setLocalDate(d);
+    onViewDateChange?.(d);
+  };
 
   const triggerDatePicker = () => {
     if (dateInputRef.current) {
@@ -282,7 +290,7 @@ export const GridView: React.FC<GridViewProps> = ({
   };
 
   const setToday = () => {
-    setSelectedDate(new Date().toISOString().split('T')[0]);
+    setSelectedDate(jstDate());
   };
 
   const daySchedules = schedules.filter(

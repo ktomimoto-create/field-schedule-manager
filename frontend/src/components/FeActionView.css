@@ -341,3 +341,14 @@
   font-size: 0.8rem;
   overflow-wrap: anywhere;
 }
+
+.fe-tracking {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+}
+.fe-tracking.is-on {
+  color: #059669;
+}
+.fe-tracking.is-denied {
+  color: var(--danger);
+}
