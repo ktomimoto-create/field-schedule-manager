@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo, useState } from 'react';
-import { BadgeCheck, Boxes, ClipboardList, Lock, PackagePlus, Repeat2, Stethoscope, Tag } from 'lucide-react';
+import { BadgeCheck, ClipboardList, HardHat, Lock, PackagePlus, Repeat2, Stethoscope, Tag } from 'lucide-react';
 import type { Schedule, Staff } from '../types';
 import { compareSchedules, findStaffByName, normalizeTargetTime } from '../types';
 import { progressOf, statusMeta, summarizeDescription, workTypeKey, type Progress } from '../utils/scheduleDisplay';
@@ -27,12 +27,12 @@ const ScrewdriverWrench: React.FC<{ size?: number }> = ({ size = 12 }) => (
 );
 
 /** 種別のアイコン（色は種類ごと。赤・緑は使わない）。名前はカーソルを乗せると出る
- *  障害（アフタートラブル）＝ドライバーとスパナ／工事（コンストラクション）＝全ボックス入庫／定期・保守＝診断 */
+ *  障害（アフタートラブル）＝ドライバーとスパナ／工事（コンストラクション）＝ヘルメット／定期・保守＝診断 */
 const WT_ICON: Record<string, React.FC<{ size?: number }>> = {
   fault: ScrewdriverWrench,
   second: Repeat2,
   approved: BadgeCheck,
-  construct: Boxes,
+  construct: HardHat,
   install: PackagePlus,
   periodic: Stethoscope,
   survey: ClipboardList,
