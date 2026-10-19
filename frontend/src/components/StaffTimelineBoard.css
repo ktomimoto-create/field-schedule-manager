@@ -297,3 +297,12 @@
   align-items: center;
   gap: 3px;
 }
+/* 重なっているカードはクリックでめくれる */
+.lane-card.stl-card.in-stack {
+  cursor: pointer;
+}
+/* 出動の文字は上に（下は移動の線と実績の帯を通す） */
+.stl-depart {
+  align-items: flex-start;
+  padding: 2px 0 0 3px;
+}

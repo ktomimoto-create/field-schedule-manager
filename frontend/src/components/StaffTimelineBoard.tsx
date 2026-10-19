@@ -21,11 +21,14 @@ import './StaffTimelineBoard.css';
 type LockInfo = { userEmail: string; userName: string; startedAt: number; sessionId?: string; mode?: string };
 
 const DAY_START = 9 * 60;
-const LANE_H = 98;
 /** 重ねたカードをずらす量（px）。3 枚目以降は同じ位置 */
 const STACK_SHIFT = 6;
 const STACK_MAX = 2;
-const TRACK_H = LANE_H + 12 + STACK_SHIFT * STACK_MAX;
+/** カードの下に、移動・待ちの見込み（点線）と実績（帯）を置く。重なりの有無で線の高さが変わらないように固定の位置 */
+const CARD_H = 86;
+const MOVE_Y = 6 + CARD_H + STACK_SHIFT * STACK_MAX + 8;
+const BAR_Y = MOVE_Y + 6;
+const TRACK_H = BAR_Y + 10;
 
 const LEG_ICON: Partial<Record<LegKind, typeof CarFront>> = { car: CarFront, train: TrainFront, walk: Footprints };
 const LEG_LABEL: Record<LegKind, string> = { car: '車', train: '電車・バスと徒歩', walk: '徒歩', same: '同じ建物', unknown: '位置が分からないため 15 分' };
@@ -46,6 +49,8 @@ interface Placed {
   /** 同じ時間帯に重なっている訪問の中での順番（0 が先頭）と、重なりの件数 */
   stackIndex: number;
   stackSize: number;
+  /** 重なりの組の目印（先頭の訪問の id） */
+  stackKey: string;
 }
 
 interface Row {
@@ -93,6 +98,8 @@ export const StaffTimelineBoard: React.FC<Props> = ({ schedules, staff, date, ca
   const sitePos = useSitePositions(schedules);
   const reservations = useFunnaviReservations(date);
   const [busy, setBusy] = useState(false);
+  // 重なりの組ごとに、何枚めくったか（クリックで 1 枚ずつ前に出す）
+  const [flip, setFlip] = useState<Record<string, number>>({});
   useEffect(() => {
     const t = setInterval(() => setNow(nowMin()), 60_000);
     return () => clearInterval(t);
@@ -154,7 +161,7 @@ export const StaffTimelineBoard: React.FC<Props> = ({ schedules, staff, date, ca
         const late = !!slot && ((slot.kind === 'until' && end > slot.to) || (slot.kind === 'at' && arrive > slot.from && !same));
         cursor = Math.max(cursor, end);
         here = pos ?? here;
-        return { schedule: s, no: i + 1, start, end, estimated, late, move, legKind: leg.kind, waitFrom, stackIndex: 0, stackSize: 1 };
+        return { schedule: s, no: i + 1, start, end, estimated, late, move, legKind: leg.kind, waitFrom, stackIndex: 0, stackSize: 1, stackKey: String(s.id) };
       });
       const live = g.items.filter(x => x.status !== 'cancelled');
       const bestOrder = [...planRoute(live, posOf, base, depart, mode), ...g.items.filter(x => x.status === 'cancelled')];
@@ -166,6 +173,7 @@ export const StaffTimelineBoard: React.FC<Props> = ({ schedules, staff, date, ca
       const closeGroup = () => group.forEach((p, k) => {
         p.stackIndex = k;
         p.stackSize = group.length;
+        p.stackKey = String(group[0].schedule.id);
       });
       [...placed].sort((a, b) => a.start - b.start).forEach(p => {
         if (p.start >= groupEnd) {
@@ -346,9 +354,11 @@ export const StaffTimelineBoard: React.FC<Props> = ({ schedules, staff, date, ca
               const isDone = progress === 'done';
               const lock = typeof s.id === 'number' ? activeLocks[s.id] : undefined;
               const act = actuals.get(s.id);
-              const shift = Math.min(p.stackIndex, STACK_MAX) * STACK_SHIFT;
+              // 重なりの中での見た目の順番（大きいほど手前）。クリックするたびに手前のカードが入れ替わる
+              const k = p.stackSize > 1 ? (p.stackIndex + (flip[p.stackKey] ?? 0)) % p.stackSize : 0;
+              const shift = Math.min(k, STACK_MAX) * STACK_SHIFT;
               const top = 6 + shift;
-              const barTop = top + LANE_H - 9;
+              const barTop = BAR_Y;
               const LegIcon = LEG_ICON[p.legKind];
               const moveFrom = p.start - p.move;
               const wait = moveFrom - p.waitFrom;
@@ -357,7 +367,7 @@ export const StaffTimelineBoard: React.FC<Props> = ({ schedules, staff, date, ca
                 {p.stackIndex === 0 && wait >= 15 && (
                   <span
                     className="stl-wait"
-                    style={{ left: `${pct(p.waitFrom)}%`, width: `${pct(moveFrom) - pct(p.waitFrom)}%`, top: top + 40 }}
+                    style={{ left: `${pct(p.waitFrom)}%`, width: `${pct(moveFrom) - pct(p.waitFrom)}%`, top: MOVE_Y }}
                     title={`待ち ${fmtDur(wait)}（${time || ''} の指定に合わせて出る見込み）`}
                   >
                     <span>待ち {fmtDur(wait)}</span>
@@ -366,7 +376,7 @@ export const StaffTimelineBoard: React.FC<Props> = ({ schedules, staff, date, ca
                 {p.move > 0 && p.stackIndex === 0 && (
                   <span
                     className={`stl-move leg-${p.legKind}`}
-                    style={{ left: `${pct(moveFrom)}%`, width: `${pct(p.start) - pct(moveFrom)}%`, top: top + 40 }}
+                    style={{ left: `${pct(moveFrom)}%`, width: `${pct(p.start) - pct(moveFrom)}%`, top: MOVE_Y }}
                     title={`移動 ${p.move} 分の見込み（${LEG_LABEL[p.legKind]}・余裕 10 分を含む）`}
                   >
                     <span>
@@ -376,8 +386,13 @@ export const StaffTimelineBoard: React.FC<Props> = ({ schedules, staff, date, ca
                   </span>
                 )}
                 <div
-                  className={`lane-card stl-card tone-${meta.tone} p-${progress}${isDone ? ' is-done' : ''}${p.estimated ? ' is-est' : ''}${p.late ? ' is-late' : ''}${p.stackIndex > 0 ? ' is-stacked' : ''}`}
-                  style={{ left: `calc(${pct(p.start)}% + ${shift}px)`, width: `calc(${pct(p.end) - pct(p.start)}% - 4px)`, top, zIndex: 1 + p.stackIndex }}
+                  className={`lane-card stl-card tone-${meta.tone} p-${progress}${isDone ? ' is-done' : ''}${p.estimated ? ' is-est' : ''}${p.late ? ' is-late' : ''}${k > 0 ? ' is-stacked' : ''}${p.stackSize > 1 ? ' in-stack' : ''}`}
+                  style={{ left: `calc(${pct(p.start)}% + ${shift}px)`, width: `calc(${pct(p.end) - pct(p.start)}% - 4px)`, top, zIndex: 1 + k }}
+                  onClick={e => {
+                    // 重なっているときは 1 クリックで次のカードを手前に（ダブルクリックの 2 回目は数えない）
+                    if (p.stackSize < 2 || e.detail > 1) return;
+                    setFlip(f => ({ ...f, [p.stackKey]: ((f[p.stackKey] ?? 0) + p.stackSize - 1) % p.stackSize }));
+                  }}
                   onDoubleClick={() => {
                     if (!canEdit) return;
                     if (lock) {
@@ -389,8 +404,10 @@ export const StaffTimelineBoard: React.FC<Props> = ({ schedules, staff, date, ca
                   title={`${p.no}. ${time || '時間指定なし'}（${p.estimated ? '見込み ' : ''}${fmt(p.start)}〜${fmt(p.end)}）${p.late ? '\n赤い枠: 指定の時刻・締切に間に合わない見込み' : ''}\n${s.unit_number || ''} ${s.property_name}\n${s.work_type || ''} ${s.description || ''}${canEdit ? '\nダブルクリックで編集' : ''}`}
                 >
                   <VisitCardBody schedule={s} no={p.no} progress={progress} lock={!!lock} timeOverride={fmt(p.start)} place={placeOf(s)} />
-                  {p.stackIndex === p.stackSize - 1 && p.stackSize > 1 && (
-                    <span className="stl-stack-count" title={`この時間帯に ${p.stackSize} 件重なっています（カーソルを乗せると前に出ます）`}>{p.stackSize}件</span>
+                  {k === p.stackSize - 1 && p.stackSize > 1 && (
+                    <span className="stl-stack-count" title={`この時間帯に ${p.stackSize} 件重なっています。クリックで次のカードを手前に出します`}>
+                      {p.stackIndex + 1}/{p.stackSize}
+                    </span>
                   )}
                 </div>
                 {act?.move && (
