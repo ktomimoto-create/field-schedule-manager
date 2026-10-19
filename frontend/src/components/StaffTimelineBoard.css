@@ -1,0 +1,118 @@
+/* 予定表の時間軸（カード表示を基にした形）。行・担当・カードの見た目は StaffLaneBoard.css を使う */
+
+.stl-board {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 1100px;
+  padding: 6px 8px 10px;
+  line-height: 1.4;
+}
+.stl-legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 16px;
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+}
+.stl-legend > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.stl-note {
+  color: var(--text-muted);
+}
+.stl-lg {
+  display: inline-block;
+  width: 20px;
+  height: 10px;
+  border-radius: 3px;
+}
+.stl-lg.is-confirmed { border-bottom: 3px solid #ef4444; background: rgba(239, 68, 68, 0.12); }
+.stl-lg.is-draft { border-bottom: 3px solid #eab308; background: rgba(234, 179, 8, 0.12); }
+.stl-lg.is-free { border-bottom: 3px solid #94a3b8; background: var(--bg-primary); }
+.stl-lg.is-est { border: 1px dashed var(--text-muted); }
+.stl-lg.is-move { height: 5px; background: #3b82f6; }
+.stl-lg.is-work { height: 5px; background: var(--success); }
+.stl-lg.is-now { width: 2px; height: 14px; background: var(--danger); }
+
+/* 時刻の目盛り（担当の列の幅だけ右にずらす） */
+.stl-head {
+  display: grid;
+  grid-template-columns: 150px minmax(0, 1fr);
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+.stl-head-person {
+  padding-left: 10px;
+}
+.stl-head-axis {
+  position: relative;
+  height: 16px;
+  margin: 0 8px;
+}
+.stl-tick {
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.stl-tick:first-child {
+  transform: none;
+}
+
+.stl-track {
+  position: relative;
+  margin: 0 8px;
+  min-width: 0;
+}
+.stl-grid {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--border-glass);
+}
+.lane-card.stl-card {
+  position: absolute;
+  height: 52px;
+  min-width: 60px;
+  overflow: hidden;
+  box-sizing: border-box;
+  z-index: 1;
+}
+.lane-card.stl-card:hover {
+  z-index: 3;
+}
+.lane-card.stl-card.is-est {
+  border-style: dashed;
+  border-bottom-style: solid;
+}
+.lane-card.stl-card.is-late {
+  box-shadow: inset 0 0 0 1px var(--danger);
+}
+.stl-property {
+  -webkit-line-clamp: 1;
+}
+.stl-actual {
+  position: absolute;
+  height: 5px;
+  border-radius: 3px;
+  z-index: 2;
+}
+.stl-actual.is-move { background: #3b82f6; }
+.stl-actual.is-work { background: var(--success); }
+.stl-actual.is-live.is-move { background: repeating-linear-gradient(45deg, #3b82f6, #3b82f6 5px, #93c5fd 5px, #93c5fd 10px); }
+.stl-actual.is-live.is-work { background: repeating-linear-gradient(45deg, var(--success), var(--success) 5px, #6ee7b7 5px, #6ee7b7 10px); }
+.stl-now {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--danger);
+  z-index: 4;
+}

@@ -7,7 +7,7 @@ import { buildFcAutofillPatch } from '../utils/fcAutofill';
 import { Plus, ChevronLeft, ChevronRight, Calendar as CalendarIcon, Filter, CheckCircle2, Download, Printer, Lock, ArrowUpDown, RotateCcw, Edit2, LayoutList, ChartGantt, Table2, Columns3, UserRound, CalendarCheck, WrapText } from 'lucide-react';
 import { PrintPreviewModal } from './PrintPreviewModal';
 import { StaffLaneBoard } from './StaffLaneBoard';
-import { ScheduleTimeAxis } from './ScheduleTimeAxis';
+import { StaffTimelineBoard } from './StaffTimelineBoard';
 import { TimelineView } from './TimelineView';
 import { jstDate, type FeEvent } from '../utils/feEvents';
 import { Select } from './shared/Select';
@@ -1097,14 +1097,13 @@ export const GridView: React.FC<GridViewProps> = ({
             </div>
           ) : (
             <div style={zoomLevel !== 100 ? { zoom: `${zoomLevel}%` } : undefined}>
-              <ScheduleTimeAxis
+              <StaffTimelineBoard
                 schedules={sortedSchedules}
                 staff={staff}
                 date={selectedDate}
                 canEdit={isAdmin}
                 activeLocks={activeLocks}
                 onOpenEditModal={onOpenEditModal}
-                onToggleComplete={handleQuickCompleteToggle}
                 feEvents={feEvents}
               />
             </div>
