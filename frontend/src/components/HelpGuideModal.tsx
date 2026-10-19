@@ -18,7 +18,7 @@ import './HelpGuideModal.css';
 export interface HelpGuideItem {
   id: string;
   title: string;
-  category: 'bulk' | 'schedule' | 'import' | 'print' | 'coworker' | 'rules';
+  category: 'screens' | 'bulk' | 'schedule' | 'import' | 'print' | 'coworker' | 'rules';
   categoryName: string;
   targetScreen: string;
   summary: string;
@@ -37,13 +37,126 @@ export interface ChatMessage {
 }
 
 export const HELP_GUIDE_DATA: HelpGuideItem[] = [
+  // === 新しい画面（行動予定・月間予定） ===
+  {
+    id: 'action-start-complete',
+    title: '現地で作業を始めた・終わったことを記録したい（開始・完了）',
+    category: 'screens',
+    categoryName: '新しい画面',
+    targetScreen: '行動予定',
+    summary: '「行動予定」タブの自分の予定カードで「開始」「完了」を押すと、結果と時刻が記録され、管理側の画面にもすぐ知らされます。',
+    steps: [
+      'ログインすると最初に「行動予定」タブが開き、今日の自分の予定がカードで並びます（左右の矢印で日付を変えられます）。',
+      '現地で作業を始めたら、その予定のカードの「開始」を押します。カードが青（対応中）になります。',
+      '作業が終わったら「完了」を押します。カードが緑（完了）になり、上の「◯件中 ◯件完了」が増えます。',
+      'カードの色: 灰＝未着手、青＝対応中、緑＝完了、赤＝キャンセル。右上の赤いバッジは指定時間のある予定です。'
+    ],
+    tips: 'カードを押すと予定の中身（物件名・住所・作業内容など）を見られます。',
+    keywords: ['行動予定', '開始', '完了', '記録', '現地', 'カード', '押す', '報告', 'スマホ', '携帯'],
+    intents: ['開始を押す', '完了を押す', '作業記録', '結果記録']
+  },
+  {
+    id: 'action-report-fix',
+    title: '押し間違えた「開始」「完了」を直したい・結果にメモを書きたい',
+    category: 'screens',
+    categoryName: '新しい画面',
+    targetScreen: '行動予定',
+    summary: 'カード右下のペンのアイコン（結果を報告・直す）から、結果報告の画面を開いて直せます。',
+    steps: [
+      '直したい予定のカードで、ペンのアイコン（結果を報告・直す）を押します。',
+      '結果（完了・作業中・キャンセルなど）、開始・完了の時刻、メモを直して保存します。'
+    ],
+    tips: '進み具合は結果欄で決まります。結果を空に戻すと、カードは未着手（灰）に戻ります。',
+    keywords: ['押し間違い', '訂正', '直す', '取り消し', 'メモ', '結果報告', '修正', 'ペン'],
+    intents: ['開始取り消し', '完了取り消し', '結果修正']
+  },
+  {
+    id: 'day-gantt',
+    title: '全員の 1 日の動きを時間の帯（ガント）で見たい',
+    category: 'screens',
+    categoryName: '新しい画面',
+    targetScreen: '行動予定（PC・予定管理者）',
+    summary: '予定管理者が PC で「行動予定」を開くと、担当ごとに 8:00〜20:00 の帯で 1 日の予定と実績が並びます。',
+    steps: [
+      '「行動予定」タブを開きます（携帯では自分のカード。目のアイコンで全員のカードに切り替えられます）。',
+      '実線の帯: 時刻が決まっている予定と、開始・完了が押された実績です。',
+      '点線の帯: 時間の決まっていない予定を、並び順と移動の目安から置いたものです（1 件 60 分とみなします）。',
+      '帯の間の細い帯は移動の目安（エリア・県別から 15／30／60 分）、赤枠は「〜迄」の締切に間に合わない並び、赤い縦線は今の時刻です。',
+      '帯を押すと予定が開きます。'
+    ],
+    keywords: ['ガント', 'タイムライン', '全員', '1日', '帯', '点線', '実線', '赤枠', '移動', '目安', '当日'],
+    intents: ['全員の予定を見る', '1日の流れ', 'ガントの見方']
+  },
+  {
+    id: 'month-view',
+    title: '月間予定で予定を見る・追加する・行動予定へ移したい',
+    category: 'screens',
+    categoryName: '新しい画面',
+    targetScreen: '月間予定（予定管理者）',
+    summary: '「月間予定」タブは、担当×日のカレンダーと、混み具合のヒートマップを切り替えて見られます。',
+    steps: [
+      '右上の切り替えで「カレンダー（予定の中身を見る）」と「ヒートマップ（人ごとの混み具合を見る）」を選びます。',
+      'カレンダーで点線の予定は、まだ行動予定に移していない予定です。日付の見出しの矢印アイコンで、その日の分をまとめて行動予定へ移します。',
+      '空いているマスを押すか、右上の「＋」で予定を追加します。右上のクリップボードのアイコンでスプレッドシートから貼り付けて登録できます。',
+      'ヒートマップのマスを押すと内訳が出ます。内訳の右上のボタン（またはマスのダブルクリック）で、その日・その人の行動予定へ飛びます。'
+    ],
+    tips: '担当がスタッフ一覧に無い予定は「未割当」の行に出ます。',
+    keywords: ['月間予定', 'カレンダー', 'ヒートマップ', '混み具合', '行動予定へ移す', '移行', '追加', '未割当'],
+    intents: ['月間の見方', '行動予定へ移す', 'ヒートマップの見方']
+  },
+  {
+    id: 'progress-notice',
+    title: '現地の「開始」「完了」の知らせはどこで見る？',
+    category: 'screens',
+    categoryName: '新しい画面',
+    targetScreen: '全画面（予定管理者）',
+    summary: 'ほかの人が開始・完了を押すと、画面右下に 5 秒だけ知らせが出て、ヘッダーのベルにも履歴が残ります。',
+    steps: [
+      'ベルの右上の赤い数字が、まだ見ていない知らせの件数です。',
+      'ベルを押すと履歴が開きます。履歴を押すと、その予定を開きます。'
+    ],
+    tips: '自分の操作・別の拠点・お試しモード中の知らせは出ません。予定の画面を開いている間は右下の知らせを出しません。',
+    keywords: ['通知', 'ベル', '知らせ', 'お知らせ', 'トースト', '開始', '完了', '未読'],
+    intents: ['通知の見方', '完了の知らせ']
+  },
+  {
+    id: 'legacy-screens',
+    title: '前の表の画面（予定表・当日行動予定表・月間予定表）を使いたい',
+    category: 'screens',
+    categoryName: '新しい画面',
+    targetScreen: 'ヘッダー（予定管理者）',
+    summary: '前の 3 つの画面は「旧 予定表」「旧 当日行動予定表」「旧 月間予定表」として残しています。ふだんは隠れています。',
+    steps: [
+      'ヘッダーの時計まわりのアイコン（旧画面のタブを出す）を押すと、「旧 予定表」「旧 当日行動予定表」「旧 月間予定表」のタブが出ます。',
+      '携帯では、ヘッダーの「⋯」→「旧画面のタブを出す」を押します。',
+      'もう一度押すと隠れます。'
+    ],
+    tips: '一括操作・コピー＆ペースト・印刷・Excel 出力など、このガイドの「旧 ◯◯」と書いた手順は旧画面で行います。',
+    keywords: ['旧画面', '旧', '前の画面', 'グリッド', '予定表', '当日行動予定表', '月間予定表', '表', '戻したい', '時計'],
+    intents: ['旧画面を出す', '前の画面に戻す']
+  },
+  {
+    id: 'mobile-more-menu',
+    title: '携帯で、更新・ダークモード・操作ガイドのボタンが見当たらない',
+    category: 'screens',
+    categoryName: '新しい画面',
+    targetScreen: 'ヘッダー（携帯）',
+    summary: '携帯の幅では、ふだん使わない操作をヘッダー右上の「⋯」にまとめています。',
+    steps: [
+      'ヘッダー右上の「⋯」を押します。',
+      'データを更新・お試しモード・ダークモード・操作ガイドなど（予定管理者は旧画面・集計分析も）が並びます。'
+    ],
+    keywords: ['携帯', 'スマホ', 'ボタンがない', '更新', 'ダークモード', 'メニュー', '⋯', '三点'],
+    intents: ['携帯のメニュー', 'ボタンが見つからない']
+  },
+
   // === 複数選択・一括操作 ===
   {
     id: 'bulk-status',
     title: '複数の予定をまとめて「確定」「仮」「キャンセル」にしたい',
     category: 'bulk',
     categoryName: '複数選択・一括操作',
-    targetScreen: '月間予定表',
+    targetScreen: '旧 月間予定表',
     summary: 'CtrlキーやShiftキーを押しながら複数の予定行を選択し、画面下部のボタンからワンクリックでステータスを一括更新できます。',
     steps: [
       'カレンダー上で Ctrl キー（Macは Cmd）を押しながら、対象の予定行をクリックします（離れた行をいくつでも追加・解除可能）。',
@@ -60,7 +173,7 @@ export const HELP_GUIDE_DATA: HelpGuideItem[] = [
     title: '予定をキャンセルして別の日付に移動（振替）したい',
     category: 'bulk',
     categoryName: '複数選択・一括操作',
-    targetScreen: '月間予定表',
+    targetScreen: '旧 月間予定表',
     summary: '予定をキャンセルした際、同じ内容（物件名、号機、種別、時間、担当者等）を保ったままスムーズに別の日付へ移動・振替できます。',
     steps: [
       '移動したい予定を右クリックするか、複数選択して画面下部の一括バーの「別日へ移動」ボタンをクリックします。',
@@ -78,7 +191,7 @@ export const HELP_GUIDE_DATA: HelpGuideItem[] = [
     title: '複数の予定をまとめて一括削除したい',
     category: 'bulk',
     categoryName: '複数選択・一括操作',
-    targetScreen: '月間予定表',
+    targetScreen: '旧 月間予定表',
     summary: '不要になった複数の予定を一度の操作でまとめて安全に削除できます。',
     steps: [
       'Ctrl キーまたは Shift キーを押しながら、削除したい予定行をクリックして複数選択します。',
@@ -96,7 +209,7 @@ export const HELP_GUIDE_DATA: HelpGuideItem[] = [
     title: '新しい予定を追加・登録したい',
     category: 'schedule',
     categoryName: '予定の登録・編集',
-    targetScreen: '月間予定表 / 予定表 (グリッド)',
+    targetScreen: '旧 月間予定表 / 旧 予定表',
     summary: '画面右上のボタンから、物件名、号機、種別、対応者、時間などの情報を入力して新しい予定を登録できます。',
     steps: [
       '画面右上にある青い「＋ 予定を追加」ボタンをクリックします。',
@@ -113,7 +226,7 @@ export const HELP_GUIDE_DATA: HelpGuideItem[] = [
     title: 'カレンダー上で予定の内容（物件名や作業内容等）を直接すばやく編集したい',
     category: 'schedule',
     categoryName: '予定の登録・編集',
-    targetScreen: '月間予定表',
+    targetScreen: '旧 月間予定表',
     summary: 'セルをダブルクリックするだけで、Excelのようにその場で直接テキストや種別を書き換えられます。',
     steps: [
       '編集したいセル（物件名、作業内容、時間、備考、対応者など）を「ダブルクリック」します。',
@@ -130,7 +243,7 @@ export const HELP_GUIDE_DATA: HelpGuideItem[] = [
     title: '予定の詳細情報（エリア・県別・依頼番号など）をモーダルで編集したい',
     category: 'schedule',
     categoryName: '予定の登録・編集',
-    targetScreen: '月間予定表 / 予定表 (グリッド)',
+    targetScreen: '旧 月間予定表 / 旧 予定表',
     summary: '予定の全項目を一覧できる編集モーダルを開き、詳細情報をまとめて編集・確認できます。',
     steps: [
       'カレンダーの「物件名」セルにマウスを合わせると、右端に小さな「鉛筆アイコン」が表示されるのでクリックします。',
@@ -147,7 +260,7 @@ export const HELP_GUIDE_DATA: HelpGuideItem[] = [
     title: '休暇や社内予定（会議・健康診断など）を手軽にクイック登録したい',
     category: 'schedule',
     categoryName: '予定の登録・編集',
-    targetScreen: '月間予定表',
+    targetScreen: '旧 月間予定表',
     summary: 'カレンダー各日の上部にあるクイック追加ボタンから、複数スタッフの休暇や会議等を一度に登録できます。',
     steps: [
       'カレンダーの各日付ヘッダー（曜日・日付の直下）にある「＋ 休暇・社内予定を追加」ボタンをクリックします。',
@@ -165,7 +278,7 @@ export const HELP_GUIDE_DATA: HelpGuideItem[] = [
     title: 'カレンダー内で特定の物件名や対応者、号機番号を検索・ハイライトしたい',
     category: 'schedule',
     categoryName: '予定の登録・編集',
-    targetScreen: '月間予定表',
+    targetScreen: '旧 月間予定表',
     summary: 'カレンダー右上の検索窓に入力するだけで、一致する予定が黄色くハイライトされ、該当の予定を瞬時に見つけ出せます。',
     steps: [
       'カレンダー右上の「号機・物件名・対応者」と書かれた検索ボックスをクリックします。',
@@ -184,7 +297,7 @@ export const HELP_GUIDE_DATA: HelpGuideItem[] = [
     title: 'Googleスプレッドシートから予定を一括で貼り付けたい（インポート）',
     category: 'import',
     categoryName: 'インポート・コピペ',
-    targetScreen: '月間予定表',
+    targetScreen: '旧 月間予定表',
     summary: 'スプレッドシートやExcelの表データをコピーして貼り付けるだけで、システムに予定を一括取り込みできます。',
     steps: [
       'Googleスプレッドシート等で、取り込みたい予定行のセル範囲をコピー（Ctrl+C）します。',
@@ -202,7 +315,7 @@ export const HELP_GUIDE_DATA: HelpGuideItem[] = [
     title: 'スプレッドシートの担当者名を、カレンダーのセルに直接貼り付けたい',
     category: 'import',
     categoryName: 'インポート・コピペ',
-    targetScreen: '月間予定表',
+    targetScreen: '旧 月間予定表',
     summary: 'セルを選択して Ctrl+V を押すだけで、スプレッドシート上のテキストがマスタと照合されて自動入力されます。',
     steps: [
       'スプレッドシート等から対応者名（例:「吉沼」）を Ctrl+C でコピーします。',
@@ -219,7 +332,7 @@ export const HELP_GUIDE_DATA: HelpGuideItem[] = [
     title: '登録済みの予定を別の枠や別の日付にコピー＆ペーストしたい',
     category: 'import',
     categoryName: 'インポート・コピペ',
-    targetScreen: '月間予定表',
+    targetScreen: '旧 月間予定表',
     summary: 'カレンダー内の予定を右クリックでコピーし、別のセルへ貼り付けることで、同じ予定を素早く複製できます。',
     steps: [
       'コピーしたい予定を右クリックし、「予定をコピー」を選択します（または選択して Ctrl+C）。',
@@ -238,10 +351,10 @@ export const HELP_GUIDE_DATA: HelpGuideItem[] = [
     title: '自分の予定だけを絞り込んで紙に印刷したい（個人用印刷プレビュー）',
     category: 'print',
     categoryName: '印刷・Excel出力',
-    targetScreen: '予定表 (グリッド)',
+    targetScreen: '旧 予定表',
     summary: '全体の予定表から自分の担当分だけを抽出し、A4用紙に最適化された綺麗なレイアウトで印刷できます。',
     steps: [
-      '上部ナビゲーションタブで「予定表 (グリッド)」を開きます。',
+      'ヘッダーの時計まわりのアイコン（携帯は「⋯」→「旧画面のタブを出す」）で旧画面のタブを出し、「旧 予定表」を開きます。',
       '上部の「担当者」プルダウンで自分の名前を選択し、自分の予定のみを表示させます。',
       '画面右上の「印刷プレビュー」ボタンをクリックします。',
       '全画面の印刷プレビューモーダルが起動し、選択したスタッフの予定のみが一覧表示されます。',
@@ -256,7 +369,7 @@ export const HELP_GUIDE_DATA: HelpGuideItem[] = [
     title: '印刷用紙にだけ一時的な連絡メモや手書き事項を添えて印刷したい',
     category: 'print',
     categoryName: '印刷・Excel出力',
-    targetScreen: '予定表 (グリッド) ➔ 印刷プレビュー',
+    targetScreen: '旧 予定表 ➔ 印刷プレビュー',
     summary: '共有データベースを一切汚さずに、印刷用紙にだけ反映される「印刷用使い捨てメモ」を入力できます。',
     steps: [
       '「印刷プレビュー」モーダルを開きます。',
@@ -273,10 +386,10 @@ export const HELP_GUIDE_DATA: HelpGuideItem[] = [
     title: '予定データをExcelで開きたい / ダウンロードしたい',
     category: 'print',
     categoryName: '印刷・Excel出力',
-    targetScreen: '予定表 (グリッド)',
+    targetScreen: '旧 予定表',
     summary: '現在の表示条件（日付や絞り込み）の予定一覧を、Excelで直接開けるファイル形式でワンクリック出力できます。',
     steps: [
-      '上部ナビゲーションタブで「予定表 (グリッド)」を開きます。',
+      'ヘッダーの時計まわりのアイコン（携帯は「⋯」→「旧画面のタブを出す」）で旧画面のタブを出し、「旧 予定表」を開きます。',
       '必要に応じて、日付や担当者の絞り込みを行います。',
       '画面右上の「Excelで開く」ボタンをクリックします。',
       'Excel対応ファイルが自動でダウンロードされるので、ファイルを開きます。'
@@ -292,7 +405,7 @@ export const HELP_GUIDE_DATA: HelpGuideItem[] = [
     title: '他のスタッフを同行者として登録し、相手のカレンダーにも自動反映させたい',
     category: 'coworker',
     categoryName: '同行者・連携',
-    targetScreen: '月間予定表 / 予定表 (グリッド)',
+    targetScreen: '旧 月間予定表 / 旧 予定表',
     summary: '同行者を指定すると、相手の予定表にも同じ物件名・内容の予定が「同行」バッジ付きで自動登録されます。',
     steps: [
       '予定の追加または編集モーダルを開きます。',
@@ -310,7 +423,7 @@ export const HELP_GUIDE_DATA: HelpGuideItem[] = [
     title: '1日同行などの際に、相手の予定表を埋めないようにしたい（連動登録の解除）',
     category: 'coworker',
     categoryName: '同行者・連携',
-    targetScreen: '月間予定表 / 予定表 (グリッド)',
+    targetScreen: '旧 月間予定表 / 旧 予定表',
     summary: '「連動登録」チェックをOFFにすることで、自分の予定の同行者欄に名前を残しつつ、相手のカレンダーに予定を増やさない運用ができます。',
     steps: [
       '予定の追加または編集モーダルを開きます。',
@@ -328,7 +441,7 @@ export const HELP_GUIDE_DATA: HelpGuideItem[] = [
     title: '物件名の横にある紫色の「同行」バッジは何を意味している？',
     category: 'coworker',
     categoryName: '同行者・連携',
-    targetScreen: '月間予定表',
+    targetScreen: '旧 月間予定表',
     summary: '他のスタッフがメイン担当の予定に、自分が同行者として参加している予定であることを示しています。',
     steps: [
       'カレンダーの物件名左側に紫色の「同行」バッジが付いている予定は、自動連動された同行予定です。',
@@ -360,18 +473,18 @@ export const HELP_GUIDE_DATA: HelpGuideItem[] = [
   },
   {
     id: 'timeline-sort',
-    title: '「当日行動予定表」のスタッフの並び順はどう決まっている？',
+    title: '「旧 当日行動予定表」のスタッフの並び順はどう決まっている？',
     category: 'rules',
     categoryName: '画面の見方・基本ルール',
-    targetScreen: '当日行動予定表',
+    targetScreen: '旧 当日行動予定表',
     summary: '各スタッフのデフォルトコース番号順に自動で整列し、見やすい順番で表示されます。',
     steps: [
-      '当日行動予定表に表示される各スタッフの列（ボード）は、コース番号（1, 2, ..., 26, 90...）の数値昇順で左から右へ自動で並びます。',
+      '旧 当日行動予定表に表示される各スタッフの列（ボード）は、コース番号（1, 2, ..., 26, 90...）の数値昇順で左から右へ自動で並びます。',
       'コース番号が未設定のスタッフは、リストの末尾に配置されます。',
       '表示される予定は、「確定」「仮」だけでなく「通常（フリー）」の予定もすべて表示されます。'
     ],
     tips: 'スタッフマスタ管理画面で各スタッフのデフォルトコース番号を設定することで、並び順を調整できます。',
-    keywords: ['並び順', '順番', 'コース', 'ソート', '当日行動予定表', '左から右', '整列'],
+    keywords: ['並び順', '順番', 'コース', 'ソート', '旧 当日行動予定表', '左から右', '整列'],
     intents: ['並び順ルール', 'コースソート']
   },
   {
@@ -539,7 +652,7 @@ function matchGuidesByNaturalLanguage(input: string): { guides: HelpGuideItem[];
     } else if (cleanInput.includes('移動') || cleanInput.includes('別日') || cleanInput.includes('振替') || cleanInput.includes('スライド')) {
       reply = '予定の別日への移動・振替ですね！右クリックメニューまたは複数選択時の「別日へ移動」から、元の予定の備考に「〇/〇へ移動」と自動記録してキャンセル履歴を残しつつ、新しい日付へスムーズに振替できます：';
     } else if (cleanInput.includes('印刷') || cleanInput.includes('プリント')) {
-      reply = '印刷機能についてですね！「予定表 (グリッド)」画面から自分の予定を絞り込んで「印刷プレビュー」を開くことで、A4用紙に最適化された綺麗な印刷ができます。使い捨てメモも添えられますよ：';
+      reply = '印刷機能についてですね！「旧 予定表」画面から自分の予定を絞り込んで「印刷プレビュー」を開くことで、A4用紙に最適化された綺麗な印刷ができます。使い捨てメモも添えられますよ：';
     } else if (cleanInput.includes('まとめて') || cleanInput.includes('一括') || cleanInput.includes('複数')) {
       reply = '複数予定の一括操作ですね！カレンダー上で Ctrl キーを押しながら複数行をクリックすると、画面下に一括操作バーが表示され、まとめて確定・仮・キャンセルや移動が行えます：';
     } else if (cleanInput.includes('色') || cleanInput.includes('赤') || cleanInput.includes('黄色')) {
@@ -644,6 +757,8 @@ export const HelpGuideModal: React.FC<HelpGuideModalProps> = ({ isOpen, onClose 
 
   // よくある質問クイックチップ
   const quickQuestions = [
+    '開始・完了はどこで押す？',
+    '前の表の画面はどこ？',
     'どうやって予定入れるの？',
     'まとめて確定やキャンセルにしたい',
     '予定を別日に移動（振替）したい',
@@ -656,6 +771,7 @@ export const HelpGuideModal: React.FC<HelpGuideModalProps> = ({ isOpen, onClose 
   // カテゴリ一覧定義
   const categories = [
     { id: 'all', label: 'すべて' },
+    { id: 'screens', label: '新しい画面' },
     { id: 'bulk', label: '複数選択・一括操作' },
     { id: 'schedule', label: '予定の登録・編集' },
     { id: 'import', label: 'インポート・コピペ' },
