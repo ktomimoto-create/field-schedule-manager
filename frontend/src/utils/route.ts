@@ -56,8 +56,13 @@ export const travelModeOf = (items: Schedule[], usesVehicle: boolean): TravelMod
 
 const unitOf = (s: Schedule) => (s.unit_number || '').trim();
 
-/** 物件名から（A制御）などの括弧書き・空白を外したもの。同じなら同じ建物とみなす（住所が無い新築でも移動なしにする） */
-export const siteKey = (s: Schedule) => (s.property_name || '').replace(/[（(][^）)]*[）)]/g, '').replace(/\s/g, '');
+/** 物件名から（A制御）などの括弧書き・末尾の①②／A制御／B棟・空白を外したもの。同じなら同じ建物とみなす（住所が無い新築でも移動なしにする） */
+export const siteKey = (s: Schedule) =>
+  (s.property_name || '')
+    .replace(/[（(][^）)]*[）)]/g, '')
+    .replace(/[①-⑳]+$/u, '')
+    .replace(/\s*[A-ZＡ-Ｚa-z]?(制御|号棟|棟)$/u, '')
+    .replace(/\s/g, '');
 export const sameBuilding = (a: Schedule | null | undefined, b: Schedule) => !!a && !!siteKey(b) && siteKey(a) === siteKey(b);
 
 /** 号機 → 位置（物件マスタの住所 → 国土地理院）。分かったものから少しずつ返す */

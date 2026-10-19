@@ -173,62 +173,145 @@ export const StaffTimelineBoard: React.FC<Props> = ({ schedules, staff, date, ca
       // 移動の手段: 車両の基本利用者（または交通手段が車）なら車、それ以外は電車・徒歩
       const mode = travelModeOf(g.items, usesVehicle(g.name, reservations, knownSurnames));
       // 出動の記録が無ければ 9:00 の見込み。ただし 1 件目が 8:00 指定などなら、間に合うように早めに出たとみなす
-      const firstSlot = g.items[0] ? parseTimeSlot(g.items[0].target_time) : null;
-      const firstNeed = firstSlot && firstSlot.kind !== 'until' ? firstSlot.from - travelLeg(base, posOf(g.items[0]), mode).min : Infinity;
+      const firstNeed = Math.min(
+        Infinity,
+        ...g.items.map(x => {
+          const sl = parseTimeSlot(x.target_time);
+          return sl && sl.kind !== 'until' && sl.from < LUNCH_FROM ? sl.from - travelLeg(base, posOf(x), mode).min : Infinity;
+        })
+      );
       const depart = departRec ?? Math.min(DAY_START, firstNeed);
-      // 順番どおりに時刻を割り当てる（前の場所から移動して着いた時刻。時刻指定はその時刻、AM/PM は枠の始まりより前には始めない、〜迄は着いたらすぐ）
-      let cursor = depart;
-      let here: LatLng | null = base;
-      let prevS: Schedule | null = null;
+      // 時刻の割り当て: 行の順番ではなく、時間の指定を守る順に枠を押さえる
+      //   ① 時刻指定（10:00 など）はその時刻 ② AM 指定は午前の空き ③ PM 指定は午後の空き
+      //   ④ 時間指定なし・「〜迄」は行の順に空いた所へ。最後に昼休憩 60 分を 12:00 以降の最初の空きに入れる
+      //   同じ建物・同じ敷地（物件名の括弧書き・①② を除いて同じ）の訪問は同じ時刻に重ねる
+      // どの訪問も、前の訪問（または出動）から移動して着ける時刻より前には置かない。入らなければ赤い枠
+      type Blk = { s: Schedule | null; from: number; to: number; pos: LatLng | null; lunch?: boolean };
+      const blocks: Blk[] = [{ s: null, from: depart, to: depart, pos: base }];
+      const leg = (a: Blk, b: Schedule, bPos: LatLng | null) =>
+        a.s && (sameBuilding(a.s, b) || isSameSite(a.pos, bPos)) ? 0 : travelLeg(a.pos ?? base, bPos, mode).min;
+      // t より前に終わっている最後の訪問（なければ出動）と、その間の昼休憩
+      const prevOf = (t: number) => {
+        const done = blocks.filter(b => b.to <= t);
+        const visit = done.filter(b => !b.lunch).sort((a, b) => b.to - a.to)[0] ?? blocks[0];
+        const lunchAfter = done.find(b => b.lunch && b.from >= visit.to);
+        return { visit, lunchAfter };
+      };
+      const findSlot = (x: Schedule, pos: LatLng | null, earliest: number) => {
+        // 同じ建物・同じ敷地の訪問が先に置いてあれば、同じ時刻に重ねる（まとめて対応）
+        const sameSite = blocks.find(b => b.s && b.from >= earliest - WORK_MIN && (sameBuilding(b.s, x) || isSameSite(b.pos, pos)));
+        if (sameSite) return sameSite.from;
+        let t = earliest;
+        for (let guard = 0; guard < 60; guard++) {
+          const { visit, lunchAfter } = prevOf(t);
+          const need = Math.max(visit.to + leg(visit, x, pos), lunchAfter ? lunchAfter.to : -Infinity);
+          if (t < need) {
+            t = need;
+            continue;
+          }
+          const hit = blocks.find(b => t < b.to && t + WORK_MIN > b.from && b.to > b.from);
+          if (hit) {
+            t = hit.to;
+            continue;
+          }
+          // 次に押さえてある訪問へ間に合うか
+          const next = blocks.filter(b => !b.lunch && b.s && b.from >= t + WORK_MIN).sort((a, b) => a.from - b.from)[0];
+          if (next && next.s && t + WORK_MIN + leg({ s: x, from: t, to: t + WORK_MIN, pos }, next.s, next.pos) > next.from) {
+            t = next.to;
+            continue;
+          }
+          return t;
+        }
+        return t;
+      };
+      const startOf = new Map<Schedule, number>();
+      const put = (x: Schedule, t: number) => {
+        startOf.set(x, t);
+        blocks.push({ s: x, from: t, to: t + WORK_MIN, pos: posOf(x) });
+      };
+      const withSlot = g.items.map((x, idx) => ({ x, idx, slot: parseTimeSlot(x.target_time) }));
+      const isAm = (sl: ReturnType<typeof parseTimeSlot>) => sl?.kind === 'band' && sl.from < LUNCH_FROM;
+      // ① 時刻指定
+      withSlot.filter(w => w.slot?.kind === 'at').sort((a, b) => a.slot!.from - b.slot!.from).forEach(w => put(w.x, w.slot!.from));
+      // ② AM
+      withSlot.filter(w => isAm(w.slot)).forEach(w => put(w.x, findSlot(w.x, posOf(w.x), w.slot!.from)));
+      // ③ PM
+      withSlot.filter(w => w.slot?.kind === 'band' && !isAm(w.slot)).forEach(w => put(w.x, findSlot(w.x, posOf(w.x), w.slot!.from)));
+      // ④ 時間指定なし・「〜迄」（行の順に空いた所へ）
+      withSlot.filter(w => !w.slot || w.slot.kind === 'until').forEach(w => put(w.x, findSlot(w.x, posOf(w.x), depart)));
+
+      // 時刻の早い順に並べ、昼休憩を入れる（12:00 以降、最初に 60 分空いたところ。空きが無ければその後の訪問を後ろへずらす）
+      const chrono = withSlot.map(w => ({ ...w, start: startOf.get(w.x)! })).sort((a, b) => a.start - b.start || a.idx - b.idx);
+      const legBetween = (prev: { x: Schedule } | null, x: Schedule) => {
+        if (!prev) return travelLeg(base, posOf(x), mode);
+        if (sameBuilding(prev.x, x) || isSameSite(posOf(prev.x), posOf(x))) return { min: 0, kind: 'same' as LegKind };
+        return travelLeg(posOf(prev.x) ?? base, posOf(x), mode);
+      };
       let lunch: [number, number] | null = null;
-      // 時刻指定（10:00 など）の訪問はその時間を押さえておき、時間指定の無い訪問はそこを避けて空いた所に置く
-      const fixed = g.items
-        .filter(x => x.status !== 'cancelled')
-        .map(x => ({ s: x, slot: parseTimeSlot(x.target_time) }))
-        .filter(x => x.slot?.kind === 'at')
-        .map(x => ({ s: x.s, from: x.slot!.from, to: x.slot!.from + WORK_MIN }));
-      const placed: Placed[] = g.items.map((s, i) => {
-        const slot = parseTimeSlot(s.target_time);
-        const pos = posOf(s);
-        const same = sameBuilding(prevS, s) || isSameSite(here, pos);
-        const leg = same ? { min: 0, kind: 'same' as LegKind } : travelLeg(here, pos, mode);
-        const move = leg.min;
-        prevS = s;
-        // 昼休憩: 12:00 を過ぎて手が空いたとき（または次の移動で 12:00 をまたぐとき）に 60 分
-        if (!lunch && cursor + move > LUNCH_FROM) {
-          const ls = Math.max(cursor, LUNCH_FROM);
-          lunch = [ls, ls + LUNCH_MIN];
-          cursor = ls + LUNCH_MIN;
-        }
-        const waitFrom = cursor;
-        const arrive = cursor + move;
-        let start: number;
-        let estimated = false;
-        if (!slot) {
-          start = arrive;
-          estimated = true;
-        } else if (slot.kind === 'at') {
-          start = slot.from;
-        } else if (slot.kind === 'until') {
-          // 「〜迄」は締切までに終わればよいので、着いたらすぐ始める（早く着いても待たない）
-          start = arrive;
-        } else {
-          start = Math.max(arrive, slot.from);
-        }
-        if (!slot || slot.kind !== 'at') {
-          for (let guard = 0; guard < 10; guard++) {
-            const hit = fixed.find(f => f.s.id !== s.id && start < f.to && start + WORK_MIN > f.from);
-            if (!hit) break;
-            const after = sameBuilding(hit.s, s) ? 0 : travelLeg(posOf(hit.s), pos, mode).min;
-            start = hit.to + after;
+      {
+        let prev: (typeof chrono)[number] | null = null;
+        let prevEnd = depart;
+        for (let i = 0; i < chrono.length; i++) {
+          const w = chrono[i];
+          const mv = legBetween(prev, w.x).min;
+          const moveFrom = w.start - mv;
+          if (!lunch && prev && w.start >= prevEnd) {
+            // この訪問の前の空き [prevEnd, moveFrom] で取れるか
+            if (moveFrom - prevEnd >= LUNCH_MIN && moveFrom > LUNCH_FROM) {
+              const lsStart = Math.max(prevEnd, Math.min(LUNCH_FROM, moveFrom - LUNCH_MIN));
+              lunch = [lsStart, lsStart + LUNCH_MIN];
+            } else if ((w.start >= LUNCH_FROM || prevEnd >= LUNCH_FROM) && w.slot?.kind !== 'at') {
+              // 空きが足りない: 昼休憩のあとに移動して始める（時刻指定の訪問の前なら、その後の空きで取る）
+              const lsStart = Math.max(prevEnd, LUNCH_FROM);
+              lunch = [lsStart, lsStart + LUNCH_MIN];
+              let cursor = lunch[1];
+              let pv: (typeof chrono)[number] | null = prev;
+              for (let j = i; j < chrono.length; j++) {
+                const c = chrono[j];
+                if (c.slot?.kind === 'at') {
+                  cursor = Math.max(cursor, c.start + WORK_MIN);
+                } else {
+                  const need = cursor + legBetween(pv, c.x).min;
+                  if (c.start < need) c.start = need;
+                  cursor = Math.max(cursor, c.start + WORK_MIN);
+                }
+                pv = c;
+              }
+              chrono.sort((x1, x2) => x1.start - x2.start || x1.idx - x2.idx);
+            }
+          }
+          if (w.start + WORK_MIN > prevEnd) {
+            prevEnd = w.start + WORK_MIN;
+            prev = w;
           }
         }
+      }
+
+      // 出動の記録が無ければ、1 件目に着く時刻から逆算して出る（最初に待ちを作らない）
+      const firstLeg = chrono[0] ? legBetween(null, chrono[0].x).min : 0;
+      const departShown = departRec ?? (chrono[0] ? chrono[0].start - firstLeg : depart);
+      // 移動・待ちを前の訪問から出し直す
+      let prevW: (typeof chrono)[number] | null = null;
+      let prevEnd = departShown;
+      const placed: Placed[] = [];
+      for (const w of chrono) {
+        const lg = legBetween(prevW, w.x);
+        const sameAsPrev = lg.kind === 'same' && !!prevW;
+        const start = w.start;
         const end = start + WORK_MIN;
-        const late = !!slot && ((slot.kind === 'until' && end > slot.to) || (slot.kind === 'at' && arrive > slot.from && !same));
-        cursor = Math.max(cursor, end);
-        here = pos ?? here;
-        return { schedule: s, no: i + 1, start, end, estimated, late, move, legKind: leg.kind, waitFrom, stackIndex: 0, stackSize: 1, stackKey: String(s.id), stackLabel: String(i + 1) };
-      });
+        const lunchBetween = !!lunch && lunch[0] >= prevEnd && lunch[1] <= start - lg.min;
+        const waitFrom = lunchBetween && lunch ? lunch[1] : prevEnd;
+        const arrive = waitFrom + lg.min;
+        const sl = w.slot;
+        const late = !!sl && ((sl.kind === 'at' && arrive > sl.from && !sameAsPrev) || (sl.kind !== 'at' && end > sl.to));
+        if (end > prevEnd) {
+          prevEnd = end;
+          prevW = w;
+        }
+        placed.push({ schedule: w.x, no: w.idx + 1, start, end, estimated: !sl, late, move: lg.min, legKind: lg.kind, waitFrom, stackIndex: 0, stackSize: 1, stackKey: String(w.x.id), stackLabel: String(w.idx + 1) });
+      }
+      // 昼休憩は、その後に訪問があるときだけ出す
+      if (lunch && !placed.some(p => p.start >= lunch![1])) lunch = null;
       // 番号は実際に回る順（時刻の早い順）。行動予定表の行の順と違っても、時間軸では回る順で数える
       [...placed].sort((a, b) => a.start - b.start || a.no - b.no).forEach((p, k) => {
         p.no = k + 1;
@@ -262,7 +345,7 @@ export const StaffTimelineBoard: React.FC<Props> = ({ schedules, staff, date, ca
         member: g.member,
         course: g.course,
         placed,
-        depart,
+        depart: departShown,
         departRecorded: departRec != null,
         travelNow,
         travelBest,
