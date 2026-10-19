@@ -1481,35 +1481,7 @@ frontend/public/_sandbox/${viewDate}.json を置いてください。`);
                   <BarChart3 size={16} />
                 </button>
               )}
-              {currentUserRole === 'developer' && (
-                <button
-                  className={`btn ${activeTab === 'master_management' ? 'btn-primary' : 'btn-secondary'}`}
-                  onClick={() => setActiveTab('master_management')}
-                  title="マスタ管理を開く"
-                >
-                  <Settings size={16} />
-                </button>
-              )}
 
-              <div className="header-divider"></div>
-
-              {/* グループ3: システム・サポート・アカウント */}
-              <button 
-                className="btn btn-secondary" 
-                onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')} 
-                title={theme === 'light' ? 'ダークモードに切り替え' : 'ライトモードに切り替え'}
-              >
-                {theme === 'light' ? <Moon size={16} /> : <Sun size={16} />}
-              </button>
-
-              <button 
-                className="btn btn-secondary header-help-btn" 
-                onClick={() => setIsHelpGuideOpen(true)} 
-                title="操作ガイド・よくある質問（ショートカット: ?）"
-                aria-label="操作ガイド"
-              >
-                <HelpCircle size={16} />
-              </button>
 
 
               {/* アカウント表示エリア */}
@@ -1569,6 +1541,45 @@ frontend/public/_sandbox/${viewDate}.json を置いてください。`);
                           {currentBranch === b && <Check size={16} className="branch-option-check" />}
                         </button>
                       ))}
+                      <div className="user-menu-divider"></div>
+                      {currentUserRole === 'developer' && (
+                        <button
+                          type="button"
+                          className={`user-menu-item menu-action${activeTab === 'master_management' ? ' is-active' : ''}`}
+                          onClick={e => {
+                            e.stopPropagation();
+                            setActiveTab('master_management');
+                            setShowUserMenu(false);
+                          }}
+                        >
+                          <Settings size={16} />
+                          <span>設定（マスタ管理）</span>
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        className="user-menu-item menu-action"
+                        onClick={e => {
+                          e.stopPropagation();
+                          setTheme(theme === 'light' ? 'dark' : 'light');
+                        }}
+                      >
+                        {theme === 'light' ? <Moon size={16} /> : <Sun size={16} />}
+                        <span>{theme === 'light' ? 'ダークモードにする' : 'ライトモードにする'}</span>
+                      </button>
+                      <button
+                        type="button"
+                        className="user-menu-item menu-action"
+                        onClick={e => {
+                          e.stopPropagation();
+                          setIsHelpGuideOpen(true);
+                          setShowUserMenu(false);
+                        }}
+                      >
+                        <HelpCircle size={16} />
+                        <span>操作ガイド</span>
+                        <kbd className="menu-kbd">?</kbd>
+                      </button>
                       <div className="user-menu-divider"></div>
                       <button className="user-menu-item logout-btn" onClick={handleLogout}>
                         ログアウト

@@ -1014,3 +1014,44 @@ tr:hover .cell-edit-modal-btn {
 .date-nav-controls .current-date-display {
   font-size: 1rem;
 }
+
+/* 絞り込みの行: 枠を 34px にそろえて大きくする */
+.grid-filters-left .filter-select.select-trigger {
+  box-sizing: border-box;
+  height: 34px;
+  min-width: 140px;
+  font-size: 0.85rem;
+  line-height: 1.4;
+}
+.grid-actions-right .btn-action-excel,
+.grid-actions-right .btn-action-print {
+  box-sizing: border-box;
+  height: 34px;
+}
+/* 自分の予定だけ: 人のアイコンだけの切り替え（押している間は色付き） */
+.btn.btn-my-schedule {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: 34px;
+  height: 34px;
+  padding: 0 !important;
+  border: 1px solid var(--border-glass);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-secondary);
+}
+.btn.btn-my-schedule:hover {
+  filter: brightness(1.12);
+  color: var(--primary);
+}
+.btn.btn-my-schedule.active {
+  border-color: rgba(79, 70, 229, 0.45);
+  background: rgba(79, 70, 229, 0.1);
+  color: var(--primary);
+}
+.grid-header-bottom-row .grid-filters-left .select-trigger.filter-select {
+  font-size: 0.85rem !important;
+  padding: 0 0.75rem !important;
+}

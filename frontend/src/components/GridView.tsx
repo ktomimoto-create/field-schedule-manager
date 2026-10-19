@@ -4,7 +4,7 @@ import type { Schedule, Staff, UserRole, WorkType } from '../types';
 import { getShortName, cleanMetadata, splitCoWorkers, canManageSchedules, normalizeTargetTime, compareSchedules, toHalfWidth, findStaffByName } from '../types';
 import { buildFcAutofillPatch } from '../utils/fcAutofill';
 
-import { Plus, ChevronLeft, ChevronRight, Calendar as CalendarIcon, Filter, CheckCircle2, Download, Eye, EyeOff, Printer, Lock, ArrowUpDown, RotateCcw, Edit2, LayoutList, ChartGantt, Table2, Columns3 } from 'lucide-react';
+import { Plus, ChevronLeft, ChevronRight, Calendar as CalendarIcon, Filter, CheckCircle2, Download, Eye, EyeOff, Printer, Lock, ArrowUpDown, RotateCcw, Edit2, LayoutList, ChartGantt, Table2, Columns3, UserRound } from 'lucide-react';
 import { PrintPreviewModal } from './PrintPreviewModal';
 import { DayScheduleCards } from './ScheduleCards';
 import { ScheduleTimeAxis } from './ScheduleTimeAxis';
@@ -977,9 +977,11 @@ export const GridView: React.FC<GridViewProps> = ({
                     setFilterStaff('all');
                   }
                 }}
-                title="ログインしているあなたの予定のみに一括で絞り込みます"
+                title={myScheduleOnly ? '自分の予定だけ表示中（押すと全員に戻す）' : '自分の予定だけ表示する'}
+                aria-label="自分の予定だけ表示"
+                aria-pressed={myScheduleOnly}
               >
-                自分の予定のみ表示
+                <UserRound size={16} />
               </button>
             )}
           </div>
