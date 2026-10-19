@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { Schedule } from '../types';
 import { fetchAddressesByUnit, geocodeAddress, type LatLng } from './geocode';
 import { parseTimeSlot } from './scheduleDisplay';
@@ -62,20 +62,34 @@ export const travelModeOf = (items: Schedule[], usesVehicle: boolean): TravelMod
 
 const unitOf = (s: Schedule) => (s.unit_number || '').trim();
 
-/** 出動する拠点（東京）。出動の記録に位置が無いとき、1 件目はここから移動する */
+/** 出動する拠点。出動の記録に位置が無いとき、1 件目はここから移動する（既定は東京・岩本町） */
 export const HOME_BASE_ADDRESS = '東京都千代田区岩本町2丁目10-1';
-export const useHomeBase = (): LatLng | null => {
-  const [pos, setPos] = useState<LatLng | null>(null);
+/** 既定と違う拠点から出る人（苗字 → 住所） */
+const HOME_BASE_BY_SURNAME: Record<string, string> = {
+  畦崎: '神奈川県横浜市港北区北新横浜1丁目4-7',
+  小山: '神奈川県横浜市港北区北新横浜1丁目4-7',
+  高橋: '神奈川県横浜市港北区北新横浜1丁目4-7',
+};
+/** 担当の名前 → 出動する拠点の位置（分かるまで null） */
+export const useHomeBase = (): ((staffName: string) => LatLng | null) => {
+  const [pos, setPos] = useState<Record<string, LatLng | null>>({});
   useEffect(() => {
     let cancelled = false;
-    void geocodeAddress(HOME_BASE_ADDRESS).then(ll => {
-      if (!cancelled) setPos(ll);
+    const addrs = [...new Set([HOME_BASE_ADDRESS, ...Object.values(HOME_BASE_BY_SURNAME)])];
+    void Promise.all(addrs.map(async a => [a, await geocodeAddress(a)] as const)).then(list => {
+      if (!cancelled) setPos(Object.fromEntries(list));
     });
     return () => {
       cancelled = true;
     };
   }, []);
-  return pos;
+  return useCallback(
+    (staffName: string) => {
+      const surname = staffName.trim().split(/\s+/)[0];
+      return pos[HOME_BASE_BY_SURNAME[surname] ?? HOME_BASE_ADDRESS] ?? null;
+    },
+    [pos]
+  );
 };
 
 /** 物件名から（A制御）などの括弧書き・末尾の①②／A制御／B棟・空白を外したもの。同じなら同じ建物とみなす（住所が無い新築でも移動なしにする） */

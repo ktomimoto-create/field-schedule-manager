@@ -172,8 +172,8 @@ export const StaffTimelineBoard: React.FC<Props> = ({ schedules, staff, date, ca
             .sort((a, b) => a.occurred_at.localeCompare(b.occurred_at))[0]
         : undefined;
       const departRec = shiftEv ? hmToMin(jstHm(shiftEv.occurred_at)) ?? undefined : undefined;
-      // 出発地: 出動を押した場所。記録が無ければ拠点（岩本町2丁目10-1）から
-      const base: LatLng | null = shiftEv?.lat != null && shiftEv?.lng != null ? { lat: shiftEv.lat, lng: shiftEv.lng } : homeBase;
+      // 出発地: 出動を押した場所。記録が無ければその人の拠点（既定は岩本町、北新横浜の人もいる）から
+      const base: LatLng | null = shiftEv?.lat != null && shiftEv?.lng != null ? { lat: shiftEv.lat, lng: shiftEv.lng } : homeBase(g.name);
       const posOf = (x: Schedule) => sitePos[(x.unit_number || '').trim()] ?? null;
       // 移動の手段: 車両の基本利用者（または交通手段が車）なら車、それ以外は電車・徒歩
       const mode = travelModeOf(g.items, usesVehicle(g.name, reservations, knownSurnames));
