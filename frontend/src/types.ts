@@ -105,20 +105,28 @@ export const getShortName = (name: string | null | undefined): string => {
     return 'フーギー';
   }
 
+  // FE, SF, FR などのプレフィックス付き（委託・外部パートナー）の処理
+  // 例: "FE武田" -> "武田", "FR土屋" -> "土屋", "FR 金谷" -> "金谷"
+  const prefixMatch = trimmed.match(/^(?:FE|SF|FR|FTS)[\s　]*([^\s　]+)/i);
+  const targetName = prefixMatch ? prefixMatch[1] : trimmed;
+
   // 既知の苗字リストから前方一致で切り出す（スペースがない本名にも対応）
   const SURNAMES = [
     '平本', '築地', '藤井', '神崎', '原', '土橋', '藤田', '佐藤', '吉沼', '小山', 
     '高橋', '畦崎', '松下', '淺沼', '山内', '中川', '阿部', '藤崎', '本間', '丸山', 
-    '清水', '塙', '伊比', '石山', '平井', '豊見本', '富本', '池宮', '高倉'
+    '清水', '塙', '伊比', '石山', '平井', '豊見本', '富本', '池宮', '高倉',
+    // スペース未挿入スタッフの苗字
+    '高田', '村木', '熊切', '杉山', '芳野', '下田', '上田', '黒川', '川上',
+    '武田', '土屋', '宮本', '金谷', '岡崎'
   ];
-  const matchedSurname = SURNAMES.find(s => trimmed.startsWith(s));
+  const matchedSurname = SURNAMES.find(s => targetName.startsWith(s));
   if (matchedSurname) {
     return matchedSurname;
   }
 
   // 全角スペースまたは半角スペースでスプリット
-  const parts = trimmed.split(/[\s　]+/);
-  return parts[0] || trimmed;
+  const parts = targetName.split(/[\s　]+/);
+  return parts[0] || targetName;
 };
 
 export const toHalfWidth = (str: string | null | undefined): string => {
@@ -256,7 +264,7 @@ export const normalizeTargetTime = (val: string | null | undefined): string => {
   return raw;
 };
 
-export const cleanMetadata = (val: string | null | undefined): string => {
+export const cleanMetadata = (val: any): string => {
   if (!val) return '';
   return String(val)
     .replace(/\s*\[__parent_id:\d+__\]/g, '')
@@ -287,6 +295,7 @@ export const resolveStaffBranch = (member: Staff | null | undefined): Branch => 
 export const findStaffByName = (staff: Staff[], name: string | null | undefined): Staff | undefined => {
   if (!name) return undefined;
   const cleanName = name.trim();
+  if (!cleanName) return undefined;
   
   if (
     cleanName.includes('フーギー') ||
@@ -300,10 +309,34 @@ export const findStaffByName = (staff: Staff[], name: string | null | undefined)
     );
   }
   
+  // 1. 完全一致
   let matched = staff.find(st => st.name.trim() === cleanName);
   if (matched) return matched;
+
+  // 2. スペース除去同士の完全一致（例: "高田 晴規" === "高田晴規"）
+  const noSpaceTarget = cleanName.replace(/[\s　]+/g, '');
+  matched = staff.find(st => st.name.replace(/[\s　]+/g, '') === noSpaceTarget);
+  if (matched) return matched;
   
-  matched = staff.find(st => getShortName(st.name) === getShortName(cleanName));
+  // 3. getShortName 同士の一致（例: "高田" === "高田"）
+  const targetShort = getShortName(cleanName);
+  matched = staff.find(st => getShortName(st.name) === targetShort);
+  if (matched) return matched;
+
+  // 4. 前方一致（例: マスタが "高田晴規" で検索名が "高田"）
+  if (cleanName.length >= 2) {
+    matched = staff.find(st => {
+      const stClean = st.name.replace(/^(?:FE|SF|FR|FTS)[\s　]*/i, '').trim();
+      return stClean.startsWith(cleanName);
+    });
+    if (matched) return matched;
+  }
+
+  // 5. 逆前方一致（例: マスタが "高田" で検索名が "高田晴規"）
+  matched = staff.find(st => {
+    const stShort = getShortName(st.name);
+    return stShort.length >= 2 && cleanName.startsWith(stShort);
+  });
   if (matched) return matched;
 
   return undefined;
