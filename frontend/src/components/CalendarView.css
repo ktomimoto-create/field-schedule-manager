@@ -2092,3 +2092,8 @@
 .calendar-search-input:focus {
   width: 220px !important;
 }
+
+/* 月の移動（‹ 2026年10月 ›）と、日付指定・今日の間を少しあける */
+.month-nav {
+  margin-right: 12px;
+}
