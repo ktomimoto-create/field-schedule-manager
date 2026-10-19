@@ -234,6 +234,9 @@ function App() {
         provider: 'azure',
         options: {
           scopes: 'openid profile email offline_access',
+          // ログイン後に今開いている場所へ戻す（ローカルの dev から本番の URL へ飛ばされないように）。
+          // Supabase Auth の Redirect URLs に無い URL のときは、Supabase が Site URL（本番）へ戻す
+          redirectTo: window.location.origin,
         }
       });
       if (error) throw error;
