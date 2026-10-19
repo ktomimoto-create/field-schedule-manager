@@ -1368,10 +1368,9 @@ function App() {
                 className="btn btn-secondary header-help-btn" 
                 onClick={() => setIsHelpGuideOpen(true)} 
                 title="操作ガイド・よくある質問（ショートカット: ?）"
+                aria-label="操作ガイド"
               >
                 <HelpCircle size={16} />
-                <span className="help-btn-text">操作ガイド</span>
-                <span className="help-shortcut-badge">?</span>
               </button>
 
 

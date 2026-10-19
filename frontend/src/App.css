@@ -699,3 +699,32 @@
   height: 32px;
   box-sizing: border-box;
 }
+
+/* 切り替えタブの枠を詰める（アイコンだけになったので、ボタンは正方形に近く・間は狭く） */
+.nav-tabs:has(.tab-icon-only) {
+  gap: 2px;
+  padding: 3px;
+}
+.nav-tabs .tab-btn.tab-icon-only {
+  width: 36px;
+  height: 34px;
+}
+/* FE画面のボタンは、切り替えタブの枠と同じ高さにそろえる */
+.btn-fe-screen {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-sm);
+}
+.btn-fe-screen svg {
+  width: 20px;
+  height: 20px;
+}
+@media (min-width: 1401px) {
+  .header-center .btn-fe-screen {
+    margin-top: -20px;
+  }
+}
+.nav-tabs .tab-btn.tab-icon-only {
+  min-width: 0;
+  flex: 0 0 36px;
+}
