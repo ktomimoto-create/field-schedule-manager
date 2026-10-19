@@ -4,13 +4,14 @@ import { GridView } from './components/GridView';
 import { CalendarView } from './components/CalendarView';
 import { FeActionView } from './components/FeActionView';
 import { DynamicsMapView } from './components/DynamicsMapView';
+import { loadSandboxDay, sandboxImportEnabled } from './utils/sandboxImport';
 import { listFeEvents, listLatestPositions, subscribeSandboxFeEvents, jstDate, type FeEvent, type FePosition } from './utils/feEvents';
 import { MasterManagementView } from './components/MasterManagementView';
 import { AnalyticsView } from './components/AnalyticsView';
 import { ScheduleModal } from './components/ScheduleModal';
 import { PasteImportModal } from './components/PasteImportModal';
 import { HelpGuideModal } from './components/HelpGuideModal';
-import { Calendar, RefreshCw, AlertCircle, List, Settings, Sun, Moon, BarChart3, HelpCircle, ZoomIn, ZoomOut, Smartphone, MapPinned } from 'lucide-react';
+import { Calendar, RefreshCw, AlertCircle, List, Settings, Sun, Moon, BarChart3, HelpCircle, ZoomIn, ZoomOut, Smartphone, MapPinned, Download } from 'lucide-react';
 import { supabase, talkScriptSupabase } from './supabaseClient';
 import { resolveAddress } from './utils/addressResolver';
 import { findStaffByName, canManageSchedules, normalizeRole } from './types';
@@ -101,6 +102,21 @@ function App() {
   };
 
   // お試しデータのリセット（最新本番データで再同期）
+  // 開発用: お試しモードに、見ている日の行動予定表（スプレッドシートの実データ）を読み込む
+  const handleLoadSandboxDay = async () => {
+    const rows = await loadSandboxDay(viewDate, staff);
+    if (!rows) {
+      alert(`${viewDate} の行動予定表のデータがありません。
+frontend/public/_sandbox/${viewDate}.json を置いてください。`);
+      return;
+    }
+    setSchedules(prev => {
+      const next = [...prev.filter(s => !(s.date === viewDate && s.is_transferred === 1)), ...rows];
+      localStorage.setItem('field_app_sandbox_schedules', JSON.stringify(next));
+      return next;
+    });
+  };
+
   const handleResetSandboxData = async () => {
     const confirmReset = window.confirm(
       "現在のお試しデータを破棄し、最新の本番データ状態でリセットしますか？\n（本番データには一切影響しません）"
@@ -1219,6 +1235,12 @@ function App() {
                 <span>本番データには一切影響しません。予定の追加・変更・削除・ドラッグ移動など自由にお試しいただけます。</span>
               </div>
               <div className="sandbox-banner-actions">
+                {sandboxImportEnabled && (
+                  <button className="sandbox-btn-reset" onClick={handleLoadSandboxDay} title="見ている日の行動予定表（スプレッドシートの実データ）をお試しモードに読み込みます（開発用）">
+                    <Download size={13} />
+                    行動予定表を読み込む
+                  </button>
+                )}
                 <button className="sandbox-btn-reset" onClick={handleResetSandboxData} title="最新の本番データ状態でリセットします">
                   <RefreshCw size={13} />
                   お試しデータをリセット
