@@ -704,14 +704,14 @@
   background: rgba(79, 70, 229, 0.08);
 }
 
-/* 切り替えタブを画面の中央線上に置く（右側のボタン群と重ならない 1401px 以上の画面だけ） */
+/* 切り替えタブを画面の中央線上に置く（右側のボタン群と重ならない 1440px 以上の画面だけ） */
 .header-center {
   display: flex;
   align-items: center;
   gap: 8px;
   position: relative;
 }
-@media (min-width: 1401px) {
+@media (min-width: 1440px) {
   .header-center {
     position: absolute;
     left: 50%;
@@ -805,7 +805,7 @@
   width: 20px;
   height: 20px;
 }
-@media (min-width: 1401px) {
+@media (min-width: 1440px) {
   .header-center .btn-fe-screen {
     margin-top: -20px;
   }
