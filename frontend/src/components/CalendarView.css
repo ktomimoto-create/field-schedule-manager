@@ -1906,3 +1906,76 @@
   border-color: rgba(79, 70, 229, 0.35);
   color: var(--primary);
 }
+
+/* 埋まり具合（日付の見出しの下）: バーの塗り＝予定あり、残り＝空き */
+.day-capacity {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border-glass);
+  background: var(--bg-column-header);
+}
+.day-capacity-bar {
+  position: relative;
+  height: 6px;
+  border-radius: 999px;
+  background: color-mix(in srgb, #059669 25%, transparent);
+  overflow: hidden;
+}
+.day-capacity-bar i {
+  position: absolute;
+  inset: 0 auto 0 0;
+  border-radius: 999px;
+  background: var(--primary);
+}
+.day-capacity-text {
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  line-height: 1.4;
+}
+.day-capacity-num {
+  color: var(--primary);
+  font-variant-numeric: tabular-nums;
+  font-size: 0.85rem;
+}
+.day-capacity-num.is-free {
+  color: #059669;
+}
+.day-capacity-sep {
+  margin: 0 4px;
+  color: var(--text-muted);
+}
+
+/* 空いている人: 普段は畳み、押すと名前（押すとその人の予定を追加） */
+.day-card-free {
+  display: block;
+}
+.day-card-free-toggle {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+  padding: 6px 8px;
+  border: 1px dashed color-mix(in srgb, #059669 45%, transparent);
+  border-radius: 6px;
+  background: color-mix(in srgb, #059669 6%, transparent);
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 0.78rem;
+  line-height: 1.4;
+  cursor: pointer;
+}
+.day-card-free-toggle:hover {
+  filter: brightness(1.12);
+}
+.day-card-free-chevron {
+  margin-left: auto;
+  transition: transform 0.15s ease;
+}
+.day-card-free.is-open .day-card-free-chevron {
+  transform: rotate(180deg);
+}
+.day-card-free .day-card-free-names {
+  margin-top: 6px;
+}

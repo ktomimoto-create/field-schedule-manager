@@ -3,7 +3,7 @@ import type { Schedule, Staff, WorkType, UserRole } from '../types';
 import { getShortName, findStaffByName, toHalfWidth, normalizeTargetTime, splitCoWorkers, compareSchedules } from '../types';
 import { buildFcAutofillPatch } from '../utils/fcAutofill';
 
-import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Edit2, Plus, Search, Lock, Eye, EyeOff, LayoutList, Table2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Edit2, Plus, Search, Lock, Eye, EyeOff, LayoutList, Table2, ChevronDown } from 'lucide-react';
 import { CompactScheduleCard } from './ScheduleCards';
 import './CalendarView.css';
 
@@ -295,6 +295,16 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
   React.useEffect(() => {
     localStorage.setItem('field_app_calendar_full_text', String(showFullText));
   }, [showFullText]);
+
+  // カード表示で「空き」の名前を開いている日
+  const [openFreeDays, setOpenFreeDays] = useState<Set<string>>(() => new Set());
+  const toggleFreeDay = (dateStr: string) =>
+    setOpenFreeDays(prev => {
+      const next = new Set(prev);
+      if (next.has(dateStr)) next.delete(dateStr);
+      else next.add(dateStr);
+      return next;
+    });
 
   // 表示の切替: カード一覧（既定）/ 表
   const [viewMode, setViewMode] = useState<'card' | 'table'>(() => {
@@ -2624,7 +2634,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                   }
                 }}
               />
-              <span className="current-date-display" style={{ display: 'inline-flex', alignItems: 'center', padding: '0 12px', height: '32px', borderRadius: '6px', border: '1px solid var(--border-color, #e2e8f0)', background: 'var(--card-bg, #ffffff)', fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-main, #1e293b)' }}>
+              <span className="current-date-display" style={{ display: 'inline-flex', alignItems: 'center', padding: '0 12px', height: '32px', borderRadius: '6px', border: '1px solid var(--border-color, #e2e8f0)', background: 'var(--bg-secondary)', fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-primary)' }}>
                 <CalendarIcon size={14} style={{ marginRight: '6px' }} />
                 日付指定
               </span>
@@ -2847,10 +2857,10 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                                 boxSizing: 'border-box'
                               }}>
                                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}>
-                                  <span className="day-name-super" style={{ color: '#000000', fontWeight: 'bold' }}>
+                                  <span className="day-name-super" style={{ color: 'var(--text-primary)', fontWeight: 'bold' }}>
                                     {day.dayName}曜日{holidayName ? `・${holidayName}` : ''}
                                   </span>
-                                  <span className="day-date-super" style={{ fontSize: '0.75rem', color: '#000000', fontWeight: 'bold', opacity: 0.9 }}>({day.date.getMonth() + 1}/{day.date.getDate()})</span>
+                                  <span className="day-date-super" style={{ fontSize: '0.75rem', color: 'var(--text-primary)', fontWeight: 'bold', opacity: 0.9 }}>({day.date.getMonth() + 1}/{day.date.getDate()})</span>
                                 </div>
                                 <div className="transfer-action-area" style={{
                                   display: 'inline-flex',
@@ -3147,6 +3157,13 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                     const realSchedules = daySchedules.filter(s => !isTempSchedule(s));
                     const freeStaffSchedules = daySchedules.filter(s => isTempSchedule(s) && !String(s.id).startsWith('temp-unassigned-'));
                     const q = searchQuery.toLowerCase();
+                    // 埋まり具合: 予定がある人（キャンセル以外・対応者あり）と空いている人
+                    const busyCount = new Set(
+                      realSchedules.filter(s => s.status !== 'cancelled' && (s.staff_id || s.staff_name)).map(s => (s.staff_id ? `id-${s.staff_id}` : `n-${s.staff_name}`))
+                    ).size;
+                    const freeCount = freeStaffSchedules.length;
+                    const capTotal = busyCount + freeCount;
+                    const isFreeOpen = openFreeDays.has(day.dateStr);
                     return (
                       <div
                         key={day.dateStr}
@@ -3155,6 +3172,16 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                       >
                         <div className={`matrix-day-header-super day-card-header ${isToday ? 'today-header' : ''}`}>
                           {dayHeaderContent}
+                        </div>
+                        <div className="day-capacity" title={`予定あり ${busyCount}人 / 空き ${freeCount}人`}>
+                          <span className="day-capacity-bar">
+                            <i style={{ width: `${capTotal ? (busyCount / capTotal) * 100 : 0}%` }} />
+                          </span>
+                          <span className="day-capacity-text">
+                            予定あり <b className="day-capacity-num">{busyCount}</b>人
+                            <span className="day-capacity-sep">／</span>
+                            空き <b className="day-capacity-num is-free">{freeCount}</b>人
+                          </span>
                         </div>
                         <div className="matrix-freespace-header day-card-freespace">
                           {freeSpaceContent}
@@ -3204,8 +3231,20 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                             );
                           })}
                           {freeStaffSchedules.length > 0 && (
-                            <div className="day-card-free">
-                              <span className="day-card-free-label">空き</span>
+                            <div className={`day-card-free${isFreeOpen ? ' is-open' : ''}`}>
+                              <button
+                                type="button"
+                                className="day-card-free-toggle"
+                                onClick={() => toggleFreeDay(day.dateStr)}
+                                aria-expanded={isFreeOpen}
+                                title={isFreeOpen ? '空いている人を閉じる' : '空いている人を見る（押すとその人の予定を追加）'}
+                              >
+                                <span>空いている人</span>
+                                <b className="day-capacity-num is-free">{freeCount}</b>
+                                <span>人</span>
+                                <ChevronDown size={16} className="day-card-free-chevron" />
+                              </button>
+                              {isFreeOpen && (
                               <span className="day-card-free-names">
                                 {freeStaffSchedules.map(s => (
                                   <button
@@ -3219,6 +3258,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                                   </button>
                                 ))}
                               </span>
+                              )}
                             </div>
                           )}
                         </div>
