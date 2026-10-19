@@ -8,7 +8,7 @@ import { StaffAvatar } from './ScheduleCards';
 import { VisitCardBody } from './StaffLaneBoard';
 import { usePlaceLabel } from '../utils/usePlaceLabel';
 import { isSameSite, planRoute, sameBuilding, totalTravel, travelLeg, travelModeOf, useSitePositions, WORK_MIN, type LegKind, type TravelMode } from '../utils/route';
-import { usesVehicle } from '../utils/vehicleUsers';
+import { useFunnaviReservations, usesVehicle } from '../utils/vehicleUsers';
 import type { LatLng } from '../utils/geocode';
 import './StaffLaneBoard.css';
 import './StaffTimelineBoard.css';
@@ -91,6 +91,7 @@ export const StaffTimelineBoard: React.FC<Props> = ({ schedules, staff, date, ca
   const [now, setNow] = useState(nowMin);
   const placeOf = usePlaceLabel(schedules);
   const sitePos = useSitePositions(schedules);
+  const reservations = useFunnaviReservations(date);
   const [busy, setBusy] = useState(false);
   useEffect(() => {
     const t = setInterval(() => setNow(nowMin()), 60_000);
@@ -109,6 +110,7 @@ export const StaffTimelineBoard: React.FC<Props> = ({ schedules, staff, date, ca
       }
       map.get(key)!.items.push(s);
     }
+    const knownSurnames = staff.map(st => st.name.trim().split(/\s+/)[0]).filter(n => n.length >= 1);
     const out: Row[] = [];
     for (const g of map.values()) {
       g.items.sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0) || compareSchedules(a, b));
@@ -124,7 +126,7 @@ export const StaffTimelineBoard: React.FC<Props> = ({ schedules, staff, date, ca
       const base: LatLng | null = shiftEv?.lat != null && shiftEv?.lng != null ? { lat: shiftEv.lat, lng: shiftEv.lng } : null;
       const posOf = (x: Schedule) => sitePos[(x.unit_number || '').trim()] ?? null;
       // 移動の手段: 車両の基本利用者（または交通手段が車）なら車、それ以外は電車・徒歩
-      const mode = travelModeOf(g.items, usesVehicle(g.name));
+      const mode = travelModeOf(g.items, usesVehicle(g.name, reservations, knownSurnames));
       // 順番どおりに時刻を割り当てる（前の場所から移動して着いた時刻。時刻指定はその時刻、〜迄・AM/PM は枠の始まりより前には始めない）
       let cursor = depart;
       let here: LatLng | null = base;
@@ -191,7 +193,7 @@ export const StaffTimelineBoard: React.FC<Props> = ({ schedules, staff, date, ca
       });
     }
     return out.sort((a, b) => a.course - b.course || a.name.localeCompare(b.name, 'ja'));
-  }, [schedules, staff, feEvents, date, sitePos]);
+  }, [schedules, staff, feEvents, date, sitePos, reservations]);
 
   // 実績（FE のボタン記録・開始/完了時刻）
   const actuals = useMemo(() => {
@@ -275,7 +277,7 @@ export const StaffTimelineBoard: React.FC<Props> = ({ schedules, staff, date, ca
         <span><i className="stl-lg is-move" />移動（実績）</span>
         <span><i className="stl-lg is-work" />作業（実績）</span>
         {showNow && <span><i className="stl-lg is-now" />いま</span>}
-        <span className="stl-note">出動から 1 件 {WORK_MIN} 分・移動は距離からの見込み（車両を使う人は車、それ以外は電車・徒歩）＋10 分で置いています</span>
+        <span className="stl-note">出動から 1 件 {WORK_MIN} 分・移動は距離からの見込み（Fun-navi の予約がある人・専用車の人は車、それ以外は電車・徒歩）＋10 分で置いています{reservations == null && '（予約を読めないため専用車の人だけ車）'}</span>
         {canRoute && (
           <button
             type="button"
