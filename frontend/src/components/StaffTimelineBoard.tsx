@@ -26,9 +26,11 @@ const STACK_SHIFT = 6;
 const STACK_MAX = 2;
 /** カードの下に、移動・待ちの見込み（点線）と実績（帯）を置く。重なりの有無で線の高さが変わらないように固定の位置 */
 const CARD_H = 86;
-const MOVE_Y = 6 + CARD_H + STACK_SHIFT * STACK_MAX + 8;
-const BAR_Y = MOVE_Y + 6;
-const TRACK_H = BAR_Y + 10;
+// 線はカードの上に置く（カードは重なっても上端がずれないので、どの行も同じ高さに並ぶ）
+const MOVE_Y = 10;
+const BAR_Y = 17;
+const CARD_TOP = 26;
+const TRACK_H = CARD_TOP + CARD_H + STACK_SHIFT * STACK_MAX + 6;
 
 const LEG_ICON: Partial<Record<LegKind, typeof CarFront>> = { car: CarFront, train: TrainFront, walk: Footprints };
 const LEG_LABEL: Record<LegKind, string> = { car: '車', train: '電車・バスと徒歩', walk: '徒歩', same: '同じ建物', unknown: '位置が分からないため 15 分' };
@@ -98,8 +100,21 @@ export const StaffTimelineBoard: React.FC<Props> = ({ schedules, staff, date, ca
   const sitePos = useSitePositions(schedules);
   const reservations = useFunnaviReservations(date);
   const [busy, setBusy] = useState(false);
-  // 重なりの組ごとに、何枚めくったか（クリックで 1 枚ずつ前に出す）
-  const [flip, setFlip] = useState<Record<string, number>>({});
+  // 横に広げている重なりの組（クリックで広げる・もう一度か外をクリックで閉じる）
+  const [spread, setSpread] = useState<string | null>(null);
+  useEffect(() => {
+    if (!spread) return;
+    const close = (e: MouseEvent) => {
+      if (!(e.target as HTMLElement).closest?.('.stl-card.in-stack')) setSpread(null);
+    };
+    const esc = (e: KeyboardEvent) => e.key === 'Escape' && setSpread(null);
+    document.addEventListener('mousedown', close);
+    document.addEventListener('keydown', esc);
+    return () => {
+      document.removeEventListener('mousedown', close);
+      document.removeEventListener('keydown', esc);
+    };
+  }, [spread]);
   useEffect(() => {
     const t = setInterval(() => setNow(nowMin()), 60_000);
     return () => clearInterval(t);
@@ -128,12 +143,15 @@ export const StaffTimelineBoard: React.FC<Props> = ({ schedules, staff, date, ca
             .sort((a, b) => a.occurred_at.localeCompare(b.occurred_at))[0]
         : undefined;
       const departRec = shiftEv ? hmToMin(jstHm(shiftEv.occurred_at)) ?? undefined : undefined;
-      const depart = departRec ?? DAY_START;
       // 拠点の位置: 出動を押した場所（分からなければ 1 件目の移動は 25 分の見込み）
       const base: LatLng | null = shiftEv?.lat != null && shiftEv?.lng != null ? { lat: shiftEv.lat, lng: shiftEv.lng } : null;
       const posOf = (x: Schedule) => sitePos[(x.unit_number || '').trim()] ?? null;
       // 移動の手段: 車両の基本利用者（または交通手段が車）なら車、それ以外は電車・徒歩
       const mode = travelModeOf(g.items, usesVehicle(g.name, reservations, knownSurnames));
+      // 出動の記録が無ければ 9:00 の見込み。ただし 1 件目が 8:00 指定などなら、間に合うように早めに出たとみなす
+      const firstSlot = g.items[0] ? parseTimeSlot(g.items[0].target_time) : null;
+      const firstNeed = firstSlot && firstSlot.kind !== 'until' ? firstSlot.from - travelLeg(base, posOf(g.items[0]), mode).min : Infinity;
+      const depart = departRec ?? Math.min(DAY_START, firstNeed);
       // 順番どおりに時刻を割り当てる（前の場所から移動して着いた時刻。時刻指定はその時刻、〜迄・AM/PM は枠の始まりより前には始めない）
       let cursor = depart;
       let here: LatLng | null = base;
@@ -245,6 +263,7 @@ export const StaffTimelineBoard: React.FC<Props> = ({ schedules, staff, date, ca
 
   let start = 8 * 60;
   let end = 19 * 60;
+  for (const r of rows) start = Math.min(start, Math.floor(r.depart / 60) * 60);
   for (const r of rows) for (const p of r.placed) {
     start = Math.min(start, Math.floor(p.start / 60) * 60);
     end = Math.max(end, Math.ceil(p.end / 60) * 60);
@@ -354,10 +373,13 @@ export const StaffTimelineBoard: React.FC<Props> = ({ schedules, staff, date, ca
               const isDone = progress === 'done';
               const lock = typeof s.id === 'number' ? activeLocks[s.id] : undefined;
               const act = actuals.get(s.id);
-              // 重なりの中での見た目の順番（大きいほど手前）。クリックするたびに手前のカードが入れ替わる
-              const k = p.stackSize > 1 ? (p.stackIndex + (flip[p.stackKey] ?? 0)) % p.stackSize : 0;
-              const shift = Math.min(k, STACK_MAX) * STACK_SHIFT;
-              const top = 6 + shift;
+              // 重なり: ふだんは少しずつずらして重ね、クリックでその組だけ横に並べて広げる（ほかのカード・行は動かさない）
+              const k = p.stackIndex;
+              const isSpread = p.stackSize > 1 && spread === p.stackKey;
+              const w = pct(p.end) - pct(p.start);
+              const shift = isSpread ? 0 : Math.min(k, STACK_MAX) * STACK_SHIFT;
+              const top = CARD_TOP + shift;
+              const left = isSpread ? `calc(${pct(p.start)}% + ${k} * (${w}% + 2px))` : `calc(${pct(p.start)}% + ${shift}px)`;
               const barTop = BAR_Y;
               const LegIcon = LEG_ICON[p.legKind];
               const moveFrom = p.start - p.move;
@@ -386,12 +408,12 @@ export const StaffTimelineBoard: React.FC<Props> = ({ schedules, staff, date, ca
                   </span>
                 )}
                 <div
-                  className={`lane-card stl-card tone-${meta.tone} p-${progress}${isDone ? ' is-done' : ''}${p.estimated ? ' is-est' : ''}${p.late ? ' is-late' : ''}${k > 0 ? ' is-stacked' : ''}${p.stackSize > 1 ? ' in-stack' : ''}`}
-                  style={{ left: `calc(${pct(p.start)}% + ${shift}px)`, width: `calc(${pct(p.end) - pct(p.start)}% - 4px)`, top, zIndex: 1 + k }}
+                  className={`lane-card stl-card tone-${meta.tone} p-${progress}${isDone ? ' is-done' : ''}${p.estimated ? ' is-est' : ''}${p.late ? ' is-late' : ''}${k > 0 && !isSpread ? ' is-stacked' : ''}${p.stackSize > 1 ? ' in-stack' : ''}${isSpread ? ' is-spread' : ''}`}
+                  style={{ left, width: `calc(${w}% - 4px)`, top, zIndex: isSpread ? 30 + k : 1 + k }}
                   onClick={e => {
-                    // 重なっているときは 1 クリックで次のカードを手前に（ダブルクリックの 2 回目は数えない）
+                    // 重なっているときは 1 クリックで横に広げる／閉じる（ダブルクリックの 2 回目は数えない）
                     if (p.stackSize < 2 || e.detail > 1) return;
-                    setFlip(f => ({ ...f, [p.stackKey]: ((f[p.stackKey] ?? 0) + p.stackSize - 1) % p.stackSize }));
+                    setSpread(sp => (sp === p.stackKey ? null : p.stackKey));
                   }}
                   onDoubleClick={() => {
                     if (!canEdit) return;
@@ -404,10 +426,8 @@ export const StaffTimelineBoard: React.FC<Props> = ({ schedules, staff, date, ca
                   title={`${p.no}. ${time || '時間指定なし'}（${p.estimated ? '見込み ' : ''}${fmt(p.start)}〜${fmt(p.end)}）${p.late ? '\n赤い枠: 指定の時刻・締切に間に合わない見込み' : ''}\n${s.unit_number || ''} ${s.property_name}\n${s.work_type || ''} ${s.description || ''}${canEdit ? '\nダブルクリックで編集' : ''}`}
                 >
                   <VisitCardBody schedule={s} no={p.no} progress={progress} lock={!!lock} timeOverride={fmt(p.start)} place={placeOf(s)} />
-                  {k === p.stackSize - 1 && p.stackSize > 1 && (
-                    <span className="stl-stack-count" title={`この時間帯に ${p.stackSize} 件重なっています。クリックで次のカードを手前に出します`}>
-                      {p.stackIndex + 1}/{p.stackSize}
-                    </span>
+                  {k === p.stackSize - 1 && p.stackSize > 1 && !isSpread && (
+                    <span className="stl-stack-count" title={`この時間帯に ${p.stackSize} 件重なっています。クリックで横に広げます`}>{p.stackSize}件</span>
                   )}
                 </div>
                 {act?.move && (

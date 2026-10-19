@@ -306,3 +306,15 @@
   align-items: flex-start;
   padding: 2px 0 0 3px;
 }
+/* 横に広げた重なり: ほかの行・カードの上に浮かせて並べる（行の高さは変えない） */
+.lane-card.stl-card {
+  transition: left 0.18s ease;
+}
+.lane-card.stl-card.is-spread {
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.28), 0 0 0 1px rgba(79, 70, 229, 0.45);
+}
+/* 出動の文字は下に戻す（上は移動の線と実績の帯） */
+.stl-depart {
+  align-items: flex-end;
+  padding: 0 0 2px 3px;
+}

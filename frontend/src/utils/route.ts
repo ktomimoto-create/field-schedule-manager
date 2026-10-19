@@ -105,10 +105,11 @@ export const totalTravel = (items: Schedule[], posOf: (s: Schedule) => LatLng | 
 
 /** 距離の近い順に並べ替える（時間指定は守る）。
  *  出動の位置（分かれば）から始めて、次に行ける訪問のうち作業を始められる時刻がいちばん早いもの（＝近いもの）を選ぶ。
- *  ただし締切（〜迄・時刻指定・AM/PM の終わり）が迫っている訪問は先に回す。位置が分からない訪問は最後に今の順番のまま */
+ *  午前の時刻指定・AM 指定があればそれを 1 件目にし、締切（〜迄・時刻指定・AM/PM の終わり）が迫っている訪問は先に回す。時刻指定の無い、位置が分からない訪問は最後に今の順番のまま */
 export const planRoute = (items: Schedule[], posOf: (s: Schedule) => LatLng | null, base: LatLng | null, departMin: number, mode: TravelMode): Schedule[] => {
-  const known = items.filter(s => posOf(s));
-  const unknown = items.filter(s => !posOf(s));
+  // 位置が分からない訪問も、時刻指定があれば時刻どおりに入れる（指定の無いものは最後に今の順番のまま）
+  const known = items.filter(s => posOf(s) || parseTimeSlot(s.target_time));
+  const unknown = items.filter(s => !posOf(s) && !parseTimeSlot(s.target_time));
   const out: Schedule[] = [];
   let t = departMin;
   let here: LatLng | null = base;
@@ -124,6 +125,21 @@ export const planRoute = (items: Schedule[], posOf: (s: Schedule) => LatLng | nu
       const slack = deadline - (slot?.kind === 'until' || slot?.kind === 'band' ? start + WORK_MIN : start);
       return { s, idx, move, start, deadline, slack };
     });
+    // 1 件目: 午前の時刻指定（10:00 など）や AM 指定があれば、いちばん早い指定のものから（その前に入れる予定が無い限り 1 件目）
+    if (out.length === 0) {
+      const morning = cand
+        .map(c => ({ c, slot: parseTimeSlot(c.s.target_time) }))
+        .filter(x => x.slot && x.slot.kind !== 'until' && x.slot.from <= 12 * 60)
+        .sort((a, b) => a.slot!.from - b.slot!.from || a.c.move - b.c.move || a.c.idx - b.c.idx);
+      if (morning.length) {
+        const first = morning[0].c;
+        out.push(first.s);
+        rest.splice(first.idx, 1);
+        t = first.start + WORK_MIN;
+        here = posOf(first.s) ?? here;
+        continue;
+      }
+    }
     const urgent = cand.filter(c => c.deadline < Infinity && c.slack < WORK_MIN + MOVE_UNKNOWN_MIN).sort((a, b) => a.deadline - b.deadline);
     // 出動の位置が分からない 1 件目は、締切の早いもの → 今の順番の先頭
     const pick = urgent[0]
@@ -132,7 +148,7 @@ export const planRoute = (items: Schedule[], posOf: (s: Schedule) => LatLng | nu
     out.push(pick.s);
     rest.splice(pick.idx, 1);
     t = pick.start + WORK_MIN;
-    here = posOf(pick.s);
+    here = posOf(pick.s) ?? here;
   }
   return [...out, ...unknown];
 };
