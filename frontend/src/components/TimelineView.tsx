@@ -28,6 +28,10 @@ interface TimelineViewProps {
   /** 見ている日（画面を切り替えても同じ日を見続けるため App で持つ） */
   viewDate?: string;
   onViewDateChange?: (date: string) => void;
+  /** 予定表の「担当ごと」表示として埋め込む（見出し・日付・切替は予定表側が持つ） */
+  embedded?: boolean;
+  /** 埋め込み時: 自分の予定だけ（予定表の「自分の予定のみ表示」） */
+  onlyMine?: boolean;
 }
 
 export const TimelineView: React.FC<TimelineViewProps> = ({
@@ -42,6 +46,8 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
   feEvents = [],
   viewDate,
   onViewDateChange,
+  embedded = false,
+  onlyMine,
 }) => {
   // 表示の切替: 担当ごとのカード（既定）/ 時間軸
   const [viewMode, setViewMode] = useState<'board' | 'timeline'>(() => {
@@ -60,9 +66,10 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
     setLocalDate(d);
     onViewDateChange?.(d);
   };
-  const [showOnlyMySchedule, setShowOnlyMySchedule] = useState(() => {
+  const [localOnlyMine, setShowOnlyMySchedule] = useState(() => {
     return currentUserRole === 'staff';
   });
+  const showOnlyMySchedule = embedded ? !!onlyMine : localOnlyMine;
   const [draggedItem, setDraggedItem] = useState<Schedule | null>(null);
   const [reportSchedule, setReportSchedule] = useState<Schedule | null>(null);
 
@@ -283,7 +290,8 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
   };
 
   return (
-    <div className="timeline-container card">
+    <div className={`timeline-container ${embedded ? 'is-embedded' : 'card'}`}>
+      {!embedded && (
       <div className="timeline-header">
         <div className="timeline-date-nav">
           <Calendar className="icon-purple" size={20} />
@@ -333,8 +341,9 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
           </div>
         </div>
       </div>
+      )}
 
-      {holidayStaffNames.length > 0 && (
+      {!embedded && holidayStaffNames.length > 0 && (
         <div className="holiday-summary-bar">
           <span className="holiday-label">本日の公休：</span>
           {holidayStaffNames.map(name => (
@@ -343,7 +352,7 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
         </div>
       )}
 
-      {viewMode === 'timeline' ? (
+      {!embedded && viewMode === 'timeline' ? (
         <div className="card-board-wrapper timeline-axis-wrapper">
           <div style={zoomLevel !== 100 ? { zoom: `${zoomLevel}%` } : undefined}>
             <ScheduleTimeAxis

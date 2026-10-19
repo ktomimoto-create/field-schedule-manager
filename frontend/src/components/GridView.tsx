@@ -4,10 +4,11 @@ import type { Schedule, Staff, UserRole, WorkType } from '../types';
 import { getShortName, cleanMetadata, splitCoWorkers, canManageSchedules, normalizeTargetTime, compareSchedules, toHalfWidth, findStaffByName } from '../types';
 import { buildFcAutofillPatch } from '../utils/fcAutofill';
 
-import { Plus, ChevronLeft, ChevronRight, Calendar as CalendarIcon, Filter, CheckCircle2, Download, Eye, EyeOff, Printer, Lock, ArrowUpDown, RotateCcw, Edit2, LayoutList, ChartGantt, Table2 } from 'lucide-react';
+import { Plus, ChevronLeft, ChevronRight, Calendar as CalendarIcon, Filter, CheckCircle2, Download, Eye, EyeOff, Printer, Lock, ArrowUpDown, RotateCcw, Edit2, LayoutList, ChartGantt, Table2, Columns3 } from 'lucide-react';
 import { PrintPreviewModal } from './PrintPreviewModal';
 import { DayScheduleCards } from './ScheduleCards';
 import { ScheduleTimeAxis } from './ScheduleTimeAxis';
+import { TimelineView } from './TimelineView';
 import { jstDate, type FeEvent } from '../utils/feEvents';
 import './GridView.css';
 
@@ -111,6 +112,9 @@ interface GridViewProps {
   /** 見ている日（画面を切り替えても同じ日を見続けるため App で持つ） */
   viewDate?: string;
   onViewDateChange?: (date: string) => void;
+  /** 「担当ごと」表示（旧 当日行動予定表）で使う: 結果の報告・並べ替え */
+  onUpdateResult?: (scheduleId: number | string, resultValue: string, startedAt?: string | null, completedAt?: string | null, reportNotes?: string | null) => Promise<void>;
+  onReorder?: (orders: { id: number | string; sort_order: number }[]) => Promise<void>;
 }
 
 export const GridView: React.FC<GridViewProps> = ({
@@ -128,6 +132,8 @@ export const GridView: React.FC<GridViewProps> = ({
   feEvents = [],
   viewDate,
   onViewDateChange,
+  onUpdateResult,
+  onReorder,
 }) => {
   const dateInputRef = useRef<HTMLInputElement>(null);
   const [localDate, setLocalDate] = useState<string>(() => jstDate());
@@ -272,10 +278,10 @@ export const GridView: React.FC<GridViewProps> = ({
   const [isPrintPreviewOpen, setIsPrintPreviewOpen] = useState(false);
 
   // 表示の切替: カード一覧（既定）/ 時間軸 / 表
-  const [viewMode, setViewMode] = useState<'card' | 'timeline' | 'table'>(() => {
+  const [viewMode, setViewMode] = useState<'card' | 'staff' | 'timeline' | 'table'>(() => {
     try {
       const saved = localStorage.getItem('field_app_grid_view_mode');
-      if (saved === 'card' || saved === 'timeline' || saved === 'table') return saved;
+      if (saved === 'card' || saved === 'staff' || saved === 'timeline' || saved === 'table') return saved;
     } catch { /* 保存できない環境では既定のカード */ }
     return 'card';
   });
@@ -979,6 +985,7 @@ export const GridView: React.FC<GridViewProps> = ({
             <div className="view-mode-switch" role="group" aria-label="表示の切替">
               {([
                 { key: 'card', icon: <LayoutList size={16} />, label: 'カード一覧' },
+                { key: 'staff', icon: <Columns3 size={16} />, label: '担当ごと' },
                 { key: 'timeline', icon: <ChartGantt size={16} />, label: '時間軸' },
                 { key: 'table', icon: <Table2 size={16} />, label: '表' },
               ] as const).map(v => (
@@ -1053,7 +1060,23 @@ export const GridView: React.FC<GridViewProps> = ({
 
       {viewMode !== 'table' ? (
         <div className="grid-table-wrapper grid-cards-wrapper">
-          {viewMode === 'card' ? (
+          {viewMode === 'staff' ? (
+            <TimelineView
+              embedded
+              onlyMine={myScheduleOnly}
+              schedules={schedules}
+              staff={staff}
+              onOpenEditModal={onOpenEditModal}
+              currentUserRole={currentUserRole}
+              currentStaffId={currentStaffId}
+              onUpdateResult={onUpdateResult ?? (async (id, result) => { await onSave({ id: Number(id), result }); })}
+              onReorder={onReorder ?? (async () => { /* 並べ替えは App から渡されたときだけ */ })}
+              zoomLevel={zoomLevel}
+              feEvents={feEvents}
+              viewDate={selectedDate}
+              onViewDateChange={setSelectedDate}
+            />
+          ) : viewMode === 'card' ? (
             <div style={zoomLevel !== 100 ? { zoom: `${zoomLevel}%` } : undefined}>
               <DayScheduleCards
                 schedules={sortedSchedules}

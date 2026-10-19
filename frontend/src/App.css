@@ -618,14 +618,14 @@
   background: rgba(79, 70, 229, 0.08);
 }
 
-/* 切り替えタブを画面の中央線上に置く（右側のボタン群と重ならない広い画面だけ） */
+/* 切り替えタブを画面の中央線上に置く（右側のボタン群と重ならない 1401px 以上の画面だけ） */
 .header-center {
   display: flex;
   align-items: center;
   gap: 8px;
   position: relative;
 }
-@media (min-width: 1801px) {
+@media (min-width: 1401px) {
   .header-center {
     position: absolute;
     left: 50%;
@@ -659,4 +659,43 @@
 .user-profile-trigger:hover {
   background: transparent !important;
   filter: brightness(1.12);
+}
+
+/* 切り替えタブ: アイコンだけ（文字はツールチップ）。画面ごとにアイコンの色を変えて見分けやすくする */
+.nav-tabs .tab-btn.tab-icon-only {
+  --tab-c: var(--primary);
+  justify-content: center;
+  width: 44px;
+  height: 32px;
+  padding: 0 !important;
+  gap: 0;
+  color: var(--tab-c);
+}
+.nav-tabs .tab-btn.tab-grid { --tab-c: #4f46e5; }
+.nav-tabs .tab-btn.tab-calendar { --tab-c: #ea580c; }
+.nav-tabs .tab-btn.tab-map { --tab-c: #059669; }
+.nav-tabs .tab-btn.tab-icon-only:not(.active) {
+  opacity: 0.75;
+}
+.nav-tabs .tab-btn.tab-icon-only:hover {
+  opacity: 1;
+  filter: brightness(1.12);
+}
+.nav-tabs .tab-btn.tab-icon-only.active {
+  color: var(--tab-c);
+  background: color-mix(in srgb, var(--tab-c) 12%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--tab-c) 40%, transparent);
+}
+.btn-fe-screen {
+  color: #0891b2;
+  width: 32px;
+  height: 32px;
+}
+
+/* 右上のアカウント: 他のボタンと同じ高さ（32px）にそろえる */
+.user-profile-trigger .user-avatar,
+.user-profile-trigger .user-avatar-fallback {
+  width: 32px;
+  height: 32px;
+  box-sizing: border-box;
 }

@@ -2,7 +2,6 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import type { Schedule, Staff, WorkType, UserRole } from './types';
 import { GridView } from './components/GridView';
 import { CalendarView } from './components/CalendarView';
-import { TimelineView } from './components/TimelineView';
 import { FeActionView } from './components/FeActionView';
 import { DynamicsMapView } from './components/DynamicsMapView';
 import { listFeEvents, listLatestPositions, subscribeSandboxFeEvents, jstDate, type FeEvent, type FePosition } from './utils/feEvents';
@@ -11,7 +10,7 @@ import { AnalyticsView } from './components/AnalyticsView';
 import { ScheduleModal } from './components/ScheduleModal';
 import { PasteImportModal } from './components/PasteImportModal';
 import { HelpGuideModal } from './components/HelpGuideModal';
-import { Calendar, Layers, RefreshCw, AlertCircle, List, Settings, Sun, Moon, BarChart3, HelpCircle, ZoomIn, ZoomOut, Smartphone, MapPinned } from 'lucide-react';
+import { Calendar, RefreshCw, AlertCircle, List, Settings, Sun, Moon, BarChart3, HelpCircle, ZoomIn, ZoomOut, Smartphone, MapPinned } from 'lucide-react';
 import { supabase, talkScriptSupabase } from './supabaseClient';
 import { resolveAddress } from './utils/addressResolver';
 import { findStaffByName, canManageSchedules, normalizeRole } from './types';
@@ -20,7 +19,7 @@ import './App.css';
 
 
 function App() {
-  const [activeTab, setActiveTab] = useState<'grid' | 'timeline' | 'calendar' | 'master_management' | 'analytics' | 'fe' | 'map'>('grid');
+  const [activeTab, setActiveTab] = useState<'grid' | 'calendar' | 'master_management' | 'analytics' | 'fe' | 'map'>('grid');
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
     return (localStorage.getItem('theme') as 'light' | 'dark') || 'light';
   });
@@ -1243,35 +1242,31 @@ function App() {
             <div className="header-center">
             <div className="nav-tabs">
               <button
-                className={`tab-btn ${activeTab === 'grid' ? 'active' : ''}`}
+                className={`tab-btn tab-icon-only tab-grid ${activeTab === 'grid' ? 'active' : ''}`}
                 onClick={() => setActiveTab('grid')}
+                title="予定表"
+                aria-label="予定表"
               >
-                <List size={16} />
-                予定表 (グリッド)
-              </button>
-              <button
-                className={`tab-btn ${activeTab === 'timeline' ? 'active' : ''}`}
-                onClick={() => setActiveTab('timeline')}
-              >
-                <Layers size={16} />
-                当日行動予定表
+                <List size={18} />
               </button>
               {canManageSchedules(currentUserRole) && (
                 <button
-                  className={`tab-btn ${activeTab === 'calendar' ? 'active' : ''}`}
+                  className={`tab-btn tab-icon-only tab-calendar ${activeTab === 'calendar' ? 'active' : ''}`}
                   onClick={() => setActiveTab('calendar')}
+                  title="月間予定表"
+                  aria-label="月間予定表"
                 >
-                  <Calendar size={16} />
-                  月間予定表
+                  <Calendar size={18} />
                 </button>
               )}
               {canManageSchedules(currentUserRole) && (
                 <button
-                  className={`tab-btn ${activeTab === 'map' ? 'active' : ''}`}
+                  className={`tab-btn tab-icon-only tab-map ${activeTab === 'map' ? 'active' : ''}`}
                   onClick={() => setActiveTab('map')}
+                  title="動態マップ"
+                  aria-label="動態マップ"
                 >
-                  <MapPinned size={16} />
-                  動態マップ
+                  <MapPinned size={18} />
                 </button>
               )}
             </div>
@@ -1462,6 +1457,8 @@ function App() {
                 {activeTab === 'grid' && (
                   <GridView
                     feEvents={feEvents}
+                    onUpdateResult={handleUpdateScheduleResult}
+                    onReorder={handleReorderSchedules}
                     viewDate={viewDate}
                     onViewDateChange={setViewDate}
                     schedules={schedules.filter(s => s.is_transferred === 1)}
@@ -1502,21 +1499,6 @@ function App() {
                     feUnavailable={feUnavailable}
                     onRecorded={() => void refreshFeEvents()}
                     onUpdateResult={(id, result, startedAt, completedAt) => handleUpdateScheduleResult(id, result, startedAt, completedAt)}
-                  />
-                )}
-                {activeTab === 'timeline' && (
-                  <TimelineView
-                    feEvents={feEvents}
-                    viewDate={viewDate}
-                    onViewDateChange={setViewDate}
-                    schedules={schedules.filter(s => s.is_transferred === 1)}
-                    staff={staff}
-                    onOpenEditModal={handleOpenEditModal}
-                    currentUserRole={currentUserRole}
-                    currentStaffId={currentStaffId}
-                    onUpdateResult={handleUpdateScheduleResult}
-                    onReorder={handleReorderSchedules}
-                    zoomLevel={zoomLevel}
                   />
                 )}
                 {canManageSchedules(currentUserRole) && activeTab === 'calendar' && (

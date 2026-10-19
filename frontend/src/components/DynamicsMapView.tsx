@@ -2,8 +2,8 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { CheckCircle2, ChevronLeft, ChevronRight, Circle, Clock, Coffee, LocateFixed, LogIn, LogOut, Navigation, Wrench, type LucideIcon } from 'lucide-react';
 import type { Schedule, Staff } from '../types';
 import { compareSchedules, getShortName, normalizeTargetTime } from '../types';
-import { buildDayState, jstDate, jstHm, type FeEvent, type FePosition, type VisitStage } from '../utils/feEvents';
-import { fetchAddressesByUnit, geocodeAddress, type LatLng } from '../utils/geocode';
+import { buildDayState, FE_EVENT_LABELS, jstDate, jstHm, type FeEvent, type FePosition, type VisitStage } from '../utils/feEvents';
+import { fetchAddressesByUnit, geocodeAddress, reverseGeocode, type LatLng } from '../utils/geocode';
 import { StaffAvatar } from './ScheduleCards';
 import { MapCanvas, type MapCanvasHandle, type MapPin } from './MapCanvas';
 import './DynamicsMapView.css';
@@ -66,6 +66,8 @@ export const DynamicsMapView: React.FC<Props> = ({ schedules, staff, feEvents, f
   };
   const [filter, setFilter] = useState<Status | 'all'>('all');
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
+  const [hoverKey, setHoverKey] = useState<string | null>(null);
+  const [addrByPos, setAddrByPos] = useState<Record<string, string | null>>({});
   const [sitePos, setSitePos] = useState<Record<string, LatLng | null>>({});
   const [geoProgress, setGeoProgress] = useState<{ done: number; total: number } | null>(null);
 
@@ -113,6 +115,22 @@ export const DynamicsMapView: React.FC<Props> = ({ schedules, staff, feEvents, f
   const shown = filter === 'all' ? people : people.filter(p => p.status === filter);
   const selected = people.find(p => p.key === selectedKey) || null;
   const selectedDay = useMemo(() => (selected ? buildDayState(selected.visits, selected.events) : null), [selected]);
+
+  // カード: カーソルを乗せた人（無ければ選んだ人）の状態・更新時刻・進み具合・現在地
+  const cardPerson = people.find(p => p.key === (hoverKey ?? selectedKey)) || null;
+  const cardDay = useMemo(() => (cardPerson ? buildDayState(cardPerson.visits, cardPerson.events) : null), [cardPerson]);
+  const cardPosKey = cardPerson?.pos ? `${cardPerson.pos.lat.toFixed(4)},${cardPerson.pos.lng.toFixed(4)}` : null;
+  useEffect(() => {
+    if (!cardPerson?.pos || !cardPosKey || cardPosKey in addrByPos) return;
+    let cancelled = false;
+    const { lat, lng } = cardPerson.pos;
+    void reverseGeocode(lat, lng).then(addr => {
+      if (!cancelled) setAddrByPos(prev => ({ ...prev, [cardPosKey]: addr }));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [cardPerson, cardPosKey, addrByPos]);
 
   // 訪問先の位置（号機 → 住所 → 緯度経度）。少しずつ問い合わせて、分かったものから地図に出す
   const unitsKey = useMemo(() => [...new Set(people.flatMap(p => p.visits.map(v => (v.unit_number || '').trim())).filter(Boolean))].sort().join(','), [people]);
@@ -176,7 +194,7 @@ ${v.schedule.unit_number || ''} ${v.schedule.property_name}`,
           lng: p.pos.lng,
           zIndex: 1000,
           html: `<div class="dm-fe${isSel ? ' is-selected' : ''}" style="--c:${st.color}"><div class="dm-fe-tag"><span class="dm-fe-face">${face}</span><span class="dm-fe-name">${escapeHtml(getShortName(p.name))}</span></div><div class="dm-fe-arrow"></div></div>`,
-          tooltip: `${p.name} ${st.label}（${jstHm(p.pos.at)} の位置）`,
+          onHover: on => setHoverKey(on ? p.key : null),
           onClick: () => setSelectedKey(p.key),
         });
       }
@@ -307,6 +325,67 @@ ${v.schedule.unit_number || ''} ${v.schedule.property_name}`,
             setMapGen(g => g + 1);
           }} />
         </div>
+        {cardPerson && cardDay && (() => {
+          const st = STATUS[cardPerson.status];
+          const last = cardDay.lastEvent;
+          const total = cardDay.visits.length;
+          const done = cardDay.visits.filter(v => v.stage === 'done').length;
+          const nextVisit = cardDay.next?.visit ?? cardDay.visits.find(v => v.stage !== 'done') ?? null;
+          const addr = cardPosKey ? addrByPos[cardPosKey] : undefined;
+          return (
+            <div className="dm-card" style={{ ['--c' as string]: st.color }}>
+              <div className="dm-card-head">
+                <StaffAvatar member={cardPerson.member} name={cardPerson.name} size={36} />
+                <span className="dm-card-name">{cardPerson.name}</span>
+                <span className="dm-status">
+                  <st.icon size={12} />
+                  {st.label}
+                </span>
+              </div>
+              <dl className="dm-card-rows">
+                <div>
+                  <dt>最終更新</dt>
+                  <dd>{last ? <span><b className="dm-num">{jstHm(last.occurred_at)}</b> {FE_EVENT_LABELS[last.kind]}</span> : <span className="dm-muted">まだ記録なし</span>}</dd>
+                </div>
+                <div>
+                  <dt>予定</dt>
+                  <dd>
+                    <span className="dm-card-progress">
+                      <span className="dm-card-bar"><i style={{ width: `${total ? (done / total) * 100 : 0}%` }} /></span>
+                      <span><b className="dm-num">{done}/{total}</b> 完了</span>
+                    </span>
+                  </dd>
+                </div>
+                <div>
+                  <dt>次の訪問</dt>
+                  <dd>
+                    {nextVisit ? (
+                      <>
+                        <span className="dm-num">{normalizeTargetTime(nextVisit.schedule.target_time) || '時間指定なし'} {nextVisit.schedule.unit_number}</span>
+                        <span className="dm-card-prop">{nextVisit.schedule.property_name}</span>
+                      </>
+                    ) : (
+                      <span className="dm-muted">なし</span>
+                    )}
+                  </dd>
+                </div>
+                <div>
+                  <dt>現在地</dt>
+                  <dd>
+                    {cardPerson.pos ? (
+                      <>
+                        <span>{addr ? addr : addr === null ? '住所を出せませんでした' : '住所を調べています'}</span>
+                        <span className="dm-muted dm-num">{jstHm(cardPerson.pos.at)} の位置</span>
+                      </>
+                    ) : (
+                      <span className="dm-muted">位置の記録なし</span>
+                    )}
+                  </dd>
+                </div>
+              </dl>
+            </div>
+          );
+        })()}
         {mapNote && <div className="dm-map-note">{mapNote}</div>}
         {geoProgress && geoProgress.done < geoProgress.total && (
           <div className="dm-map-badge">

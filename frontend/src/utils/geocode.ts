@@ -57,3 +57,30 @@ export const geocodeAddress = async (address: string): Promise<LatLng | null> =>
     return null;
   }
 };
+
+const REV_KEY = 'field_app_revgeo_cache_v1';
+
+/** 緯度経度 → 住所（OpenStreetMap の Nominatim。カードを出したときだけ問い合わせ、端末に貯める） */
+export const reverseGeocode = async (lat: number, lng: number): Promise<string | null> => {
+  const key = `${lat.toFixed(4)},${lng.toFixed(4)}`;
+  let cache: Record<string, string | null> = {};
+  try {
+    cache = JSON.parse(localStorage.getItem(REV_KEY) || '{}');
+  } catch { /* noop */ }
+  if (key in cache) return cache[key];
+  try {
+    const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&zoom=17&accept-language=ja&lat=${lat}&lon=${lng}`);
+    const json = (await res.json()) as { address?: Record<string, string>; display_name?: string };
+    const a = json.address || {};
+    // 日本の住所の順（都道府県 → 市区町村 → 町名）に組み立てる
+    const parts = [a.province || a.state, a.city || a.town || a.village, a.city_district || a.suburb, a.quarter || a.neighbourhood].filter(Boolean);
+    const val = parts.length ? parts.join('') : json.display_name || null;
+    cache[key] = val;
+    try {
+      localStorage.setItem(REV_KEY, JSON.stringify(cache));
+    } catch { /* noop */ }
+    return val;
+  } catch {
+    return null;
+  }
+};

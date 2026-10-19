@@ -15,6 +15,8 @@ export interface MapPin {
   /** ホバーで出す文（改行は \n） */
   tooltip?: string;
   onClick?: () => void;
+  /** カーソルが乗った / 離れた */
+  onHover?: (on: boolean) => void;
 }
 
 export interface LatLngPoint {
@@ -85,6 +87,10 @@ const createOverlayClass = () =>
       const el = htmlToEl(pin.html);
       if (pin.tooltip) el.title = pin.tooltip;
       this.box.append(el);
+      if (pin.onHover) {
+        this.box.addEventListener('mouseenter', () => pin.onHover?.(true));
+        this.box.addEventListener('mouseleave', () => pin.onHover?.(false));
+      }
       if (pin.onClick) {
         this.box.style.cursor = 'pointer';
         this.box.addEventListener('click', e => {
@@ -210,8 +216,11 @@ const LeafletCanvas = forwardRef<MapCanvasHandle, Props>(({ pins }, ref) => {
     layerRef.current = L.layerGroup().addTo(map);
     mapRef.current = map;
     const ro = new ResizeObserver(() => map.invalidateSize());
+    // 地図の CSS が後から効いたときなど、大きさが変わらないまま測り違えることがあるので、少し後にも測り直す
+    const timers = [50, 300, 1000].map(ms => window.setTimeout(() => map.invalidateSize(), ms));
     ro.observe(elRef.current);
     return () => {
+      timers.forEach(t => window.clearTimeout(t));
       ro.disconnect();
       map.remove();
       mapRef.current = null;
@@ -226,6 +235,10 @@ const LeafletCanvas = forwardRef<MapCanvasHandle, Props>(({ pins }, ref) => {
       const m = L.marker([p.lat, p.lng], { icon: L.divIcon({ className: 'map-pin-host', html: p.html, iconSize: [0, 0] }), zIndexOffset: p.zIndex ?? 0 });
       if (p.tooltip) m.bindTooltip(escapeHtml(p.tooltip).replace(/\n/g, '<br>'), { direction: 'top', offset: [0, -10] });
       if (p.onClick) m.on('click', p.onClick);
+      if (p.onHover) {
+        m.on('mouseover', () => p.onHover?.(true));
+        m.on('mouseout', () => p.onHover?.(false));
+      }
       m.addTo(layer);
     }
   }, [pins]);

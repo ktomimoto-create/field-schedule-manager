@@ -651,3 +651,10 @@
 .timeline-axis-wrapper {
   display: block;
 }
+
+/* 予定表の「担当ごと」表示として埋め込んだとき（見出しは予定表側） */
+.timeline-container.is-embedded {
+  gap: 0;
+  padding: 0;
+  height: 100%;
+}
