@@ -616,3 +616,38 @@
 
 
 
+
+/* 表示の切替（担当ごとのカード / 時間軸）: アイコンのみ＋ツールチップ */
+.timeline-stats .view-mode-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--border-glass);
+  border-radius: var(--radius-sm);
+  background: var(--bg-primary);
+}
+.timeline-stats .view-mode-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 30px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+.timeline-stats .view-mode-btn:hover {
+  filter: brightness(1.12);
+  color: var(--primary);
+}
+.timeline-stats .view-mode-btn.active {
+  border-color: rgba(79, 70, 229, 0.35);
+  background: rgba(79, 70, 229, 0.08);
+  color: var(--primary);
+}
+.timeline-axis-wrapper {
+  display: block;
+}

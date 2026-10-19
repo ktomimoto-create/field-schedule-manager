@@ -1158,6 +1158,13 @@ function App() {
             <p className="login-subtitle">続行するにはサインインしてください</p>
             
             <button className="btn btn-primary btn-login-main" onClick={handleLogin}>
+              {/* Microsoft のロゴ（4色の四角） */}
+              <svg className="ms-logo" width="18" height="18" viewBox="0 0 21 21" aria-hidden="true">
+                <rect x="1" y="1" width="9" height="9" fill="#f25022" />
+                <rect x="11" y="1" width="9" height="9" fill="#7fba00" />
+                <rect x="1" y="11" width="9" height="9" fill="#00a4ef" />
+                <rect x="11" y="11" width="9" height="9" fill="#ffb900" />
+              </svg>
               Microsoft アカウントでログイン
             </button>
 
@@ -1360,7 +1367,6 @@ function App() {
                     </div>
                   );
                   })()}
-                  <span className="user-name">{user.user_metadata?.full_name || user.email}</span>
                   {showUserMenu && (
                     <div className="user-menu-dropdown">
                       <div className="user-menu-info">
@@ -1446,6 +1452,7 @@ function App() {
                 )}
                 {activeTab === 'timeline' && (
                   <TimelineView
+                    feEvents={feEvents}
                     schedules={schedules.filter(s => s.is_transferred === 1)}
                     staff={staff}
                     onOpenEditModal={handleOpenEditModal}

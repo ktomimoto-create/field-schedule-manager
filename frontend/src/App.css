@@ -577,3 +577,18 @@
 }
 
 
+
+/* ログインボタン: Microsoft のロゴと文字を横並び */
+.btn-login-main {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  line-height: 1.4;
+}
+.btn-login-main .ms-logo {
+  flex-shrink: 0;
+  padding: 3px;
+  border-radius: 3px;
+  background: #fff;
+}
