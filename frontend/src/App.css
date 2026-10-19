@@ -814,3 +814,69 @@
   min-width: 0;
   flex: 0 0 36px;
 }
+
+
+/* 絵文字をやめた SVG アイコンを、文字と横並びにそろえる */
+.sandbox-badge,
+.btn-sandbox-toggle {
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+  line-height: 1;
+}
+
+/* アカウントのメニューの「管理画面」（東京 / 大阪）。東京＝赤、大阪＝緑 */
+.user-menu-section-title {
+  padding: 4px 12px 2px;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1.4;
+}
+.user-menu-item.branch-option {
+  --bc: #dc2626;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  line-height: 1.4;
+}
+.user-menu-item.branch-option.is-osaka {
+  --bc: #059669;
+}
+.user-menu-item.branch-option svg:first-child {
+  color: var(--bc);
+}
+.user-menu-item.branch-option.is-active {
+  color: var(--bc);
+  font-weight: 700;
+  background: color-mix(in srgb, var(--bc) 8%, transparent);
+}
+.branch-option-check {
+  margin-left: auto;
+}
+/* アカウントのアイコンの右下に、今の管理画面の印 */
+.user-profile-trigger {
+  position: relative;
+}
+.avatar-branch-badge {
+  --bc: #dc2626;
+  position: absolute;
+  right: -3px;
+  bottom: -3px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border: 1.5px solid var(--bg-secondary);
+  border-radius: 50%;
+  background: var(--bc);
+  color: #fff;
+  pointer-events: none;
+}
+.avatar-branch-badge.is-osaka {
+  --bc: #059669;
+}

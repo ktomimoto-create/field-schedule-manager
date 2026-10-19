@@ -4,6 +4,7 @@ import { GridView } from './components/GridView';
 import { CalendarView } from './components/CalendarView';
 import { FeActionView } from './components/FeActionView';
 import { DynamicsMapView } from './components/DynamicsMapView';
+import { TokyoIcon, OsakaIcon } from './components/BranchIcons';
 import { loadSandboxDay, sandboxImportEnabled } from './utils/sandboxImport';
 import { listFeEvents, listLatestPositions, subscribeSandboxFeEvents, jstDate, type FeEvent, type FePosition } from './utils/feEvents';
 import { MasterManagementView } from './components/MasterManagementView';
@@ -11,7 +12,7 @@ import { AnalyticsView } from './components/AnalyticsView';
 import { ScheduleModal } from './components/ScheduleModal';
 import { PasteImportModal } from './components/PasteImportModal';
 import { HelpGuideModal } from './components/HelpGuideModal';
-import { Calendar, RefreshCw, AlertCircle, List, Settings, Sun, Moon, BarChart3, HelpCircle, ZoomIn, ZoomOut, Smartphone, MapPinned, Download } from 'lucide-react';
+import { Calendar, RefreshCw, AlertCircle, List, Settings, Sun, Moon, BarChart3, HelpCircle, ZoomIn, ZoomOut, Smartphone, MapPinned, Download, FlaskConical, Check } from 'lucide-react';
 import { supabase, talkScriptSupabase } from './supabaseClient';
 import { resolveAddress } from './utils/addressResolver';
 import { findStaffByName, canManageSchedules, normalizeRole, BRANCH_NAMES, resolveScheduleBranch, resolveStaffBranch } from './types';
@@ -184,6 +185,23 @@ frontend/public/_sandbox/${viewDate}.json を置いてください。`);
 
   const [user, setUser] = useState<any>(null);
   const [showUserMenu, setShowUserMenu] = useState(false);
+  // アカウントのメニューは、外を押すか Esc で閉じる
+  const userMenuRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (!showUserMenu) return;
+    const onDown = (e: MouseEvent) => {
+      if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) setShowUserMenu(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setShowUserMenu(false);
+    };
+    document.addEventListener('mousedown', onDown);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onDown);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [showUserMenu]);
   const [currentUserRole, setCurrentUserRole] = useState<UserRole>('staff');
   const [isHelpGuideOpen, setIsHelpGuideOpen] = useState(false);
 
@@ -1299,7 +1317,8 @@ frontend/public/_sandbox/${viewDate}.json を置いてください。`);
                 一般作業者でデモログイン
               </button>
               <button className="btn btn-secondary" onClick={handleDemoOsakaLogin} style={{ borderColor: '#f97316' }}>
-                🐙 黒川（大阪支店デモ）
+                <OsakaIcon size={16} />
+                黒川（大阪支店デモ）
               </button>
             </div>
           </div>
@@ -1310,7 +1329,7 @@ frontend/public/_sandbox/${viewDate}.json を置いてください。`);
           {isSandboxMode && (
             <div className="sandbox-banner">
               <div className="sandbox-banner-content">
-                <span className="sandbox-badge">🧪 お試しモード中</span>
+                <span className="sandbox-badge"><FlaskConical size={12} /> お試しモード中</span>
                 <span>本番データには一切影響しません。予定の追加・変更・削除・ドラッグ移動など自由にお試しいただけます。</span>
               </div>
               <div className="sandbox-banner-actions">
@@ -1338,29 +1357,6 @@ frontend/public/_sandbox/${viewDate}.json を置いてください。`);
                 {currentUserRole === 'developer' ? '開発者環境' : currentUserRole === 'manager' ? '予定管理者環境' : '一般作業者環境'}
               </span>
 
-              {/* 拠点切り替えスイッチ（東京 / 大阪） */}
-              <div className="branch-switcher" role="group" aria-label="拠点切り替え">
-                <button
-                  type="button"
-                  className={`branch-btn ${currentBranch === 'tokyo' ? 'active tokyo' : ''}`}
-                  onClick={() => handleSwitchBranch('tokyo')}
-                  title="東京 (東日本) の予定・スタッフを表示"
-                >
-                  <span className="branch-icon">🏢</span>
-                  <span className="branch-label">東京</span>
-                  <span className="branch-tag">東日本</span>
-                </button>
-                <button
-                  type="button"
-                  className={`branch-btn ${currentBranch === 'osaka' ? 'active osaka' : ''}`}
-                  onClick={() => handleSwitchBranch('osaka')}
-                  title="大阪 (西日本) の予定・スタッフを表示"
-                >
-                  <span className="branch-icon">🐙</span>
-                  <span className="branch-label">大阪</span>
-                  <span className="branch-tag">西日本</span>
-                </button>
-              </div>
             </div>
 
             {/* 切り替えタブ（広い画面では画面の中央線上に置く）と、その右の FE画面ボタン */}
@@ -1422,7 +1418,7 @@ frontend/public/_sandbox/${viewDate}.json を置いてください。`);
                 onClick={() => handleToggleSandboxMode(!isSandboxMode)}
                 title={isSandboxMode ? 'お試しモードを終了して本番モードに戻る' : '本番データに影響しないお試しモードを開始する'}
               >
-                <span>🧪</span>
+                <FlaskConical size={16} />
                 <span>{isSandboxMode ? 'お試し中' : 'お試しモード'}</span>
               </button>
 
@@ -1502,7 +1498,7 @@ frontend/public/_sandbox/${viewDate}.json を置いてください。`);
               {/* アカウント表示エリア */}
               {/* Azure (Entra ID) ログインは user_metadata に写真URLを返さないため、
                   スタッフ一覧と同じく talkscript-flow profiles 由来の avatar_url にメールで突合する */}
-              <div className="user-profile-section">
+              <div className="user-profile-section" ref={userMenuRef}>
                 <div 
                   className="user-profile-trigger" 
                   onClick={() => setShowUserMenu(!showUserMenu)}
@@ -1527,6 +1523,9 @@ frontend/public/_sandbox/${viewDate}.json を置いてください。`);
                     </div>
                   );
                   })()}
+                  <span className={`avatar-branch-badge is-${currentBranch}`} title={currentBranch === 'tokyo' ? '東京（東日本）の管理画面' : '大阪（西日本）の管理画面'}>
+                    {currentBranch === 'tokyo' ? <TokyoIcon size={10} /> : <OsakaIcon size={10} />}
+                  </span>
                   {showUserMenu && (
                     <div className="user-menu-dropdown">
                       <div className="user-menu-info">
@@ -1534,6 +1533,25 @@ frontend/public/_sandbox/${viewDate}.json を置いてください。`);
                         <p className="user-menu-email">{user.email}</p>
                         <p className="user-menu-role">権限: {currentUserRole === 'developer' ? '開発者' : currentUserRole === 'manager' ? '予定管理者' : '一般作業者'}</p>
                       </div>
+                      <div className="user-menu-divider"></div>
+                      <div className="user-menu-section-title">管理画面</div>
+                      {(['tokyo', 'osaka'] as const).map(b => (
+                        <button
+                          key={b}
+                          type="button"
+                          className={`user-menu-item branch-option is-${b}${currentBranch === b ? ' is-active' : ''}`}
+                          onClick={e => {
+                            e.stopPropagation();
+                            handleSwitchBranch(b);
+                            setShowUserMenu(false);
+                          }}
+                          aria-pressed={currentBranch === b}
+                        >
+                          {b === 'tokyo' ? <TokyoIcon size={16} /> : <OsakaIcon size={16} />}
+                          <span>{b === 'tokyo' ? '東京（東日本）' : '大阪（西日本）'}</span>
+                          {currentBranch === b && <Check size={16} className="branch-option-check" />}
+                        </button>
+                      ))}
                       <div className="user-menu-divider"></div>
                       <button className="user-menu-item logout-btn" onClick={handleLogout}>
                         ログアウト

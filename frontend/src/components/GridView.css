@@ -1001,3 +1001,16 @@ tr:hover .cell-edit-modal-btn {
 .grid-cards-wrapper {
   background: var(--bg-primary);
 }
+
+/* 日付の操作（前日・今日・翌日）を、他のボタンと同じ高さ 32px・小さめの文字にそろえる */
+.date-nav-controls .btn-sm-nav {
+  box-sizing: border-box;
+  height: 32px;
+  min-width: 32px;
+  padding: 0 10px !important;
+  font-size: 0.8rem;
+  line-height: 1.4;
+}
+.date-nav-controls .current-date-display {
+  font-size: 1rem;
+}
