@@ -1993,3 +1993,73 @@
   width: auto;
   min-width: 0;
 }
+
+/* 月間予定表の見出しの操作: 月の移動は ‹ 2026年10月 ›、日付指定・今日・全文表示・貼り付けはアイコンだけ（すべて 32px） */
+.month-nav {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.month-nav-label {
+  min-width: 7.5em;
+  text-align: center;
+  color: var(--text-primary);
+  font-size: 0.95rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.4;
+}
+.cal-icon-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 1px solid var(--border-glass);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+.cal-icon-btn:hover {
+  filter: brightness(1.12);
+  color: var(--primary);
+  border-color: rgba(79, 70, 229, 0.35);
+}
+.cal-icon-btn.active {
+  color: var(--primary);
+  border-color: rgba(79, 70, 229, 0.45);
+  background: rgba(79, 70, 229, 0.1);
+}
+.date-picker-wrapper.cal-icon-btn .date-picker-input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* 検索窓をテーマに合わせる（ダークではダークの窓） */
+.calendar-search-input {
+  height: 32px;
+  border-color: var(--border-glass);
+  background: var(--bg-input);
+  color: var(--text-primary);
+  line-height: 1.4;
+}
+.calendar-search-input::placeholder {
+  color: var(--text-muted);
+}
+/* 見出しの行のボタンの高さを 32px にそろえる（既存の 30px 指定より優先） */
+.matrix-controls .cal-icon-btn,
+.matrix-controls .view-mode-btn,
+.matrix-controls .btn-sm-nav {
+  height: 32px !important;
+}
+.matrix-controls .cal-icon-btn {
+  width: 32px !important;
+  padding: 0 !important;
+}

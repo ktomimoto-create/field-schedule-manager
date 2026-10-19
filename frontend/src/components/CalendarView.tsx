@@ -3,7 +3,7 @@ import type { Schedule, Staff, WorkType, UserRole } from '../types';
 import { getShortName, findStaffByName, toHalfWidth, normalizeTargetTime, splitCoWorkers, compareSchedules, cleanMetadata } from '../types';
 import { buildFcAutofillPatch } from '../utils/fcAutofill';
 
-import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Edit2, Plus, Search, Lock, Eye, EyeOff, LayoutList, Table2, ChevronDown } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Edit2, Plus, Search, Lock, LayoutList, Table2, ChevronDown, CalendarSearch, CalendarCheck, WrapText, ClipboardPaste } from 'lucide-react';
 import { CompactScheduleCard } from './ScheduleCards';
 import { Select } from './shared/Select';
 import './CalendarView.css';
@@ -2603,17 +2603,19 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
       <div className="matrix-header">
         <div className="matrix-title-nav">
           <h2>日付並列カレンダーグリッド</h2>
-          <span className="matrix-date-range">{formatJapaneseMonth()}</span>
         </div>
         <div className="matrix-controls">
           <div className="matrix-nav-buttons date-group">
-            <button className="btn btn-secondary btn-sm-nav" onClick={handlePrevMonth} title={`${getPrevMonthName()}へ移動`}>
-              <ChevronLeft size={16} /> {getPrevMonthName()}
-            </button>
-            <button className="btn btn-secondary btn-sm-nav" onClick={handleNextMonth} title={`${getNextMonthName()}へ移動`}>
-              {getNextMonthName()} <ChevronRight size={16} />
-            </button>
-            <div className="date-picker-wrapper" onClick={triggerDatePicker} title="クリックして日付を選択" style={{ cursor: 'pointer' }}>
+            <div className="month-nav" role="group" aria-label="月の移動">
+              <button type="button" className="cal-icon-btn" onClick={handlePrevMonth} title={`${getPrevMonthName()}へ`} aria-label={`${getPrevMonthName()}へ`}>
+                <ChevronLeft size={16} />
+              </button>
+              <span className="month-nav-label">{formatJapaneseMonth()}</span>
+              <button type="button" className="cal-icon-btn" onClick={handleNextMonth} title={`${getNextMonthName()}へ`} aria-label={`${getNextMonthName()}へ`}>
+                <ChevronRight size={16} />
+              </button>
+            </div>
+            <div className="date-picker-wrapper cal-icon-btn" onClick={triggerDatePicker} title="日付を指定して移動" role="button" aria-label="日付を指定して移動">
               <input
                 ref={dateInputRef}
                 type="date"
@@ -2625,13 +2627,10 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                   }
                 }}
               />
-              <span className="current-date-display" style={{ display: 'inline-flex', alignItems: 'center', padding: '0 12px', height: '32px', borderRadius: '6px', border: '1px solid var(--border-color, #e2e8f0)', background: 'var(--bg-secondary)', fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-primary)' }}>
-                <CalendarIcon size={14} style={{ marginRight: '6px' }} />
-                日付指定
-              </span>
+              <CalendarSearch size={16} />
             </div>
-            <button className="btn btn-secondary btn-sm-nav" onClick={handleToday}>
-              本日
+            <button type="button" className="cal-icon-btn" onClick={handleToday} title="今日へ" aria-label="今日へ">
+              <CalendarCheck size={16} />
             </button>
           </div>
           <div className="matrix-nav-buttons action-group">
@@ -2646,23 +2645,23 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
             {viewMode === 'table' && (
             <button
               type="button"
-              className={`btn btn-secondary btn-sm-nav ${showFullText ? 'active' : ''}`}  
-              onClick={() => setShowFullText(!showFullText)} 
-              title={showFullText ? "2〜3行の標準折り返し表示に戻します" : "すべての予定の物件名・作業内容・備考等のテキストを折り返して全行展開します"}
-              style={showFullText ? { backgroundColor: 'var(--primary)', color: '#fff', borderColor: 'var(--primary)' } : undefined}
+              className={`cal-icon-btn ${showFullText ? 'active' : ''}`}
+              onClick={() => setShowFullText(!showFullText)}
+              title={showFullText ? '全文表示中（押すと 2〜3 行の表示に戻す）' : '物件名・作業内容・備考を折り返して全文表示する'}
+              aria-label="全文表示"
+              aria-pressed={showFullText}
             >
-              {showFullText ? <EyeOff size={14} style={{ marginRight: '4px' }} /> : <Eye size={14} style={{ marginRight: '4px' }} />}
-              <span className="btn-text-full">{showFullText ? '標準表示に戻す' : '全文表示に切替'}</span>
-              <span className="btn-text-short">{showFullText ? '標準表示' : '全文表示'}</span>
+              <WrapText size={16} />
             </button>
             )}
-            <button 
-              className="btn btn-secondary btn-sm-nav" 
-              onClick={onOpenPasteImportModal} 
-              title="Excelやスプレッドシートからコピーしたデータを貼り付け"
+            <button
+              type="button"
+              className="cal-icon-btn"
+              onClick={onOpenPasteImportModal}
+              title="Excel やスプレッドシートからコピーした予定を貼り付け"
+              aria-label="スプレッドシートから貼り付け"
             >
-              <span className="btn-text-full">スプレッドシートから貼り付け</span>
-              <span className="btn-text-short">シート貼付</span>
+              <ClipboardPaste size={16} />
             </button>
             <button 
               className="btn btn-primary btn-sm-nav" 
@@ -2848,10 +2847,10 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                                 boxSizing: 'border-box'
                               }}>
                                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}>
-                                  <span className="day-name-super" style={{ color: 'var(--text-primary)', fontWeight: 'bold' }}>
+                                  <span className="day-date-super" style={{ fontSize: '1.05rem', color: 'var(--text-primary)', fontWeight: 'bold', fontVariantNumeric: 'tabular-nums', lineHeight: 1.2 }}>{day.date.getMonth() + 1}/{day.date.getDate()}</span>
+                                  <span className="day-name-super" style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', fontWeight: 600, lineHeight: 1.3 }}>
                                     {day.dayName}曜日{holidayName ? `・${holidayName}` : ''}
                                   </span>
-                                  <span className="day-date-super" style={{ fontSize: '0.75rem', color: 'var(--text-primary)', fontWeight: 'bold', opacity: 0.9 }}>({day.date.getMonth() + 1}/{day.date.getDate()})</span>
                                 </div>
                                 <div className="transfer-action-area" style={{
                                   display: 'inline-flex',
