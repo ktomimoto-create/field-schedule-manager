@@ -352,3 +352,39 @@
 .fe-tracking.is-denied {
   color: var(--danger);
 }
+
+/* 訪問の順番の入れ替え（スマホで押しやすい 36px のボタン） */
+.fe-visit-side {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  align-self: stretch;
+  justify-content: space-between;
+}
+.fe-move {
+  display: inline-flex;
+  gap: 4px;
+}
+.fe-move-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 1px solid var(--border-glass);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+.fe-move-btn:hover:not(:disabled) {
+  filter: brightness(1.12);
+  color: var(--primary);
+  border-color: rgba(79, 70, 229, 0.35);
+}
+.fe-move-btn:disabled {
+  opacity: 0.3;
+  cursor: default;
+}

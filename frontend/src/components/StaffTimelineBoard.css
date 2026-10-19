@@ -116,3 +116,8 @@
   background: var(--danger);
   z-index: 4;
 }
+
+.lane-card.stl-card {
+  height: 86px;
+}
+.stl-lg.is-confirmed, .stl-lg.is-draft, .stl-lg.is-free { display: none; }

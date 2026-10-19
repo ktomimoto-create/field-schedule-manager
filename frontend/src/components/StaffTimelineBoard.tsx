@@ -1,10 +1,11 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { CheckCircle2, Lock } from 'lucide-react';
 import type { Schedule, Staff } from '../types';
 import { compareSchedules, getShortName, normalizeTargetTime } from '../types';
-import { hmToMin, parseTimeSlot, statusMeta } from '../utils/scheduleDisplay';
+import { hmToMin, parseTimeSlot, progressOf, statusMeta } from '../utils/scheduleDisplay';
 import { jstHm, type FeEvent } from '../utils/feEvents';
 import { StaffAvatar } from './ScheduleCards';
+import { VisitCardBody } from './StaffLaneBoard';
+import { usePlaceLabel } from '../utils/usePlaceLabel';
 import './StaffLaneBoard.css';
 import './StaffTimelineBoard.css';
 
@@ -17,7 +18,7 @@ type LockInfo = { userEmail: string; userName: string; startedAt: number; sessio
 const WORK_MIN = 60;
 const MOVE_MIN = 15;
 const DAY_START = 9 * 60;
-const LANE_H = 64;
+const LANE_H = 98;
 
 interface Placed {
   schedule: Schedule;
@@ -62,6 +63,7 @@ const todayStr = () => {
 
 export const StaffTimelineBoard: React.FC<Props> = ({ schedules, staff, date, canEdit, activeLocks, onOpenEditModal, feEvents = [] }) => {
   const [now, setNow] = useState(nowMin);
+  const placeOf = usePlaceLabel(schedules);
   useEffect(() => {
     const t = setInterval(() => setNow(nowMin()), 60_000);
     return () => clearInterval(t);
@@ -204,14 +206,15 @@ export const StaffTimelineBoard: React.FC<Props> = ({ schedules, staff, date, ca
               const s = p.schedule;
               const meta = statusMeta(s.status);
               const time = normalizeTargetTime(s.target_time);
-              const isDone = s.result === '完了';
+              const progress = progressOf(s, feEvents);
+              const isDone = progress === 'done';
               const lock = typeof s.id === 'number' ? activeLocks[s.id] : undefined;
               const act = actuals.get(s.id);
-              const barTop = 6 + p.lane * LANE_H + LANE_H - 10;
+              const barTop = 6 + p.lane * LANE_H + LANE_H - 9;
               return (
                 <React.Fragment key={s.id}>
                 <div
-                  className={`lane-card stl-card tone-${meta.tone}${isDone ? ' is-done' : ''}${p.estimated ? ' is-est' : ''}${p.late ? ' is-late' : ''}`}
+                  className={`lane-card stl-card tone-${meta.tone} p-${progress}${isDone ? ' is-done' : ''}${p.estimated ? ' is-est' : ''}${p.late ? ' is-late' : ''}`}
                   style={{ left: `${pct(p.start)}%`, width: `calc(${pct(p.end) - pct(p.start)}% - 4px)`, top: 6 + p.lane * LANE_H }}
                   onDoubleClick={() => {
                     if (!canEdit) return;
@@ -223,14 +226,7 @@ export const StaffTimelineBoard: React.FC<Props> = ({ schedules, staff, date, ca
                   }}
                   title={`${p.no}. ${time || '時間指定なし'}（${p.estimated ? '見込み ' : ''}${fmt(p.start)}〜${fmt(p.end)}）${p.late ? ' 締切に間に合わない見込み' : ''}\n${s.unit_number || ''} ${s.property_name}\n${s.work_type || ''} ${s.description || ''}${canEdit ? '\nダブルクリックで編集' : ''}`}
                 >
-                  <div className="lane-card-top">
-                    <span className="lane-no">{p.no}</span>
-                    <span className={`lane-time${time === '必ず' ? ' is-must' : ''}`}>{time || fmt(p.start)}</span>
-                    <span className="lane-unit">{s.unit_number || ''}</span>
-                    {isDone && <CheckCircle2 size={12} className="lane-done" />}
-                    {lock && <Lock size={12} className="lane-lock" />}
-                  </div>
-                  <div className="lane-property stl-property">{s.property_name}</div>
+                  <VisitCardBody schedule={s} no={p.no} progress={progress} lock={!!lock} timeOverride={fmt(p.start)} place={placeOf(s)} />
                 </div>
                 {act?.move && (
                   <span

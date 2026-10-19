@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { CheckCircle2, Circle, LogIn, LogOut, MapPin, Navigation, Search, Undo2, Wrench, type LucideIcon } from 'lucide-react';
+import { CheckCircle2, ChevronDown, ChevronUp, Circle, LogIn, LogOut, MapPin, Navigation, Search, Undo2, Wrench, type LucideIcon } from 'lucide-react';
 import type { Schedule, Staff } from '../types';
 import { getShortName, normalizeTargetTime, compareSchedules } from '../types';
 import {
@@ -51,9 +51,11 @@ interface Props {
   onRecorded: () => void;
   /** お試しモードで、到着・完了を予定の開始・完了時刻にも反映する（本番は DB の関数が書く） */
   onUpdateResult: (scheduleId: number | string, result: string, startedAt?: string | null, completedAt?: string | null) => Promise<void>;
+  /** 訪問の順番を入れ替える（まだ手を付けていない訪問どうしだけ） */
+  onReorder?: (orders: { id: number | string; sort_order: number }[]) => Promise<void>;
 }
 
-export const FeActionView: React.FC<Props> = ({ schedules, staff, currentStaffId, isSandbox, isDemoLogin = false, feEvents, feUnavailable, onRecorded, onUpdateResult }) => {
+export const FeActionView: React.FC<Props> = ({ schedules, staff, currentStaffId, isSandbox, isDemoLogin = false, feEvents, feUnavailable, onRecorded, onUpdateResult, onReorder }) => {
   const [pickedStaffId, setPickedStaffId] = useState<number | null>(null);
   const [query, setQuery] = useState('');
   const [busy, setBusy] = useState(false);
@@ -114,6 +116,24 @@ export const FeActionView: React.FC<Props> = ({ schedules, staff, currentStaffId
       onRecorded();
     } catch (e) {
       alert(e instanceof Error ? e.message : '記録できませんでした');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  // 順番の入れ替え（まだ手を付けていない訪問どうし。済んだ・対応中の訪問の前には動かさない）
+  const move = async (index: number, dir: -1 | 1) => {
+    if (!onReorder || busy) return;
+    const j = index + dir;
+    if (j < 0 || j >= day.visits.length) return;
+    if (day.visits[index].stage !== 'todo' || day.visits[j].stage !== 'todo') return;
+    const list = day.visits.map(v => v.schedule);
+    [list[index], list[j]] = [list[j], list[index]];
+    setBusy(true);
+    try {
+      await onReorder(list.map((s, k) => ({ id: s.id, sort_order: k })));
+    } catch (e) {
+      alert(e instanceof Error ? e.message : '順番を変えられませんでした');
     } finally {
       setBusy(false);
     }
@@ -257,10 +277,36 @@ export const FeActionView: React.FC<Props> = ({ schedules, staff, currentStaffId
                   <span>完了 <b className="sc-num">{v.finishAt ? jstHm(v.finishAt) : v.schedule.completed_at || '—'}</b></span>
                 </div>
               </div>
-              <span className={`fe-stage stage-${v.stage}`}>
-                <st.icon size={12} />
-                {st.label}
-              </span>
+              <div className="fe-visit-side">
+                <span className={`fe-stage stage-${v.stage}`}>
+                  <st.icon size={12} />
+                  {st.label}
+                </span>
+                {onReorder && v.stage === 'todo' && (
+                  <span className="fe-move">
+                    <button
+                      type="button"
+                      className="fe-move-btn"
+                      onClick={() => void move(i, -1)}
+                      disabled={busy || i === 0 || day.visits[i - 1].stage !== 'todo'}
+                      title="この訪問を 1 つ前にする"
+                      aria-label="1 つ前にする"
+                    >
+                      <ChevronUp size={18} />
+                    </button>
+                    <button
+                      type="button"
+                      className="fe-move-btn"
+                      onClick={() => void move(i, 1)}
+                      disabled={busy || i === day.visits.length - 1}
+                      title="この訪問を 1 つ後にする"
+                      aria-label="1 つ後にする"
+                    >
+                      <ChevronDown size={18} />
+                    </button>
+                  </span>
+                )}
+              </div>
             </li>
           );
         })}

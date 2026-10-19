@@ -1671,6 +1671,7 @@ frontend/public/_sandbox/${viewDate}.json を置いてください。`);
                     feUnavailable={feUnavailable}
                     onRecorded={() => void refreshFeEvents()}
                     onUpdateResult={(id, result, startedAt, completedAt) => handleUpdateScheduleResult(id, result, startedAt, completedAt)}
+                    onReorder={handleReorderSchedules}
                   />
                 )}
                 {canManageSchedules(currentUserRole) && activeTab === 'calendar' && (

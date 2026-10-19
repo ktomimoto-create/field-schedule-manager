@@ -1,10 +1,39 @@
 import React, { useMemo, useState } from 'react';
-import { CheckCircle2, GripVertical, Lock } from 'lucide-react';
+import { GripVertical, Lock } from 'lucide-react';
 import type { Schedule, Staff } from '../types';
 import { compareSchedules, getShortName, normalizeTargetTime } from '../types';
-import { statusMeta } from '../utils/scheduleDisplay';
+import { progressOf, statusMeta, summarizeDescription, workTypeKey, type Progress } from '../utils/scheduleDisplay';
+import type { FeEvent } from '../utils/feEvents';
 import { StaffAvatar } from './ScheduleCards';
+import { usePlaceLabel } from '../utils/usePlaceLabel';
 import './StaffLaneBoard.css';
+
+const PROGRESS_LABEL: Record<Progress, string> = { todo: '未着手', working: '対応中', done: '完了' };
+
+/** 訪問カードの中身（カード表示と時間軸で共通）:
+ *  1 行目 番号・号機・時間指定・種別 ／ 2 行目 物件名 ／ 3 行目 作業内容の要約 ／ 4 行目 エリア・県別
+ *  番号の丸の色が対応状況（未着手＝紫・対応中＝赤・完了＝緑）。種別は種類ごとの色。「必ず」はオレンジ */
+export const VisitCardBody: React.FC<{ schedule: Schedule; no: number; progress: Progress; lock?: boolean; timeOverride?: string; grip?: boolean; place?: string }> = ({ schedule: s, no, progress, lock, timeOverride, grip, place: placeProp }) => {
+  const time = normalizeTargetTime(s.target_time);
+  const summary = summarizeDescription(s.description);
+  const place = placeProp ?? [s.prefecture, s.area].filter(Boolean).join(' ');
+  return (
+    <>
+      <div className="lane-card-top">
+        {grip && <GripVertical size={12} className="lane-grip" />}
+        <span className={`lane-no p-${progress}`} title={PROGRESS_LABEL[progress]}>{no}</span>
+        <span className="lane-unit">{s.unit_number || ''}</span>
+        {time === '必ず' ? <span className="lane-must">必ず</span> : (time || timeOverride) ? <span className={`lane-time${time ? ' is-set' : ''}`}>{time || timeOverride}</span> : null}
+        {s.status === 'draft' && <span className="lane-draft">仮</span>}
+        {s.work_type && <span className={`lane-wt wt-${workTypeKey(s.work_type)}`}>{s.work_type}</span>}
+        {lock && <Lock size={12} className="lane-lock" />}
+      </div>
+      <div className="lane-property">{s.property_name}</div>
+      <div className="lane-summary-line">{summary || '\u00a0'}</div>
+      <div className="lane-place">{place || '\u00a0'}</div>
+    </>
+  );
+};
 
 // 予定表のカード表示（配車計画のリスト表示を手本にした形）:
 // 1 人 1 行。左に担当（顔・名前・件数・完了数）、右にその日の訪問を順番どおり横に並べる。
@@ -19,6 +48,7 @@ interface Props {
   activeLocks: Record<number, LockInfo>;
   onOpenEditModal: (s: Schedule) => void;
   onReorder?: (orders: { id: number | string; sort_order: number }[]) => Promise<void>;
+  feEvents?: FeEvent[];
 }
 
 interface Lane {
@@ -29,9 +59,10 @@ interface Lane {
   items: Schedule[];
 }
 
-export const StaffLaneBoard: React.FC<Props> = ({ schedules, staff, canEdit, activeLocks, onOpenEditModal, onReorder }) => {
+export const StaffLaneBoard: React.FC<Props> = ({ schedules, staff, canEdit, activeLocks, onOpenEditModal, onReorder, feEvents = [] }) => {
   const [drag, setDrag] = useState<{ lane: string; id: number | string } | null>(null);
   const [overId, setOverId] = useState<number | string | null>(null);
+  const placeOf = usePlaceLabel(schedules);
 
   const lanes = useMemo<Lane[]>(() => {
     const map = new Map<string, Lane>();
@@ -83,13 +114,14 @@ export const StaffLaneBoard: React.FC<Props> = ({ schedules, staff, canEdit, act
               {lane.items.map((s, idx) => {
                 const meta = statusMeta(s.status);
                 const time = normalizeTargetTime(s.target_time);
-                const isDone = s.result === '完了';
+                const progress = progressOf(s, feEvents);
+                const isDone = progress === 'done';
                 const lock = typeof s.id === 'number' ? activeLocks[s.id] : undefined;
                 const draggable = canEdit && !!onReorder && !lock;
                 return (
                   <div
                     key={s.id}
-                    className={`lane-card tone-${meta.tone}${isDone ? ' is-done' : ''}${overId === s.id && drag?.lane === lane.key ? ' is-drop' : ''}`}
+                    className={`lane-card tone-${meta.tone} p-${progress}${isDone ? ' is-done' : ''}${overId === s.id && drag?.lane === lane.key ? ' is-drop' : ''}`}
                     draggable={draggable}
                     onDragStart={e => {
                       setDrag({ lane: lane.key, id: s.id });
@@ -122,19 +154,7 @@ export const StaffLaneBoard: React.FC<Props> = ({ schedules, staff, canEdit, act
                     }}
                     title={`${idx + 1}. ${time || '時間指定なし'} ${s.unit_number || ''} ${s.property_name}\n${s.work_type || ''} ${s.description || ''}\n${canEdit ? 'ダブルクリックで編集・ドラッグで並べ替え' : ''}`}
                   >
-                    <div className="lane-card-top">
-                      {draggable && <GripVertical size={12} className="lane-grip" />}
-                      <span className="lane-no">{idx + 1}</span>
-                      <span className={`lane-time${time === '必ず' ? ' is-must' : ''}`}>{time || '—'}</span>
-                      <span className="lane-unit">{s.unit_number || ''}</span>
-                      {isDone && <CheckCircle2 size={12} className="lane-done" />}
-                      {lock && <Lock size={12} className="lane-lock" />}
-                    </div>
-                    <div className="lane-property">{s.property_name}</div>
-                    <div className="lane-card-bottom">
-                      {s.work_type && <span className="lane-badge">{s.work_type}</span>}
-                      <span className="lane-area">{s.area || ''}</span>
-                    </div>
+                    <VisitCardBody schedule={s} no={idx + 1} progress={progress} lock={!!lock} grip={draggable} place={placeOf(s)} />
                   </div>
                 );
               })}

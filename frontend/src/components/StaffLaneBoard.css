@@ -184,3 +184,132 @@
   color: var(--text-primary);
   font-variant-numeric: tabular-nums;
 }
+
+/* ===== カードの構成と色（2026-10-19）: 赤＝対応中・緑＝完了だけに使う ===== */
+/* 確定・仮の色の下線はやめる（確定の赤が対応中の赤とまぎれるため）。仮は「仮」の印、キャンセルは取り消し線 */
+.lane-card {
+  border-bottom: 1px solid var(--border-glass);
+  border-left: 3px solid transparent;
+  background: var(--bg-primary) !important;
+}
+.lane-card.p-working { border-left-color: #dc2626; }
+.lane-card.p-done { border-left-color: #059669; }
+.lane-card.is-done { opacity: 0.75; }
+.lane-no {
+  background: var(--primary);
+}
+.lane-no.p-working { background: #dc2626; }
+.lane-no.p-done { background: #059669; }
+.lane-must {
+  flex-shrink: 0;
+  padding: 0 6px;
+  border-radius: 4px;
+  background: #f59e0b;
+  color: #1f2937;
+  font-size: 0.68rem;
+  font-weight: 700;
+  line-height: 1.5;
+}
+.lane-draft {
+  flex-shrink: 0;
+  padding: 0 4px;
+  border: 1px dashed #ca8a04;
+  border-radius: 4px;
+  color: #ca8a04;
+  font-size: 0.66rem;
+  font-weight: 700;
+  line-height: 1.4;
+}
+/* 種別のバッジ（種類ごとの色。赤・緑は使わない） */
+.lane-wt {
+  --wt: #64748b;
+  flex-shrink: 0;
+  margin-left: auto;
+  padding: 0 6px;
+  border: 1px solid color-mix(in srgb, var(--wt) 50%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--wt) 14%, transparent);
+  color: var(--wt);
+  font-size: 0.66rem;
+  font-weight: 700;
+  line-height: 1.5;
+  white-space: nowrap;
+}
+.lane-wt.wt-fault { --wt: #ea580c; }
+.lane-wt.wt-second { --wt: #9333ea; }
+.lane-wt.wt-approved { --wt: #db2777; }
+.lane-wt.wt-construct { --wt: #2563eb; }
+.lane-wt.wt-install { --wt: #4f46e5; }
+.lane-wt.wt-periodic { --wt: #0891b2; }
+.lane-wt.wt-survey { --wt: #a16207; }
+.dark-theme .lane-wt.wt-fault { --wt: #fb923c; }
+.dark-theme .lane-wt.wt-second { --wt: #c084fc; }
+.dark-theme .lane-wt.wt-approved { --wt: #f472b6; }
+.dark-theme .lane-wt.wt-construct { --wt: #60a5fa; }
+.dark-theme .lane-wt.wt-install { --wt: #818cf8; }
+.dark-theme .lane-wt.wt-periodic { --wt: #22d3ee; }
+.dark-theme .lane-wt.wt-survey { --wt: #facc15; }
+.lane-time {
+  color: var(--text-primary);
+}
+.lane-unit {
+  color: var(--text-primary);
+  font-weight: 700;
+}
+.lane-property {
+  -webkit-line-clamp: 1;
+}
+.lane-summary-line,
+.lane-place {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.72rem;
+}
+.lane-summary-line {
+  color: var(--text-secondary);
+}
+.lane-place {
+  color: var(--text-muted);
+}
+.lane-card {
+  flex-basis: 210px;
+}
+/* カードの大きさは全部同じにする（1 行の要約が min-width:auto でカードを押し広げないように） */
+.lane-card {
+  flex: 0 0 210px;
+  width: 210px;
+  min-width: 0;
+  height: 86px;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+/* 1 行目（番号・号機・時間・種別）の高さを 18px にそろえて水平中央に並べる */
+.lane-card-top {
+  height: 18px;
+  line-height: 1;
+}
+.lane-card-top > * {
+  display: inline-flex;
+  align-items: center;
+  box-sizing: border-box;
+  height: 18px;
+  line-height: 1;
+}
+.lane-card-top .lane-unit {
+  display: block;
+  line-height: 18px;
+}
+/* 時間指定がある訪問は時刻を枠で囲み、号機と見分ける（見込みの時刻は枠なしの薄い字） */
+.lane-time.is-set {
+  padding: 0 5px;
+  border: 1px solid var(--border-glass);
+  border-radius: 4px;
+  background: var(--bg-secondary);
+  font-size: 0.68rem;
+}
+.lane-time:not(.is-set) {
+  color: var(--text-muted);
+  font-weight: 400;
+}
