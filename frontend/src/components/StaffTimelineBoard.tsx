@@ -23,9 +23,13 @@ import './StaffTimelineBoard.css';
 type LockInfo = { userEmail: string; userName: string; startedAt: number; sessionId?: string; mode?: string };
 
 const DAY_START = 9 * 60;
-/** 昼休憩 60 分（12:00 以降、最初に手が空いたところで取る） */
+/** 昼休憩 60 分（12:00 以降、最初に手が空いたところで取る。移動を含めて最大 80 分） */
 const LUNCH_FROM = 12 * 60;
 const LUNCH_MIN = 60;
+/** 昼休憩は移動を含めて最大 80 分（移動が 20 分を超える分は休憩の中で動く） */
+const LUNCH_WITH_MOVE_MAX = 80;
+/** 昼休憩の始まりから次の訪問を始めるまでの時間（移動 mv 分を含む） */
+const lunchSpan = (mv: number) => Math.max(mv, Math.min(LUNCH_MIN + mv, LUNCH_WITH_MOVE_MAX));
 /** 重ねたカードをずらす量（px）。3 枚目以降は同じ位置 */
 const STACK_SHIFT = 6;
 const STACK_MAX = 2;
@@ -183,7 +187,7 @@ export const StaffTimelineBoard: React.FC<Props> = ({ schedules, staff, date, ca
       const depart = departRec ?? Math.min(DAY_START, firstNeed);
       // 時刻の割り当て: 行の順番ではなく、時間の指定を守る順に枠を押さえる
       //   ① 時刻指定（10:00 など）はその時刻 ② AM 指定は午前の空き ③ PM 指定は午後の空き
-      //   ④ 時間指定なし・「〜迄」は行の順に空いた所へ。最後に昼休憩 60 分を 12:00 以降の最初の空きに入れる
+      //   ④ 時間指定なし・「〜迄」は行の順に空いた所へ。最後に昼休憩（移動込みで最大 80 分）を 12:00 以降の最初の空きに入れる
       //   同じ建物・同じ敷地（物件名の括弧書き・①② を除いて同じ）の訪問は同じ時刻に重ねる
       // どの訪問も、前の訪問（または出動）から移動して着ける時刻より前には置かない。入らなければ赤い枠
       type Blk = { s: Schedule | null; from: number; to: number; pos: LatLng | null; lunch?: boolean };
@@ -248,36 +252,50 @@ export const StaffTimelineBoard: React.FC<Props> = ({ schedules, staff, date, ca
         return travelLeg(posOf(prev.x) ?? base, posOf(x), mode);
       };
       let lunch: [number, number] | null = null;
+      // 昼休憩のあとの訪問を、時刻指定の訪問を避けながら前へ詰める（昼が移動込み 80 分を超えないように）
+      const compactFrom = (i: number, pvStart: (typeof chrono)[number] | null, cursorStart: number) => {
+        const fixedAt = chrono.filter(c => c.slot?.kind === 'at');
+        let cursor = cursorStart;
+        let pv = pvStart;
+        for (let j = i; j < chrono.length; j++) {
+          const c = chrono[j];
+          if (c.slot?.kind === 'at') {
+            cursor = Math.max(cursor, c.start + WORK_MIN);
+            pv = c;
+            continue;
+          }
+          const lg = legBetween(pv, c.x);
+          let cand = lg.kind === 'same' && pv ? pv.start : Math.max(cursor + lg.min, c.slot?.kind === 'band' ? c.slot.from : -Infinity);
+          for (let guard = 0; guard < 10; guard++) {
+            const hit = fixedAt.find(f => f !== c && legBetween(f, c.x).kind !== 'same' && cand < f.start + WORK_MIN && cand + WORK_MIN + legBetween(c, f.x).min > f.start);
+            if (!hit) break;
+            cand = hit.start + WORK_MIN + legBetween(hit, c.x).min;
+          }
+          c.start = cand;
+          cursor = Math.max(cursor, cand + WORK_MIN);
+          pv = c;
+        }
+        chrono.sort((x1, x2) => x1.start - x2.start || x1.idx - x2.idx);
+      };
       {
         let prev: (typeof chrono)[number] | null = null;
         let prevEnd = depart;
-        for (let i = 0; i < chrono.length; i++) {
+        for (let i = 0; i < chrono.length && !lunch; i++) {
           const w = chrono[i];
           const mv = legBetween(prev, w.x).min;
           const moveFrom = w.start - mv;
-          if (!lunch && prev && w.start >= prevEnd) {
-            // この訪問の前の空き [prevEnd, moveFrom] で取れるか
-            if (moveFrom - prevEnd >= LUNCH_MIN && moveFrom > LUNCH_FROM) {
-              const lsStart = Math.max(prevEnd, Math.min(LUNCH_FROM, moveFrom - LUNCH_MIN));
-              lunch = [lsStart, lsStart + LUNCH_MIN];
+          if (prev && w.start >= prevEnd) {
+            const span = lunchSpan(mv);
+            if (w.start - prevEnd >= span && moveFrom > LUNCH_FROM) {
+              // この訪問の前の空きで取る（できるだけ 12:00 から）
+              const lsStart = Math.max(prevEnd, Math.min(LUNCH_FROM, w.start - span));
+              lunch = [lsStart, lsStart + span - mv];
+              compactFrom(i, prev, lunch[1]);
             } else if ((w.start >= LUNCH_FROM || prevEnd >= LUNCH_FROM) && w.slot?.kind !== 'at') {
               // 空きが足りない: 昼休憩のあとに移動して始める（時刻指定の訪問の前なら、その後の空きで取る）
               const lsStart = Math.max(prevEnd, LUNCH_FROM);
-              lunch = [lsStart, lsStart + LUNCH_MIN];
-              let cursor = lunch[1];
-              let pv: (typeof chrono)[number] | null = prev;
-              for (let j = i; j < chrono.length; j++) {
-                const c = chrono[j];
-                if (c.slot?.kind === 'at') {
-                  cursor = Math.max(cursor, c.start + WORK_MIN);
-                } else {
-                  const need = cursor + legBetween(pv, c.x).min;
-                  if (c.start < need) c.start = need;
-                  cursor = Math.max(cursor, c.start + WORK_MIN);
-                }
-                pv = c;
-              }
-              chrono.sort((x1, x2) => x1.start - x2.start || x1.idx - x2.idx);
+              lunch = [lsStart, lsStart + span - mv];
+              compactFrom(i, prev, lunch[1]);
             }
           }
           if (w.start + WORK_MIN > prevEnd) {
@@ -510,7 +528,7 @@ export const StaffTimelineBoard: React.FC<Props> = ({ schedules, staff, date, ca
               <span
                 className="stl-lunch"
                 style={{ left: `${pct(r.lunch[0])}%`, width: `${pct(r.lunch[1]) - pct(r.lunch[0])}%`, top: MOVE_Y }}
-                title={`昼休憩 ${fmt(r.lunch[0])}〜${fmt(r.lunch[1])}（60 分）`}
+                title={`昼休憩 ${fmt(r.lunch[0])}〜${fmt(r.lunch[1])}（移動を含めて最大 80 分）`}
               >
                 <span>
                   <UtensilsCrossed size={10} />
