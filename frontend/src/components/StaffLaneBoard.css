@@ -322,3 +322,18 @@
   overflow: visible;
   text-overflow: clip;
 }
+/* 種別・時間も見切れさせない: 入らないときは 1 行目を 2 段に折り返す（下の行が押し出されるのはカードの中だけ） */
+.lane-card-top {
+  flex-wrap: wrap;
+  height: auto;
+  min-height: 18px;
+  row-gap: 3px;
+  overflow: visible;
+}
+.lane-card-top .lane-wt {
+  margin-left: auto;
+}
+/* 1 行目が 2 段になっても下の行に重ならないよう、行は縮めない（はみ出した下の行はカードの中で隠れる） */
+.lane-card > * {
+  flex-shrink: 0;
+}

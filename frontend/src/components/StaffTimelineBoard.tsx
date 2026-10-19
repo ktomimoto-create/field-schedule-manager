@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { CarFront, Footprints, Route, TrainFront, UtensilsCrossed } from 'lucide-react';
 import type { Schedule, Staff } from '../types';
 import { compareSchedules, normalizeTargetTime } from '../types';
@@ -7,6 +7,8 @@ import { jstHm, type FeEvent } from '../utils/feEvents';
 import { StaffAvatar } from './ScheduleCards';
 import { VisitCardBody } from './StaffLaneBoard';
 import { usePlaceLabel } from '../utils/usePlaceLabel';
+import { ProgressMenu, type StatusHistoryItem } from './ProgressMenu';
+import type { Progress } from '../utils/scheduleDisplay';
 import { isSameSite, planRoute, sameBuilding, totalTravel, travelLeg, travelModeOf, useSitePositions, WORK_MIN, type LegKind, type TravelMode } from '../utils/route';
 import { useFunnaviReservations, usesVehicle } from '../utils/vehicleUsers';
 import type { LatLng } from '../utils/geocode';
@@ -89,6 +91,9 @@ interface Props {
   onOpenEditModal: (s: Schedule) => void;
   onReorder?: (orders: { id: number | string; sort_order: number }[]) => Promise<void>;
   feEvents?: FeEvent[];
+  /** 対応状況を変える（管理側。カードの右クリック） */
+  onSetProgress?: (s: Schedule, p: Progress) => Promise<void>;
+  loadStatusHistory?: (s: Schedule) => Promise<StatusHistoryItem[]>;
 }
 
 const fmt = (m: number) => `${Math.floor(m / 60)}:${String(m % 60).padStart(2, '0')}`;
@@ -101,9 +106,18 @@ const todayStr = () => {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 };
 
-export const StaffTimelineBoard: React.FC<Props> = ({ schedules, staff, date, canEdit, activeLocks, onOpenEditModal, onReorder, feEvents = [] }) => {
+export const StaffTimelineBoard: React.FC<Props> = ({ schedules, staff, date, canEdit, activeLocks, onOpenEditModal, onReorder, feEvents = [], onSetProgress, loadStatusHistory }) => {
   const [now, setNow] = useState(nowMin);
   const placeOf = usePlaceLabel(schedules);
+  // 右クリックで開く対応状況のメニュー
+  const [menu, setMenu] = useState<{ s: Schedule; x: number; y: number } | null>(null);
+  const menuId = menu?.s.id;
+  const loadMenuHistory = useCallback(async () => {
+    const target = schedules.find(x => x.id === menuId);
+    return target && loadStatusHistory ? loadStatusHistory(target) : [];
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [menuId, loadStatusHistory]);
+  const closeMenu = useCallback(() => setMenu(null), []);
   const sitePos = useSitePositions(schedules);
   const reservations = useFunnaviReservations(date);
   const [busy, setBusy] = useState(false);
@@ -468,6 +482,11 @@ export const StaffTimelineBoard: React.FC<Props> = ({ schedules, staff, date, ca
                     if (p.stackSize < 2 || e.detail > 1) return;
                     setSpread(sp => (sp === p.stackKey ? null : p.stackKey));
                   }}
+                  onContextMenu={e => {
+                    if (!onSetProgress) return;
+                    e.preventDefault();
+                    setMenu({ s, x: e.clientX, y: e.clientY });
+                  }}
                   onDoubleClick={() => {
                     if (!canEdit) return;
                     if (lock) {
@@ -476,7 +495,7 @@ export const StaffTimelineBoard: React.FC<Props> = ({ schedules, staff, date, ca
                     }
                     onOpenEditModal(s);
                   }}
-                  title={`${p.no}. ${time || '時間指定なし'}（${p.estimated ? '見込み ' : ''}${fmt(p.start)}〜${fmt(p.end)}）${p.late ? '\n赤い枠: 指定の時刻・締切に間に合わない見込み' : ''}\n${s.unit_number || ''} ${s.property_name}\n${s.work_type || ''} ${s.description || ''}${p.stackSize > 1 ? (isSpread ? '\n広げた中はドラッグで並べ替え' : '\nクリックで重なりを広げる') : ''}${canEdit ? '\nダブルクリックで編集' : ''}`}
+                  title={`${p.no}. ${time || '時間指定なし'}（${p.estimated ? '見込み ' : ''}${fmt(p.start)}〜${fmt(p.end)}）${p.late ? '\n赤い枠: 指定の時刻・締切に間に合わない見込み' : ''}\n${s.unit_number || ''} ${s.property_name}\n${s.work_type || ''} ${s.description || ''}${p.stackSize > 1 ? (isSpread ? '\n広げた中はドラッグで並べ替え' : '\nクリックで重なりを広げる') : ''}${canEdit ? '\nダブルクリックで編集' : ''}${onSetProgress ? '\n右クリックで対応状況を変える' : ''}`}
                 >
                   <VisitCardBody
                     schedule={s}
@@ -513,6 +532,16 @@ export const StaffTimelineBoard: React.FC<Props> = ({ schedules, staff, date, ca
           </div>
         </div>
       ))}
+      {menu && onSetProgress && (
+        <ProgressMenu
+          at={{ x: menu.x, y: menu.y }}
+          title={`${menu.s.unit_number || ''} ${menu.s.property_name}`.trim()}
+          current={progressOf(menu.s, feEvents)}
+          onSelect={p => onSetProgress(menu.s, p)}
+          loadHistory={loadMenuHistory}
+          onClose={closeMenu}
+        />
+      )}
     </div>
   );
 };

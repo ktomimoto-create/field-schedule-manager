@@ -7,8 +7,11 @@ import { buildFcAutofillPatch } from '../utils/fcAutofill';
 import { Plus, ChevronLeft, ChevronRight, Calendar as CalendarIcon, Filter, CheckCircle2, Download, Printer, Lock, ArrowUpDown, RotateCcw, Edit2, LayoutList, ChartGantt, Table2, UserRound, CalendarCheck, WrapText } from 'lucide-react';
 import { PrintPreviewModal } from './PrintPreviewModal';
 import { StaffLaneBoard } from './StaffLaneBoard';
+import { StaffAvatar } from './ScheduleCards';
 import { StaffTimelineBoard } from './StaffTimelineBoard';
 import { TimelineView } from './TimelineView';
+import type { StatusHistoryItem } from './ProgressMenu';
+import type { Progress } from '../utils/scheduleDisplay';
 import { jstDate, type FeEvent } from '../utils/feEvents';
 import { Select } from './shared/Select';
 import DatePicker from './shared/DatePicker';
@@ -117,6 +120,9 @@ interface GridViewProps {
   /** 「担当ごと」表示（旧 当日行動予定表）で使う: 結果の報告・並べ替え */
   onUpdateResult?: (scheduleId: number | string, resultValue: string, startedAt?: string | null, completedAt?: string | null, reportNotes?: string | null) => Promise<void>;
   onReorder?: (orders: { id: number | string; sort_order: number }[]) => Promise<void>;
+  /** 対応状況の切替（管理側・カードの右クリック）と、そのカードの変更履歴 */
+  onSetProgress?: (s: Schedule, p: Progress) => Promise<void>;
+  loadStatusHistory?: (s: Schedule) => Promise<StatusHistoryItem[]>;
 }
 
 export const GridView: React.FC<GridViewProps> = ({
@@ -136,6 +142,8 @@ export const GridView: React.FC<GridViewProps> = ({
   onViewDateChange,
   onUpdateResult,
   onReorder,
+  onSetProgress,
+  loadStatusHistory,
 }) => {
   const [localDate, setLocalDate] = useState<string>(() => jstDate());
   const selectedDate = viewDate ?? localDate;
@@ -954,10 +962,12 @@ export const GridView: React.FC<GridViewProps> = ({
                 }}
                 options={[
                   { value: 'all', label: 'すべての担当者' },
+                  // その日に予定がある人だけ（選んでいる人は残す）。顔写真つき
                   ...staff
-                    .filter(st => st.is_active !== 0 || String(st.id) === filterStaff)
-                    .map(st => ({ value: String(st.id), label: getShortName(st.name) })),
+                    .filter(st => String(st.id) === filterStaff || schedules.some(sc => sc.date === selectedDate && sc.staff_id === st.id && sc.status !== 'cancelled'))
+                    .map(st => ({ value: String(st.id), label: st.name, selectedLabel: getShortName(st.name), icon: <StaffAvatar member={st} name={st.name} size={20} /> })),
                 ]}
+                maxPanelHeight={360}
                 aria-label="担当者で絞り込み"
               />
             </div>
@@ -1103,6 +1113,8 @@ export const GridView: React.FC<GridViewProps> = ({
                 onOpenEditModal={onOpenEditModal}
                 onReorder={onReorder}
                 feEvents={feEvents}
+                onSetProgress={isAdmin ? onSetProgress : undefined}
+                loadStatusHistory={loadStatusHistory}
               />
             </div>
           ) : (
@@ -1116,6 +1128,8 @@ export const GridView: React.FC<GridViewProps> = ({
                 onOpenEditModal={onOpenEditModal}
                 onReorder={onReorder}
                 feEvents={feEvents}
+                onSetProgress={isAdmin ? onSetProgress : undefined}
+                loadStatusHistory={loadStatusHistory}
               />
             </div>
           )}

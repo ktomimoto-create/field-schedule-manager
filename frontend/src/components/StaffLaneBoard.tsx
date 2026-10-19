@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { GripVertical, Lock } from 'lucide-react';
 import type { Schedule, Staff } from '../types';
 import { compareSchedules, normalizeTargetTime } from '../types';
@@ -6,6 +6,7 @@ import { progressOf, statusMeta, summarizeDescription, workTypeKey, type Progres
 import type { FeEvent } from '../utils/feEvents';
 import { StaffAvatar } from './ScheduleCards';
 import { usePlaceLabel } from '../utils/usePlaceLabel';
+import { ProgressMenu, type StatusHistoryItem } from './ProgressMenu';
 import './StaffLaneBoard.css';
 
 const PROGRESS_LABEL: Record<Progress, string> = { todo: '未着手', working: '対応中', done: '完了' };
@@ -49,6 +50,9 @@ interface Props {
   onOpenEditModal: (s: Schedule) => void;
   onReorder?: (orders: { id: number | string; sort_order: number }[]) => Promise<void>;
   feEvents?: FeEvent[];
+  /** 対応状況を変える（管理側。カードの右クリック） */
+  onSetProgress?: (s: Schedule, p: Progress) => Promise<void>;
+  loadStatusHistory?: (s: Schedule) => Promise<StatusHistoryItem[]>;
 }
 
 interface Lane {
@@ -59,10 +63,19 @@ interface Lane {
   items: Schedule[];
 }
 
-export const StaffLaneBoard: React.FC<Props> = ({ schedules, staff, canEdit, activeLocks, onOpenEditModal, onReorder, feEvents = [] }) => {
+export const StaffLaneBoard: React.FC<Props> = ({ schedules, staff, canEdit, activeLocks, onOpenEditModal, onReorder, feEvents = [], onSetProgress, loadStatusHistory }) => {
   const [drag, setDrag] = useState<{ lane: string; id: number | string } | null>(null);
   const [overId, setOverId] = useState<number | string | null>(null);
   const placeOf = usePlaceLabel(schedules);
+  // 右クリックで開く対応状況のメニュー
+  const [menu, setMenu] = useState<{ s: Schedule; x: number; y: number } | null>(null);
+  const menuId = menu?.s.id;
+  const loadMenuHistory = useCallback(async () => {
+    const target = schedules.find(x => x.id === menuId);
+    return target && loadStatusHistory ? loadStatusHistory(target) : [];
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [menuId, loadStatusHistory]);
+  const closeMenu = useCallback(() => setMenu(null), []);
 
   const lanes = useMemo<Lane[]>(() => {
     const map = new Map<string, Lane>();
@@ -144,6 +157,11 @@ export const StaffLaneBoard: React.FC<Props> = ({ schedules, staff, canEdit, act
                       setDrag(null);
                       setOverId(null);
                     }}
+                    onContextMenu={e => {
+                      if (!onSetProgress) return;
+                      e.preventDefault();
+                      setMenu({ s, x: e.clientX, y: e.clientY });
+                    }}
                     onDoubleClick={() => {
                       if (!canEdit) return;
                       if (lock) {
@@ -152,7 +170,7 @@ export const StaffLaneBoard: React.FC<Props> = ({ schedules, staff, canEdit, act
                       }
                       onOpenEditModal(s);
                     }}
-                    title={`${idx + 1}. ${time || '時間指定なし'} ${s.unit_number || ''} ${s.property_name}\n${s.work_type || ''} ${s.description || ''}\n${canEdit ? 'ダブルクリックで編集・ドラッグで並べ替え' : ''}`}
+                    title={`${idx + 1}. ${time || '時間指定なし'} ${s.unit_number || ''} ${s.property_name}\n${s.work_type || ''} ${s.description || ''}\n${canEdit ? 'ダブルクリックで編集・ドラッグで並べ替え・右クリックで対応状況' : ''}`}
                   >
                     <VisitCardBody schedule={s} no={idx + 1} progress={progress} lock={!!lock} grip={draggable} place={placeOf(s)} />
                   </div>
@@ -162,6 +180,16 @@ export const StaffLaneBoard: React.FC<Props> = ({ schedules, staff, canEdit, act
           </div>
         );
       })}
+      {menu && onSetProgress && (
+        <ProgressMenu
+          at={{ x: menu.x, y: menu.y }}
+          title={`${menu.s.unit_number || ''} ${menu.s.property_name}`.trim()}
+          current={progressOf(menu.s, feEvents)}
+          onSelect={p => onSetProgress(menu.s, p)}
+          loadHistory={loadMenuHistory}
+          onClose={closeMenu}
+        />
+      )}
       <div className="lane-summary">
         担当 <b>{lanes.length}</b>人 ・ 訪問 <b>{totalVisits}</b>件 ・ 完了 <b>{doneVisits}</b>件
       </div>

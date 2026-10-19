@@ -6,7 +6,9 @@ import { FeActionView } from './components/FeActionView';
 import { DynamicsMapView } from './components/DynamicsMapView';
 import { TokyoIcon, OsakaIcon } from './components/BranchIcons';
 import { loadSandboxDay, sandboxImportEnabled } from './utils/sandboxImport';
-import { listFeEvents, listLatestPositions, subscribeSandboxFeEvents, jstDate, type FeEvent, type FePosition } from './utils/feEvents';
+import { listFeEvents, listLatestPositions, subscribeSandboxFeEvents, jstDate, FE_EVENT_LABELS, type FeEvent, type FePosition } from './utils/feEvents';
+import type { StatusHistoryItem } from './components/ProgressMenu';
+import type { Progress } from './utils/scheduleDisplay';
 import { MasterManagementView } from './components/MasterManagementView';
 import { AnalyticsView } from './components/AnalyticsView';
 import { ScheduleModal } from './components/ScheduleModal';
@@ -495,6 +497,50 @@ frontend/public/_sandbox/${viewDate}.json を置いてください。`);
       alert(err.message || 'エラーが発生しました。');
       throw err;
     }
+  };
+
+  // 対応状況を変える（管理側・カードの右クリック）。結果・開始・完了の時刻を合わせて直し、変更履歴に残す
+  const SANDBOX_STATUS_HISTORY_KEY = 'field_app_sandbox_status_history';
+  const handleSetProgress = async (s: Schedule, p: Progress) => {
+    const d = new Date();
+    const hm = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+    const label = { todo: '未着手', working: '対応中', done: '完了' }[p];
+    if (p === 'done') await handleUpdateScheduleResult(s.id, '完了', s.started_at || hm, hm);
+    else if (p === 'working') await handleUpdateScheduleResult(s.id, '作業中', s.started_at || hm, null);
+    else await handleUpdateScheduleResult(s.id, '', null, null);
+    if (isSandboxMode) {
+      try {
+        const all = JSON.parse(localStorage.getItem(SANDBOX_STATUS_HISTORY_KEY) || '{}') as Record<string, StatusHistoryItem[]>;
+        const by = user?.user_metadata?.full_name || user?.user_metadata?.name || staff.find(st => st.id === currentStaffId)?.name || '管理者';
+        all[String(s.id)] = [{ at: d.toISOString(), by, text: `対応状況を「${label}」に変更` }, ...(all[String(s.id)] || [])];
+        localStorage.setItem(SANDBOX_STATUS_HISTORY_KEY, JSON.stringify(all));
+      } catch { /* 履歴が残せなくても状況の変更は済んでいる */ }
+    }
+  };
+  // そのカードの変更履歴（結果の変更＋FE のボタン記録）。新しい順
+  const loadStatusHistory = async (s: Schedule): Promise<StatusHistoryItem[]> => {
+    const nameOf = (emailOrName: string) => staff.find(st => st.email?.toLowerCase().trim() === emailOrName.toLowerCase().trim())?.name || emailOrName;
+    const items: StatusHistoryItem[] = [];
+    if (isSandboxMode) {
+      try {
+        const all = JSON.parse(localStorage.getItem(SANDBOX_STATUS_HISTORY_KEY) || '{}') as Record<string, StatusHistoryItem[]>;
+        items.push(...(all[String(s.id)] || []));
+      } catch { /* noop */ }
+    } else if (typeof s.id === 'number') {
+      const { data } = await supabase
+        .from('audit_logs')
+        .select('timestamp, details, changed_by, action')
+        .eq('schedule_id', s.id)
+        .order('timestamp', { ascending: false })
+        .limit(30);
+      for (const row of (data || []) as { timestamp: string; details: string; changed_by: string; action: string }[]) {
+        items.push({ at: row.timestamp, by: nameOf(row.changed_by || ''), text: (row.details || row.action || '').replace('予定の結果を更新しました: ', '結果を「').replace(/^(結果を「.*)$/, '$1」に変更').replace('結果を「」に変更', '結果を空欄に変更') });
+      }
+    }
+    for (const e of feEvents.filter(x => x.schedule_id === s.id)) {
+      items.push({ at: e.occurred_at, by: `${staff.find(st => st.id === e.staff_id)?.name || 'FE'}（FE画面）`, text: FE_EVENT_LABELS[e.kind] });
+    }
+    return items.sort((a, b) => b.at.localeCompare(a.at));
   };
 
   const handleReorderSchedules = async (orders: { id: number | string; sort_order: number }[]) => {
@@ -1631,6 +1677,8 @@ frontend/public/_sandbox/${viewDate}.json を置いてください。`);
                     feEvents={feEvents}
                     onUpdateResult={handleUpdateScheduleResult}
                     onReorder={handleReorderSchedules}
+                    onSetProgress={handleSetProgress}
+                    loadStatusHistory={loadStatusHistory}
                     viewDate={viewDate}
                     onViewDateChange={setViewDate}
                     schedules={branchSchedules.filter(s => s.is_transferred === 1)}

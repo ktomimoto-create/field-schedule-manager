@@ -102,13 +102,13 @@ export const summarizeDescription = (desc: string | null | undefined): string =>
 
 export type Progress = 'todo' | 'working' | 'done';
 
-/** 対応状況: 完了（結果が完了 or 作業完了の記録）／対応中（出発・到着の記録 or 開始だけある）／未着手 */
+/** 対応状況: 完了（結果が完了 or 作業完了の記録）／対応中（結果が作業中・出発・到着の記録 or 開始だけある）／未着手 */
 export const progressOf = (
   s: { id: number | string; result?: string | null; started_at?: string | null; completed_at?: string | null },
   events: { schedule_id: number | null; kind: string }[]
 ): Progress => {
   const mine = events.filter(e => e.schedule_id === s.id);
   if (s.result === '完了' || mine.some(e => e.kind === 'finish')) return 'done';
-  if (mine.some(e => e.kind === 'arrive' || e.kind === 'depart') || (s.started_at && !s.completed_at)) return 'working';
+  if (s.result === '作業中' || mine.some(e => e.kind === 'arrive' || e.kind === 'depart') || (s.started_at && !s.completed_at)) return 'working';
   return 'todo';
 };

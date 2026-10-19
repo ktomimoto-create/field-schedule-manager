@@ -923,6 +923,10 @@ main {
   background: color-mix(in srgb, var(--primary) 14%, transparent);
   font-weight: 700;
 }
+.select-option-icon {
+  display: inline-flex;
+  flex-shrink: 0;
+}
 .select-option-label {
   flex: 1;
   min-width: 0;
