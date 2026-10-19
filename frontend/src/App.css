@@ -663,3 +663,64 @@
 }
 
 
+
+/* 携帯幅のヘッダー: 2 段（拠点・ベル・⋯・アカウント ／ タブ）に詰める。
+   題名・権限バッジ・表示倍率は出さず、ほかの操作は「⋯」（HeaderMoreMenu）にまとめる。
+   幅の境目は行動予定のカード表示と同じ 767px（hooks/useViewport.ts） */
+@media (max-width: 767px) {
+  header {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      'logo actions'
+      'tabs tabs';
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    height: auto;
+  }
+
+  .logo-section {
+    grid-area: logo;
+    width: auto;
+    justify-content: flex-start;
+    flex-wrap: nowrap;
+    min-width: 0;
+  }
+
+  .logo-section h1,
+  .logo-section .badge-dev,
+  .header-desktop-only {
+    display: none !important;
+  }
+
+  .branch-switcher {
+    margin-left: 0;
+  }
+
+  .branch-tag {
+    display: none;
+  }
+
+  .nav-tabs {
+    grid-area: tabs;
+    width: 100%;
+  }
+
+  /* 一般作業者はタブが「行動予定」1 つだけなので段ごと出さない */
+  .nav-tabs:has(> .tab-btn:only-child) {
+    display: none;
+  }
+
+  header > .header-actions {
+    grid-area: actions;
+    width: auto;
+    flex-wrap: nowrap;
+    justify-content: flex-end;
+    gap: 0.35rem;
+  }
+
+  header > .header-actions button {
+    padding: 0;
+  }
+}

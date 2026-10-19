@@ -8,7 +8,8 @@ import { AnalyticsView } from './components/AnalyticsView';
 import { ScheduleModal } from './components/ScheduleModal';
 import { PasteImportModal } from './components/PasteImportModal';
 import { HelpGuideModal } from './components/HelpGuideModal';
-import { Calendar, CalendarDays, Layers, ListChecks, History, RefreshCw, AlertCircle, List, Settings, Sun, Moon, BarChart3, HelpCircle, ZoomIn, ZoomOut } from 'lucide-react';
+import { Calendar, CalendarDays, Layers, ListChecks, History, RefreshCw, AlertCircle, List, Settings, Sun, Moon, BarChart3, HelpCircle, ZoomIn, ZoomOut, FlaskConical } from 'lucide-react';
+import { HeaderMoreMenu, type HeaderMoreItem } from './components/shared/HeaderMoreMenu';
 import { supabase, talkScriptSupabase } from './supabaseClient';
 import { resolveAddress } from './utils/addressResolver';
 import { findStaffByName, canManageSchedules, normalizeRole, BRANCH_NAMES, resolveScheduleBranch, resolveStaffBranch } from './types';
@@ -1283,6 +1284,53 @@ function App() {
     }
   };
 
+  // 携帯幅のヘッダーで「⋯」に入れる操作（PC 幅ではヘッダーに並ぶボタンと同じもの）
+  const headerMoreItems: HeaderMoreItem[] = [
+    { key: 'refresh', icon: <RefreshCw size={16} />, label: 'データを更新', onSelect: () => fetchData(false) },
+    {
+      key: 'sandbox',
+      icon: <FlaskConical size={16} />,
+      label: isSandboxMode ? 'お試しモードを終了' : 'お試しモード',
+      onSelect: () => handleToggleSandboxMode(!isSandboxMode),
+      active: isSandboxMode,
+    },
+    ...(canManageSchedules(currentUserRole)
+      ? [
+          {
+            key: 'legacy',
+            icon: <History size={16} />,
+            label: legacyUi ? '旧画面のタブを隠す' : '旧画面のタブを出す',
+            onSelect: toggleLegacyUi,
+            active: legacyUi,
+          },
+          {
+            key: 'analytics',
+            icon: <BarChart3 size={16} />,
+            label: '集計分析',
+            onSelect: () => setActiveTab('analytics'),
+            active: activeTab === 'analytics',
+          },
+        ]
+      : []),
+    ...(currentUserRole === 'developer'
+      ? [
+          {
+            key: 'master',
+            icon: <Settings size={16} />,
+            label: 'マスタ管理',
+            onSelect: () => setActiveTab('master_management'),
+            active: activeTab === 'master_management',
+          },
+        ]
+      : []),
+    {
+      key: 'theme',
+      icon: theme === 'light' ? <Moon size={16} /> : <Sun size={16} />,
+      label: theme === 'light' ? 'ダークモード' : 'ライトモード',
+      onSelect: () => setTheme(theme === 'light' ? 'dark' : 'light'),
+    },
+    { key: 'help', icon: <HelpCircle size={16} />, label: '操作ガイド', onSelect: () => setIsHelpGuideOpen(true) },
+  ];
 
   return (
     <div className="app-container">
@@ -1416,14 +1464,14 @@ function App() {
 
             <div className="header-actions">
               {/* グループ1: 作業・表示操作 */}
-              <button className="btn btn-secondary" onClick={() => fetchData(false)} title="データを更新">
+              <button className="btn btn-secondary header-desktop-only" onClick={() => fetchData(false)} title="データを更新">
                 <RefreshCw size={16} />
               </button>
 
               {/* お試しモード切り替えトグルボタン */}
               <button
                 type="button"
-                className={`btn-sandbox-toggle ${isSandboxMode ? 'active' : ''}`}
+                className={`btn-sandbox-toggle header-desktop-only ${isSandboxMode ? 'active' : ''}`}
                 onClick={() => handleToggleSandboxMode(!isSandboxMode)}
                 title={isSandboxMode ? 'お試しモードを終了して本番モードに戻る' : '本番データに影響しないお試しモードを開始する'}
               >
@@ -1432,7 +1480,7 @@ function App() {
               </button>
 
               {/* 画面表示サイズ（ズーム）コントロール */}
-              <div className="zoom-controller" title="画面表示サイズ変更（文字・表全体の拡大縮小）">
+              <div className="zoom-controller header-desktop-only" title="画面表示サイズ変更（文字・表全体の拡大縮小）">
                 <button
                   type="button"
                   className="btn-zoom"
@@ -1461,7 +1509,7 @@ function App() {
                 </button>
               </div>
 
-              <div className="header-divider"></div>
+              <div className="header-divider header-desktop-only"></div>
 
               {/* グループ2: 業務・マスタ管理 */}
               {canManageSchedules(currentUserRole) && !isSandboxMode && (
@@ -1475,7 +1523,7 @@ function App() {
               {canManageSchedules(currentUserRole) && (
                 <button
                   type="button"
-                  className={`btn ${legacyUi ? 'btn-primary' : 'btn-secondary'}`}
+                  className={`btn header-desktop-only ${legacyUi ? 'btn-primary' : 'btn-secondary'}`}
                   onClick={toggleLegacyUi}
                   aria-pressed={legacyUi}
                   title={legacyUi ? '旧画面のタブを隠す' : '旧画面（表の予定表・当日行動予定表・月間予定表）のタブを出す'}
@@ -1485,7 +1533,7 @@ function App() {
               )}
               {canManageSchedules(currentUserRole) && (
                 <button
-                  className={`btn ${activeTab === 'analytics' ? 'btn-primary' : 'btn-secondary'}`}
+                  className={`btn header-desktop-only ${activeTab === 'analytics' ? 'btn-primary' : 'btn-secondary'}`}
                   onClick={() => setActiveTab('analytics')}
                   title="集計分析を開く"
                 >
@@ -1494,7 +1542,7 @@ function App() {
               )}
               {currentUserRole === 'developer' && (
                 <button
-                  className={`btn ${activeTab === 'master_management' ? 'btn-primary' : 'btn-secondary'}`}
+                  className={`btn header-desktop-only ${activeTab === 'master_management' ? 'btn-primary' : 'btn-secondary'}`}
                   onClick={() => setActiveTab('master_management')}
                   title="マスタ管理を開く"
                 >
@@ -1502,11 +1550,11 @@ function App() {
                 </button>
               )}
 
-              <div className="header-divider"></div>
+              <div className="header-divider header-desktop-only"></div>
 
               {/* グループ3: システム・サポート・アカウント */}
               <button 
-                className="btn btn-secondary" 
+                className="btn btn-secondary header-desktop-only" 
                 onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')} 
                 title={theme === 'light' ? 'ダークモードに切り替え' : 'ライトモードに切り替え'}
               >
@@ -1514,7 +1562,7 @@ function App() {
               </button>
 
               <button 
-                className="btn btn-secondary header-help-btn" 
+                className="btn btn-secondary header-help-btn header-desktop-only" 
                 onClick={() => setIsHelpGuideOpen(true)} 
                 title="操作ガイド・よくある質問（ショートカット: ?）"
               >
@@ -1523,6 +1571,9 @@ function App() {
                 <span className="help-shortcut-badge">?</span>
               </button>
 
+
+              {/* 携帯幅: 上のボタンを隠し、この「⋯」にまとめる */}
+              <HeaderMoreMenu items={headerMoreItems} />
 
               {/* アカウント表示エリア */}
               {/* Azure (Entra ID) ログインは user_metadata に写真URLを返さないため、
