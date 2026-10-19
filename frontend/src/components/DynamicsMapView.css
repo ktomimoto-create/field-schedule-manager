@@ -482,3 +482,25 @@
   inset: 0 auto 0 0;
   background: #059669;
 }
+
+/* 左を担当ごとのカードにした分、少し広げる */
+.dm-view {
+  grid-template-columns: 420px minmax(0, 1fr);
+}
+.dm-board .timeline-container.is-embedded {
+  height: auto;
+}
+.dm-head-extra {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+.dm-fold-all {
+  margin-left: auto;
+}
+@media (max-width: 900px) {
+  .dm-view {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

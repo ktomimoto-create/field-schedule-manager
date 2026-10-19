@@ -33,6 +33,18 @@ interface TimelineViewProps {
   embedded?: boolean;
   /** 埋め込み時: 自分の予定だけ（予定表の「自分の予定のみ表示」） */
   onlyMine?: boolean;
+  /** 担当ごとに縦に積み、見出しを押すとたためる（動態管理・スマホ） */
+  collapsible?: boolean;
+  /** たたんでいる担当（親が持つとき。持たなければ中で持つ） */
+  collapsedIds?: Set<number>;
+  onToggleCollapse?: (staffId: number) => void;
+  /** 見出しの右に足す表示（動態管理の状態など） */
+  renderHeaderExtra?: (member: Staff) => React.ReactNode;
+  /** 見出しを押したとき（地図をその人に寄せるなど） */
+  onSelectStaff?: (staffId: number) => void;
+  selectedStaffId?: number | null;
+  /** 表示する担当を絞る（動態管理の状態の絞り込み） */
+  staffFilter?: (member: Staff) => boolean;
 }
 
 export const TimelineView: React.FC<TimelineViewProps> = ({
@@ -49,7 +61,25 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
   onViewDateChange,
   embedded = false,
   onlyMine,
+  collapsible = false,
+  collapsedIds,
+  onToggleCollapse,
+  renderHeaderExtra,
+  onSelectStaff,
+  selectedStaffId,
+  staffFilter,
 }) => {
+  const [localCollapsed, setLocalCollapsed] = useState<Set<number>>(() => new Set());
+  const collapsed = collapsedIds ?? localCollapsed;
+  const toggleCollapse = (id: number) => {
+    if (onToggleCollapse) return onToggleCollapse(id);
+    setLocalCollapsed(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
   // 表示の切替: 担当ごとのカード（既定）/ 時間軸
   const [viewMode, setViewMode] = useState<'board' | 'timeline'>(() => {
     try {
@@ -191,6 +221,7 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
       if (holidayStaffIds.has(member.id)) {
         return false;
       }
+      if (staffFilter && !staffFilter(member)) return false;
       if (showOnlyMySchedule && currentStaffId !== null) {
         return member.id === currentStaffId;
       }
@@ -291,7 +322,7 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
   };
 
   return (
-    <div className={`timeline-container ${embedded ? 'is-embedded' : 'card'}`}>
+    <div className={`timeline-container ${embedded ? 'is-embedded' : 'card'}${collapsible ? ' is-stacked' : ''}`}>
       {!embedded && (
       <div className="timeline-header">
         <div className="timeline-date-nav">
@@ -397,8 +428,27 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
             .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
 
           return (
-            <div key={member.id} className="staff-board-column">
-              <div className="board-column-header">
+            <div key={member.id} className={`staff-board-column${collapsible && collapsed.has(member.id) ? ' is-collapsed' : ''}${selectedStaffId === member.id ? ' is-selected' : ''}`}>
+              <div
+                className="board-column-header"
+                {...(collapsible ? {
+                  role: 'button',
+                  tabIndex: 0,
+                  'aria-expanded': !collapsed.has(member.id),
+                  onClick: () => {
+                    toggleCollapse(member.id);
+                    onSelectStaff?.(member.id);
+                  },
+                  onKeyDown: (e: React.KeyboardEvent) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      toggleCollapse(member.id);
+                      onSelectStaff?.(member.id);
+                    }
+                  },
+                  title: collapsed.has(member.id) ? '開く' : 'たたむ',
+                } : {})}
+              >
                 {member.avatar_url ? (
                   <img 
                     src={member.avatar_url} 
@@ -412,9 +462,11 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
                   </div>
                 )}
                 <span className="board-staff-name">{getShortName(member.name)}</span>
-                <span className="board-schedule-count">{memberSchedules.length}件の対応</span>
+                {renderHeaderExtra ? renderHeaderExtra(member) : <span className="board-schedule-count">{memberSchedules.length}件の対応</span>}
+                {collapsible && <ChevronDown size={16} className="board-collapse-icon" />}
               </div>
 
+              {!(collapsible && collapsed.has(member.id)) && (
               <div className="board-cards-list">
                 {memberSchedules.length === 0 ? (
                   <div className="empty-board-slot">予定はありません</div>
@@ -544,6 +596,7 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
                   })
                 )}
               </div>
+              )}
             </div>
           );
         })}

@@ -1,14 +1,15 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { CheckCircle2, ChevronLeft, ChevronRight, Circle, Clock, Coffee, LocateFixed, LogIn, LogOut, Navigation, Wrench, type LucideIcon } from 'lucide-react';
-import type { Schedule, Staff } from '../types';
+import { ChevronLeft, ChevronRight, ChevronsDownUp, ChevronsUpDown, Circle, Clock, Coffee, LocateFixed, LogIn, LogOut, Navigation, Wrench, type LucideIcon } from 'lucide-react';
+import type { Schedule, Staff, UserRole } from '../types';
 import { compareSchedules, getShortName, normalizeTargetTime } from '../types';
 import { buildDayState, FE_EVENT_LABELS, jstDate, jstHm, type FeEvent, type FePosition, type VisitStage } from '../utils/feEvents';
 import { fetchAddressesByUnit, geocodeAddress, reverseGeocode, type LatLng } from '../utils/geocode';
 import { StaffAvatar } from './ScheduleCards';
 import { MapCanvas, type MapCanvasHandle, type MapPin } from './MapCanvas';
+import { TimelineView } from './TimelineView';
 import './DynamicsMapView.css';
 
-// 動態マップ（FE動態 #/map を移したもの）: 左に担当の一覧（状態・完了件数）、右に地図。
+// 動態管理（FE動態 #/map を移したもの）: 左に担当ごとの訪問カード（たためる・状態と完了件数つき）、右に地図。
 // FE の位置は、FE画面でボタンを押したときの位置（いちばん新しいもの）。訪問先は物件マスタの住所から置く。
 
 type Status = 'off' | 'ready' | 'moving' | 'working' | 'waiting' | 'done';
@@ -46,6 +47,12 @@ interface Props {
   /** 見ている日（App で共通に持つ）。今日以外は予定と記録だけ（今の位置は出さない） */
   date?: string;
   onDateChange?: (date: string) => void;
+  /** 担当ごとのカード（予定表の「担当ごと」をここへ移した）で使う */
+  currentUserRole: UserRole;
+  currentStaffId: number | null;
+  onOpenEditModal: (s: Schedule) => void;
+  onUpdateResult: (scheduleId: number | string, result: string, startedAt?: string | null, completedAt?: string | null, reportNotes?: string | null) => Promise<void>;
+  onReorder: (orders: { id: number | string; sort_order: number }[]) => Promise<void>;
 }
 
 const statusOf = (events: FeEvent[]): Status => {
@@ -56,7 +63,7 @@ const statusOf = (events: FeEvent[]): Status => {
 
 const escapeHtml = (s: string) => s.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
 
-export const DynamicsMapView: React.FC<Props> = ({ schedules, staff, feEvents, fePositions = [], isSandbox, date, onDateChange }) => {
+export const DynamicsMapView: React.FC<Props> = ({ schedules, staff, feEvents, fePositions = [], isSandbox, date, onDateChange, currentUserRole, currentStaffId, onOpenEditModal, onUpdateResult, onReorder }) => {
   const realToday = jstDate();
   const today = date ?? realToday;
   const shiftDay = (days: number) => {
@@ -114,7 +121,18 @@ export const DynamicsMapView: React.FC<Props> = ({ schedules, staff, feEvents, f
 
   const shown = filter === 'all' ? people : people.filter(p => p.status === filter);
   const selected = people.find(p => p.key === selectedKey) || null;
-  const selectedDay = useMemo(() => (selected ? buildDayState(selected.visits, selected.events) : null), [selected]);
+  const shownIds = useMemo(() => new Set(shown.map(p => p.member?.id).filter((id): id is number => id != null)), [shown]);
+  const personById = useMemo(() => new Map(people.filter(p => p.member).map(p => [p.member!.id, p])), [people]);
+  // たたんでいる担当
+  const [collapsed, setCollapsed] = useState<Set<number>>(() => new Set());
+  const toggleCollapsed = (id: number) =>
+    setCollapsed(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  const allCollapsed = shownIds.size > 0 && [...shownIds].every(id => collapsed.has(id));
 
   // カード: カーソルを乗せた人（無ければ選んだ人）の状態・更新時刻・進み具合・現在地
   const cardPerson = people.find(p => p.key === (hoverKey ?? selectedKey)) || null;
@@ -226,7 +244,7 @@ ${v.schedule.unit_number || ''} ${v.schedule.property_name}`,
   }, [people, sitePos, geoProgress, mapGen]);
 
   const focus = (p: Person) => {
-    setSelectedKey(p.key === selectedKey ? null : p.key);
+    setSelectedKey(p.key);
     const pts = [
       ...(p.pos ? [{ lat: p.pos.lat, lng: p.pos.lng }] : []),
       ...p.visits.map(v => sitePos[(v.unit_number || '').trim()]).filter((v): v is LatLng => !!v),
@@ -263,17 +281,37 @@ ${v.schedule.unit_number || ''} ${v.schedule.property_name}`,
               </button>
             );
           })}
+          <button
+            type="button"
+            className="dm-chip dm-fold-all"
+            onClick={() => setCollapsed(allCollapsed ? new Set() : new Set(shownIds))}
+            title={allCollapsed ? 'すべて開く' : 'すべてたたむ'}
+            aria-label={allCollapsed ? 'すべて開く' : 'すべてたたむ'}
+          >
+            {allCollapsed ? <ChevronsUpDown size={14} /> : <ChevronsDownUp size={14} />}
+          </button>
         </div>
 
-        <div className="dm-list">
-          {shown.map(p => {
-            const st = STATUS[p.status];
-            const isSel = p.key === selectedKey;
-            return (
-              <React.Fragment key={p.key}>
-                <button type="button" className={`dm-row${isSel ? ' is-selected' : ''}`} onClick={() => focus(p)} aria-expanded={isSel}>
-                  <StaffAvatar member={p.member} name={p.name} size={28} />
-                  <span className="dm-name">{p.member ? getShortName(p.name) : p.name}</span>
+        <div className="dm-list dm-board">
+          <TimelineView
+            embedded
+            collapsible
+            schedules={schedules}
+            staff={staff}
+            staffFilter={m => shownIds.has(m.id)}
+            collapsedIds={collapsed}
+            onToggleCollapse={toggleCollapsed}
+            selectedStaffId={selected?.member?.id ?? null}
+            onSelectStaff={id => {
+              const p = personById.get(id);
+              if (p) focus(p);
+            }}
+            renderHeaderExtra={m => {
+              const p = personById.get(m.id);
+              if (!p) return null;
+              const st = STATUS[p.status];
+              return (
+                <span className="dm-head-extra" onMouseEnter={() => setHoverKey(p.key)} onMouseLeave={() => setHoverKey(null)}>
                   <span className="dm-status" style={{ ['--c' as string]: st.color }}>
                     <st.icon size={12} />
                     {st.label}
@@ -282,37 +320,18 @@ ${v.schedule.unit_number || ''} ${v.schedule.property_name}`,
                   <span className="dm-pos" title={p.pos ? `${jstHm(p.pos.at)} の位置` : '位置の記録なし'}>
                     {p.pos ? <LocateFixed size={14} /> : <span className="dm-muted">—</span>}
                   </span>
-                </button>
-                {isSel && selectedDay && (
-                  <ol className="dm-visits">
-                    {selectedDay.visits.map((v, i) => (
-                      <li key={v.schedule.id} className={`dm-visit stage-${v.stage}`}>
-                        <span className="dm-visit-no dm-num" style={{ ['--c' as string]: STAGE_COLOR[v.stage] }}>{i + 1}</span>
-                        <span className="dm-visit-body">
-                          <span className="dm-visit-top">
-                            <span className="dm-num">{normalizeTargetTime(v.schedule.target_time) || '時間指定なし'}</span>
-                            <span className="dm-num">{v.schedule.unit_number}</span>
-                            {!sitePos[(v.schedule.unit_number || '').trim()] && <span className="dm-muted" title="物件マスタに住所が無いか、位置が分からない">地図なし</span>}
-                          </span>
-                          <span className="dm-visit-name">{v.schedule.property_name}</span>
-                          <span className="dm-visit-times dm-num">
-                            {v.departAt && <span>出発 {jstHm(v.departAt)}</span>}
-                            {v.arriveAt && <span>到着 {jstHm(v.arriveAt)}</span>}
-                            {(v.finishAt || v.schedule.completed_at) && (
-                              <span>
-                                <CheckCircle2 size={12} /> {v.finishAt ? jstHm(v.finishAt) : v.schedule.completed_at}
-                              </span>
-                            )}
-                          </span>
-                        </span>
-                      </li>
-                    ))}
-                    {selectedDay.visits.length === 0 && <li className="dm-muted">今日の訪問の予定はありません</li>}
-                  </ol>
-                )}
-              </React.Fragment>
-            );
-          })}
+                </span>
+              );
+            }}
+            onOpenEditModal={onOpenEditModal}
+            currentUserRole={currentUserRole}
+            currentStaffId={currentStaffId}
+            onUpdateResult={onUpdateResult}
+            onReorder={onReorder}
+            feEvents={feEvents}
+            viewDate={today}
+            onViewDateChange={onDateChange}
+          />
           {shown.length === 0 && <div className="dm-empty">該当する人はいません</div>}
         </div>
       </aside>

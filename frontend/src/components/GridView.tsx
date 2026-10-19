@@ -4,7 +4,7 @@ import type { Schedule, Staff, UserRole, WorkType } from '../types';
 import { getShortName, cleanMetadata, splitCoWorkers, canManageSchedules, normalizeTargetTime, compareSchedules, toHalfWidth, findStaffByName } from '../types';
 import { buildFcAutofillPatch } from '../utils/fcAutofill';
 
-import { Plus, ChevronLeft, ChevronRight, Calendar as CalendarIcon, Filter, CheckCircle2, Download, Printer, Lock, ArrowUpDown, RotateCcw, Edit2, LayoutList, ChartGantt, Table2, Columns3, UserRound, CalendarCheck, WrapText } from 'lucide-react';
+import { Plus, ChevronLeft, ChevronRight, Calendar as CalendarIcon, Filter, CheckCircle2, Download, Printer, Lock, ArrowUpDown, RotateCcw, Edit2, LayoutList, ChartGantt, Table2, UserRound, CalendarCheck, WrapText } from 'lucide-react';
 import { PrintPreviewModal } from './PrintPreviewModal';
 import { StaffLaneBoard } from './StaffLaneBoard';
 import { StaffTimelineBoard } from './StaffTimelineBoard';
@@ -270,16 +270,25 @@ export const GridView: React.FC<GridViewProps> = ({
   const [isPrintPreviewOpen, setIsPrintPreviewOpen] = useState(false);
 
   // 表示の切替: カード一覧（既定）/ 時間軸 / 表
-  const [viewMode, setViewMode] = useState<'card' | 'staff' | 'timeline' | 'table'>(() => {
+  const [viewMode, setViewMode] = useState<'card' | 'timeline' | 'table'>(() => {
     try {
       const saved = localStorage.getItem('field_app_grid_view_mode');
-      if (saved === 'card' || saved === 'staff' || saved === 'timeline' || saved === 'table') return saved;
+      if (saved === 'card' || saved === 'timeline' || saved === 'table') return saved;
     } catch { /* 保存できない環境では既定のカード */ }
     return 'card';
   });
   useEffect(() => {
     try { localStorage.setItem('field_app_grid_view_mode', viewMode); } catch { /* noop */ }
   }, [viewMode]);
+  // スマホ（幅 768px 以下）では、自分の予定を担当ごとのカードで出す
+  const [isPhone, setIsPhone] = useState(() => typeof window !== 'undefined' && window.matchMedia('(max-width: 768px)').matches);
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 768px)');
+    const onChange = () => setIsPhone(mq.matches);
+    mq.addEventListener('change', onChange);
+    return () => mq.removeEventListener('change', onChange);
+  }, []);
+  const phoneMine = isPhone && currentStaffId !== null;
 
   const changeDate = (days: number) => {
     const d = new Date(selectedDate);
@@ -990,7 +999,6 @@ export const GridView: React.FC<GridViewProps> = ({
             <div className="view-mode-switch" role="group" aria-label="表示の切替">
               {([
                 { key: 'card', icon: <LayoutList size={16} />, label: 'カード一覧' },
-                { key: 'staff', icon: <Columns3 size={16} />, label: '担当ごと' },
                 { key: 'timeline', icon: <ChartGantt size={16} />, label: '時間軸' },
                 { key: 'table', icon: <Table2 size={16} />, label: '表' },
               ] as const).map(v => (
@@ -1068,10 +1076,11 @@ export const GridView: React.FC<GridViewProps> = ({
 
       {viewMode !== 'table' ? (
         <div className="grid-table-wrapper grid-cards-wrapper">
-          {viewMode === 'staff' ? (
+          {phoneMine ? (
             <TimelineView
               embedded
-              onlyMine={myScheduleOnly}
+              collapsible
+              onlyMine
               schedules={schedules}
               staff={staff}
               onOpenEditModal={onOpenEditModal}

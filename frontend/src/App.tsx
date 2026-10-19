@@ -1658,6 +1658,11 @@ frontend/public/_sandbox/${viewDate}.json を置いてください。`);
                     isSandbox={isSandboxMode}
                     date={viewDate}
                     onDateChange={setViewDate}
+                    currentUserRole={currentUserRole}
+                    currentStaffId={currentStaffId}
+                    onOpenEditModal={handleOpenEditModal}
+                    onUpdateResult={handleUpdateScheduleResult}
+                    onReorder={handleReorderSchedules}
                   />
                 )}
                 {activeTab === 'fe' && (
