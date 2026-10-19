@@ -956,3 +956,38 @@
   --bg-header: var(--bg-column-header);
   --border-color: var(--border-glass);
 }
+
+/* アカウントのメニューもテーマに合わせる（以前は濃紺の決め打ちで、ライトでも暗いままだった） */
+.user-menu-dropdown {
+  background: var(--bg-secondary);
+  border-color: var(--border-glass);
+  box-shadow: var(--shadow-lg);
+  color: var(--text-primary);
+  line-height: 1.4;
+}
+.user-menu-name {
+  color: var(--text-primary);
+}
+.user-menu-email {
+  color: var(--text-muted);
+}
+.user-menu-role {
+  color: var(--primary);
+}
+.user-menu-divider {
+  background: var(--border-glass);
+}
+.user-menu-item {
+  color: var(--text-secondary);
+}
+.user-menu-item:hover {
+  background: var(--bg-card-hover);
+  color: var(--text-primary);
+}
+.user-menu-item.logout-btn {
+  color: var(--danger);
+}
+.user-menu-item.logout-btn:hover {
+  background: rgba(239, 68, 68, 0.1);
+  color: var(--danger);
+}
