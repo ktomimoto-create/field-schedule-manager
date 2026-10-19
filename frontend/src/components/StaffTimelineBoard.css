@@ -121,3 +121,33 @@
   height: 86px;
 }
 .stl-lg.is-confirmed, .stl-lg.is-draft, .stl-lg.is-free { display: none; }
+/* いまの線はカードの下を通す */
+.stl-now {
+  z-index: 0;
+}
+/* 出動（勤務開始）の印。ここから 1 件目への移動が始まる */
+.stl-depart {
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  z-index: 0;
+  display: flex;
+  align-items: flex-end;
+  padding: 0 0 2px 3px;
+  border-left: 2px solid #3b82f6;
+  color: #3b82f6;
+  font-size: 0.62rem;
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+  pointer-events: auto;
+}
+.stl-depart.is-est {
+  border-left-style: dashed;
+  opacity: 0.6;
+}
+.stl-lg.is-depart {
+  width: 2px;
+  height: 12px;
+  background: #3b82f6;
+}

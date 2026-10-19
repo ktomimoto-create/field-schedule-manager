@@ -36,6 +36,9 @@ interface Row {
   member?: Staff;
   course: number;
   placed: Placed[];
+  /** 出動（勤務開始）の時刻。記録が無ければ 9:00 の見込み */
+  depart: number;
+  departRecorded: boolean;
   lanes: number;
   done: number;
   live: number;
@@ -84,8 +87,17 @@ export const StaffTimelineBoard: React.FC<Props> = ({ schedules, staff, date, ca
     const out: Row[] = [];
     for (const g of map.values()) {
       g.items.sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0) || compareSchedules(a, b));
+      // 出動（勤務開始）して拠点を出たところから移動が始まる。1 件目は出動＋移動の後ろ
+      const departRec = g.member
+        ? feEvents
+            .filter(e => e.staff_id === g.member!.id && e.work_date === date && e.kind === 'shift_start')
+            .map(e => hmToMin(jstHm(e.occurred_at)))
+            .filter((m): m is number => m != null)
+            .sort((a, b) => a - b)[0]
+        : undefined;
+      const depart = departRec ?? DAY_START;
       // 順番どおりに時刻を割り当てる（指定がある訪問はその時刻、無い訪問は前の訪問の後ろ）
-      let cursor = DAY_START;
+      let cursor = depart + MOVE_MIN;
       const placed: Placed[] = g.items.map((s, i) => {
         const slot = parseTimeSlot(s.target_time);
         let start: number;
@@ -120,24 +132,39 @@ export const StaffTimelineBoard: React.FC<Props> = ({ schedules, staff, date, ca
         member: g.member,
         course: g.course,
         placed,
+        depart,
+        departRecorded: departRec != null,
         lanes: Math.max(1, laneEnds.length),
         done: g.items.filter(x => x.result === '完了').length,
         live: g.items.filter(x => x.status !== 'cancelled').length,
       });
     }
     return out.sort((a, b) => a.course - b.course || a.name.localeCompare(b.name, 'ja'));
-  }, [schedules, staff]);
+  }, [schedules, staff, feEvents, date]);
 
   // 実績（FE のボタン記録・開始/完了時刻）
   const actuals = useMemo(() => {
     const byId = new Map<number | string, { move?: [number, number | null]; work?: [number, number | null] }>();
     const evs = feEvents.filter(e => e.work_date === date && e.schedule_id != null).sort((a, b) => a.occurred_at.localeCompare(b.occurred_at));
+    // 出動（勤務開始）の時刻（担当ごと）。出動後に出発を押さずに着いた訪問は、出動から移動していたとみなす
+    const shiftAt = new Map<number, number>();
+    for (const e of feEvents.filter(x => x.work_date === date && x.kind === 'shift_start').sort((a, b) => a.occurred_at.localeCompare(b.occurred_at))) {
+      const m = hmToMin(jstHm(e.occurred_at));
+      if (m != null && !shiftAt.has(e.staff_id)) shiftAt.set(e.staff_id, m);
+    }
+    const firstArrived = new Set<number>();
     for (const e of evs) {
       const v = byId.get(e.schedule_id!) || {};
       const m = hmToMin(jstHm(e.occurred_at));
       if (m == null) continue;
-      if (e.kind === 'depart') v.move = [m, null];
+      if (e.kind === 'depart') {
+        // 1 件目の出発は、出動（拠点を出た時刻）が先にあればそこから
+        const sh = shiftAt.get(e.staff_id);
+        v.move = [!firstArrived.has(e.staff_id) && sh != null && sh < m ? sh : m, null];
+      }
       if (e.kind === 'arrive') {
+        if (!v.move && !firstArrived.has(e.staff_id) && shiftAt.has(e.staff_id)) v.move = [shiftAt.get(e.staff_id)!, null];
+        firstArrived.add(e.staff_id);
         if (v.move && v.move[1] == null) v.move[1] = m;
         v.work = [m, null];
       }
@@ -176,10 +203,11 @@ export const StaffTimelineBoard: React.FC<Props> = ({ schedules, staff, date, ca
         <span><i className="stl-lg is-draft" />仮</span>
         <span><i className="stl-lg is-free" />通常</span>
         <span><i className="stl-lg is-est" />時間指定なし（順番から出した見込み）</span>
+        <span><i className="stl-lg is-depart" />出動（勤務開始。記録が無ければ 9:00 の見込み）</span>
         <span><i className="stl-lg is-move" />移動（実績）</span>
         <span><i className="stl-lg is-work" />作業（実績）</span>
         {showNow && <span><i className="stl-lg is-now" />いま</span>}
-        <span className="stl-note">1 件 {WORK_MIN} 分・移動 {MOVE_MIN} 分として置いています</span>
+        <span className="stl-note">出動から 1 件 {WORK_MIN} 分・移動 {MOVE_MIN} 分として置いています</span>
       </div>
 
       <div className="stl-head">
@@ -202,6 +230,13 @@ export const StaffTimelineBoard: React.FC<Props> = ({ schedules, staff, date, ca
           </div>
           <div className="stl-track" style={{ height: r.lanes * LANE_H + 12 }}>
             {hours.map(h => <span key={h} className="stl-grid" style={{ left: `${pct(h)}%` }} />)}
+            <span
+              className={`stl-depart${r.departRecorded ? '' : ' is-est'}`}
+              style={{ left: `${pct(r.depart)}%` }}
+              title={r.departRecorded ? `${fmt(r.depart)} 出動（勤務開始）` : `出動の記録なし（${fmt(r.depart)} 出動の見込み）`}
+            >
+              出動
+            </span>
             {r.placed.map(p => {
               const s = p.schedule;
               const meta = statusMeta(s.status);
