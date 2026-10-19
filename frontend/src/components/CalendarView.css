@@ -1979,3 +1979,17 @@
 .day-card-free .day-card-free-names {
   margin-top: 6px;
 }
+
+/* カード表示: 7 日分の列を画面の幅いっぱいに広げる（狭い画面では 1 列 240px を下限に横スクロール） */
+.calendar-zoom-inner.is-card .week-table-block {
+  width: auto;
+}
+.calendar-zoom-inner.is-card .week-days-container {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(240px, 1fr));
+  width: auto;
+}
+.calendar-zoom-inner.is-card .day-column-block.day-card-column {
+  width: auto;
+  min-width: 0;
+}

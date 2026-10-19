@@ -2701,15 +2701,15 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
       <div ref={tableWrapperRef} className="matrix-table-wrapper">
         <div
           ref={calendarContainerRef}
-          className="matrix-table-zoom-inner calendar-zoom-inner"
+          className={`matrix-table-zoom-inner calendar-zoom-inner${viewMode === 'card' ? ' is-card' : ''}`}
           style={zoomLevel !== 100 ? {
             zoom: `${zoomLevel}%`,
             minHeight: `calc(100% / ${zoomLevel / 100})`,
-            width: 'max-content',
+            width: viewMode === 'card' ? '100%' : 'max-content',
             display: 'flex',
             flexDirection: 'column',
           } : {
-            width: 'max-content',
+            width: viewMode === 'card' ? '100%' : 'max-content',
             minHeight: '100%',
             display: 'flex',
             flexDirection: 'column',
