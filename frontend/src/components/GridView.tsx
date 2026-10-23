@@ -1305,7 +1305,7 @@ export const GridView: React.FC<GridViewProps> = ({
                 </div>
               </th>
               <th 
-                style={{ width: '85px', cursor: 'pointer', userSelect: 'none' }} 
+                style={{ width: '110px', cursor: 'pointer', userSelect: 'none' }} 
                 onClick={() => handleSortToggle('staff_name')}
                 title="クリックで対応者順に並び替え"
               >
@@ -1469,8 +1469,9 @@ export const GridView: React.FC<GridViewProps> = ({
                       onMouseDown={(e) => handleCellMouseDown(e, rowIndex, 9)}
                       onMouseEnter={() => handleCellMouseEnter(rowIndex, 9)}
                     >
+                      {/* 名前は 1 行で省かずに出す。列に入らない長い名前は文字を小さくする（--len＝名前の文字数。アバター 22px＋すき間・札の余白の分を引く） */}
                       {staffMember ? (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', width: '100%' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', width: '100%', containerType: 'inline-size' }}>
                           {staffMember.avatar_url ? (
                             <img 
                               src={staffMember.avatar_url} 
@@ -1494,15 +1495,17 @@ export const GridView: React.FC<GridViewProps> = ({
                               {getShortName(staffMember.name).substring(0, 1)}
                             </div>
                           )}
-                          <span className="staff-indicator-tag" style={{ borderLeft: '3px solid var(--primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          <span className="staff-indicator-tag" style={{ borderLeft: '3px solid var(--primary)', whiteSpace: 'nowrap', fontSize: `min(0.8rem, calc((100cqw - 46px) / ${[...getShortName(staffMember.name)].length}))` }}>
                             {getShortName(staffMember.name)}
                           </span>
                         </div>
                       ) : (
                         schedule.staff_name ? (
-                          <span className="staff-indicator-tag" style={{ borderLeft: '3px solid #6b7280' }}>
-                            {getShortName(schedule.staff_name)}
-                          </span>
+                          <div style={{ width: '100%', containerType: 'inline-size' }}>
+                            <span className="staff-indicator-tag" style={{ borderLeft: '3px solid #6b7280', whiteSpace: 'nowrap', fontSize: `min(0.8rem, calc((100cqw - 18px) / ${[...getShortName(schedule.staff_name)].length}))` }}>
+                              {getShortName(schedule.staff_name)}
+                            </span>
+                          </div>
                         ) : (
                           <span style={{ color: '#94a3b8', fontStyle: 'italic', fontSize: '0.85rem' }}>未設定</span>
                         )

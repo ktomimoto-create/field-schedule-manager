@@ -51,12 +51,17 @@
 }
 .lane-person-text {
   display: flex;
+  flex: 1 1 0;
   flex-direction: column;
   min-width: 0;
+  /* 名前の文字の大きさを、この欄の幅から決めるため */
+  container-type: inline-size;
 }
 .lane-name {
+  /* 名前は 1 行に固定し、省かずに全部出す。長い名前は欄の幅に入るまで文字を小さくする（--len＝名前の文字数） */
+  white-space: nowrap;
+  font-size: min(1em, calc(100cqw / var(--len, 6)));
   font-weight: 700;
-  overflow-wrap: anywhere;
 }
 .lane-meta {
   color: var(--text-muted);

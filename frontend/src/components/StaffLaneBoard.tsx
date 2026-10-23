@@ -173,7 +173,7 @@ export const StaffLaneBoard: React.FC<Props> = ({ schedules, staff, planCtx, can
             <div className="lane-person">
               <StaffAvatar member={lane.member} name={lane.name} size={30} />
               <span className="lane-person-text">
-                <span className="lane-name">{lane.name}</span>
+                <span className="lane-name" title={lane.name} style={{ '--len': [...lane.name].length } as React.CSSProperties}>{lane.name}</span>
                 <span className="lane-meta"><b>{live}</b>件・完了 <b>{done}</b></span>
               </span>
             </div>
