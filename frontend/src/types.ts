@@ -350,6 +350,19 @@ export const findStaffByName = (staff: Staff[], name: string | null | undefined)
 };
 
 /**
+ * 予定の対応者が名簿の誰か（担当の ID が無いときは名前で探す）。
+ * 区分「委託」の行の対応者は委託先の人で、自社の FE と苗字が同じでも別人のことがある（例: 委託の「清水」と清水 孔達）。
+ * そのため委託の行は、名簿の名前と完全に一致するとき（FR岡崎・FE武田 など）だけ結び付ける。
+ */
+export const findScheduleStaff = (staff: Staff[], s: Pick<Schedule, 'staff_id' | 'staff_name' | 'division'>): Staff | undefined => {
+  const byId = s.staff_id != null ? staff.find(st => st.id === s.staff_id) : undefined;
+  if (byId) return byId;
+  if ((s.division || '').trim() !== '委託') return findStaffByName(staff, s.staff_name);
+  const name = (s.staff_name || '').replace(/[\s　]+/g, '');
+  return name ? staff.find(st => st.name.replace(/[\s　]+/g, '') === name) : undefined;
+};
+
+/**
  * 同行者文字列をスタッフ名単位に正しく分割するヘルパー
  * 「阿部 光男」などの姓名間にスペースがある場合でも、1人のスタッフとして認識して不当な分割を防ぐ
  */

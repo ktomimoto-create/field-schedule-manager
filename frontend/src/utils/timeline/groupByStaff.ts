@@ -1,5 +1,5 @@
 import type { Schedule, Staff } from '../../types'
-import { compareSchedules, findStaffByName } from '../../types'
+import { compareSchedules, findScheduleStaff } from '../../types'
 
 export interface StaffDay {
   key: string
@@ -26,7 +26,8 @@ export const groupByStaff = (schedules: Schedule[], staff: Staff[], opts: { matc
   const map = new Map<string, StaffDay>()
   for (const s of schedules) {
     const byId = s.staff_id !== null ? staff.find(st => st.id === s.staff_id) : undefined
-    const member = byId ?? (opts.matchByName ? findStaffByName(staff, s.staff_name) ?? undefined : undefined)
+    // 名前で探すときも、委託の行は委託先の人なので名前が完全に一致する人だけ（findScheduleStaff）
+    const member = byId ?? (opts.matchByName ? findScheduleStaff(staff, s) : undefined)
     const key = member ? `id-${member.id}` : 'unassigned'
     let day = map.get(key)
     if (!day) {
