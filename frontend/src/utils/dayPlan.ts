@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import type { Schedule, Staff } from '../types';
 import { jstHm, type FeEvent } from './feEvents';
 import type { LatLng } from './geocode';
-import { isSameSite, sameBuilding, travelLeg, travelModeOf, useHomeBase, useSitePositions, WORK_MIN, type LegKind, type TravelMode } from './route';
+import { isNearSite, isSameSite, sameBuilding, travelLeg, travelModeOf, useHomeBase, useSitePositions, WORK_MIN, type LegKind, type TravelMode } from './route';
 import { hmToMin, parseTimeSlot } from './scheduleDisplay';
 import { useFunnaviReservations, usesVehicle, type FunnaviReservation } from './vehicleUsers';
 import { isInOffice } from './timeline/workTone';
@@ -69,12 +69,14 @@ export interface PlanInput {
 export const planStaffDay = ({ items, posOf, base, mode, departRec, atBase }: PlanInput): DayPlan => {
   const fromBase = (x: Schedule) => (atBase?.(x) ? { min: 0, kind: 'same' as LegKind } : travelLeg(base, posOf(x), mode));
   const g = { items };
-  // 出動の記録が無ければ 9:00 の見込み。ただし 1 件目が 8:00 指定などなら、間に合うように早めに出たとみなす
+  // 出動の記録が無ければ 9:00 の見込み（会社を 9:00 過ぎに出る）。ただし 8:00 指定・「8〜10時」など 9:00 に出ては間に合わない訪問があれば、間に合うように早めに出たとみなす
+  //   時刻指定はその時刻に着く、時間帯は終わりまでに作業を終える（AM なら 11:00 までに始めればよいので早出しない）
   const firstNeed = Math.min(
     Infinity,
     ...g.items.map(x => {
       const sl = parseTimeSlot(x.target_time);
-      return sl && sl.kind !== 'until' && sl.from < LUNCH_FROM ? sl.from - fromBase(x).min : Infinity;
+      if (!sl || sl.kind === 'until' || sl.from >= LUNCH_FROM) return Infinity;
+      return (sl.kind === 'at' ? sl.from : sl.to - WORK_MIN) - fromBase(x).min;
     })
   );
   const depart = departRec ?? Math.min(DAY_START, firstNeed);
@@ -135,7 +137,36 @@ export const planStaffDay = ({ items, posOf, base, mode, departRec, atBase }: Pl
   // ③ PM
   withSlot.filter(w => w.slot?.kind === 'band' && !isAm(w.slot)).forEach(w => put(w.x, findSlot(w.x, posOf(w.x), w.slot!.from)));
   // ④ 時間指定なし・「〜迄」（行の順に空いた所へ）
-  withSlot.filter(w => !w.slot || w.slot.kind === 'until').forEach(w => put(w.x, findSlot(w.x, posOf(w.x), depart)));
+  //   同じ敷地・歩いて回れる近さの訪問（同じ団地の別の棟など）は続けて回す（同じ所へあとで戻ってくることはまず無い）。
+  //   続けて入らなければ、間に挟まった訪問の後ろの空きへまとめて回す
+  const rest = withSlot.filter(w => !w.slot || w.slot.kind === 'until');
+  const done = new Set<Schedule>();
+  for (const w of rest) {
+    if (done.has(w.x)) continue;
+    const group = [w.x, ...rest.filter(o => o.x !== w.x && !done.has(o.x) && (sameBuilding(w.x, o.x) || isNearSite(posOf(w.x), posOf(o.x)))).map(o => o.x)];
+    let earliest = depart;
+    for (let guard = 0; guard < 20; guard++) {
+      const mark = blocks.length;
+      let together = true;
+      let firstStart = Infinity;
+      let prev: Blk | null = null;
+      for (const x of group) {
+        const t = findSlot(x, posOf(x), prev ? prev.to : earliest);
+        // 前の棟から歩いて着く時刻より 15 分以上あく（間にほかの訪問が挟まる）なら続けて回れていない
+        if (prev && t > prev.to + leg(prev, x, posOf(x)) + 15) together = false;
+        put(x, t);
+        firstStart = Math.min(firstStart, t);
+        prev = blocks[blocks.length - 1];
+      }
+      if (together || group.length === 1 || guard === 19) break;
+      // やり直し: 挟まった訪問の後ろから
+      blocks.splice(mark);
+      group.forEach(x => startOf.delete(x));
+      const between = blocks.filter(b => b.s && b.from >= firstStart).sort((a, b) => a.from - b.from)[0];
+      earliest = between ? between.to : firstStart + 15;
+    }
+    group.forEach(x => done.add(x));
+  }
 
   // 時刻の早い順に並べ、昼休憩を入れる（12:00 以降、最初に 60 分空いたところ。空きが無ければその後の訪問を後ろへずらす）
   const chrono = withSlot.map(w => ({ ...w, start: startOf.get(w.x)! })).sort((a, b) => a.start - b.start || a.idx - b.idx);

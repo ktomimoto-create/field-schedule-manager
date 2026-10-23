@@ -59,6 +59,31 @@ describe('planStaffDay（ガントと時間軸で共通の置き方）', () => {
   })
 })
 
+describe('出動の見込み', () => {
+  it('AM 指定は 9:00 に会社を出て着いた時刻から（早出しない）', () => {
+    const { placed, depart } = plan([visit(1, { target_time: 'AM' })])
+    expect(depart).toBe(540)
+    expect(placed[0].start).toBe(540 + M)
+  })
+  it('8:00 指定は間に合うように早めに出る', () => {
+    const { placed, depart } = plan([visit(1, { target_time: '8:00' })])
+    expect(depart).toBe(480 - M)
+    expect(placed[0].start).toBe(480)
+  })
+})
+
+describe('近い訪問は続けて回す', () => {
+  // 築地さん 10/23: ヌーヴェル赤羽台の 5 号棟・13 号棟（近い）の間に、15 時までに終える 13〜15時 の訪問が入ってしまう形
+  const P = { home: { lat: 35.69, lng: 139.775 }, a: { lat: 35.72, lng: 139.74 }, n5: { lat: 35.786, lng: 139.716 }, n13: { lat: 35.783, lng: 139.719 }, mega: { lat: 35.79, lng: 139.705 } }
+  const pos: Record<number, { lat: number; lng: number }> = { 1: P.a, 2: P.n5, 3: P.mega, 4: P.n13 }
+  it('同じ団地の棟は間に別の訪問を挟まず、まとめて後ろへ回す', () => {
+    const items = [visit(1, { target_time: 'AM' }), visit(2), visit(3, { target_time: '13~15時' }), visit(4)]
+    const { placed } = planStaffDay({ items, posOf: s => pos[Number(s.id)] ?? null, base: P.home, mode: 'transit' })
+    const order = [...placed].sort((a, b) => a.start - b.start).map(p => Number(p.schedule.id))
+    expect(order.indexOf(4) - order.indexOf(2)).toBe(1)
+  })
+})
+
 describe('layoutFromPlan（ガントの帯・段・移動）', () => {
   it('キャンセル・休暇は帯にしない', () => {
     const { bars } = layout([visit(1, { status: 'cancelled' }), visit(2, { work_type: '休暇' }), visit(3)])

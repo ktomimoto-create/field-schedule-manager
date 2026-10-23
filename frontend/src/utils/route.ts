@@ -37,6 +37,8 @@ const distanceKm = (a: LatLng, b: LatLng) => {
 
 /** 同じ建物とみなす（50m 以内） */
 export const isSameSite = (a: LatLng | null | undefined, b: LatLng | null | undefined) => !!a && !!b && distanceKm(a, b) < 0.05;
+/** 歩いて回れる近さ（同じ団地の別の棟など） */
+export const isNearSite = (a: LatLng | null | undefined, b: LatLng | null | undefined) => !!a && !!b && distanceKm(a, b) < WALK_ONLY_KM;
 
 /** a → b の移動（分は余裕の 10 分を含む）。どちらかの位置が分からなければ 25 分 */
 export const travelLeg = (a: LatLng | null | undefined, b: LatLng | null | undefined, mode: TravelMode): { min: number; kind: LegKind } => {
