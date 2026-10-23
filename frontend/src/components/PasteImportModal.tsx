@@ -4,6 +4,7 @@ import { supabase } from '../supabaseClient';
 import DatePicker from './shared/DatePicker';
 import './PasteImportModal.css';
 import { resolveAddress } from '../utils/addressResolver';
+import { fetchAllRows } from '../utils/fetchAllRows';
 import { findStaffByName, toHalfWidth, normalizeTargetTime } from '../types';
 import type { Staff, Schedule, Branch } from '../types';
 interface PasteImportModalProps {
@@ -287,18 +288,27 @@ export const PasteImportModal: React.FC<PasteImportModalProps> = ({
         let exactOrUnitMatches: any[] = [];
         let nameMatches: any[] = [];
 
+        // 物件マスタは約5.5万行あり、貼り付け行が多いと一致も1000行を超えうるので、1000行ずつ全件取る
         if (unitNumbers.length > 0) {
-          const { data } = await supabase
-            .from('properties')
-            .select('*')
-            .in('unit_number', unitNumbers);
+          const { data } = await fetchAllRows((from, to) =>
+            supabase
+              .from('properties')
+              .select('*')
+              .in('unit_number', unitNumbers)
+              .order('id')
+              .range(from, to)
+          );
           exactOrUnitMatches = data || [];
         }
         if (propertyNames.length > 0) {
-          const { data } = await supabase
-            .from('properties')
-            .select('*')
-            .in('property_name', propertyNames);
+          const { data } = await fetchAllRows((from, to) =>
+            supabase
+              .from('properties')
+              .select('*')
+              .in('property_name', propertyNames)
+              .order('id')
+              .range(from, to)
+          );
           nameMatches = data || [];
         }
 
