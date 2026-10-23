@@ -385,14 +385,44 @@
 .stl-row .lane-person,
 .stl-head .lane-head-person {
   position: sticky;
-  left: 0;
   z-index: 6;
 }
-/* ダークでは見出し色が半透明で、下を流れるカードが透けて重なって見えるため、下に不透明な色を敷く */
+/* 貼り付く位置は、スクロールしていないときと同じ（並びの左の余白 8px ＋ 行の枠 1px）。左端に寄せると担当の欄が左にずれる。
+   その左のすき間は、外側と同じ色で覆って、下を流れるカードが見えないようにする */
 .stl-row .lane-person {
+  left: 9px;
+  /* ダークでは見出し色が半透明で、下を流れるカードが透けて重なって見えるため、下に不透明な色を敷く */
   background: linear-gradient(var(--bg-column-header), var(--bg-column-header)), var(--bg-secondary);
 }
+/* スクロールしても、担当の欄の左に行の左端（丸い角の枠）を描き、その外は外と同じ色で覆う。
+   覆わないと、流れていく行の上下の枠線が担当の欄の左に伸びて見える。止まっているときは行の枠とぴったり重なるので見た目は同じ。
+   ::before = 左のすき間（8px）を覆う。::after = 左端の縦線と、上下の丸い角（角の外は覆う） */
+.stl-row .lane-person::before,
+.stl-row .lane-person::after {
+  content: '';
+  position: absolute;
+  top: -1px;
+  bottom: -1px;
+  pointer-events: none;
+}
+.stl-row .lane-person::before {
+  left: -9px;
+  width: 8px;
+  background: var(--bg-primary);
+}
+.stl-row .lane-person::after {
+  /* 枠の色は不透明にする（半透明だと、止まっているときに行の枠と重なって濃く見える）。行の背景に枠の色を重ねた色に近い */
+  --stl-edge: color-mix(in srgb, var(--bg-secondary) 92%, var(--text-primary));
+  left: -1px;
+  width: var(--radius-sm);
+  background:
+    radial-gradient(circle at 100% 100%, transparent calc(var(--radius-sm) - 1px), var(--stl-edge) calc(var(--radius-sm) - 1px), var(--stl-edge) var(--radius-sm), var(--bg-primary) var(--radius-sm)) left top / var(--radius-sm) var(--radius-sm) no-repeat,
+    radial-gradient(circle at 100% 0, transparent calc(var(--radius-sm) - 1px), var(--stl-edge) calc(var(--radius-sm) - 1px), var(--stl-edge) var(--radius-sm), var(--bg-primary) var(--radius-sm)) left bottom / var(--radius-sm) var(--radius-sm) no-repeat,
+    linear-gradient(var(--stl-edge), var(--stl-edge)) left center / 1px calc(100% - 2 * var(--radius-sm)) no-repeat;
+}
 .stl-head .lane-head-person {
+  left: 8px;
+  box-shadow: -8px 0 0 var(--bg-primary);
   background: var(--bg-primary);
 }
 
