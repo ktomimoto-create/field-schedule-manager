@@ -12,7 +12,8 @@ import { StaffTimelineBoard } from './StaffTimelineBoard';
 import { useDayPlanContext } from '../utils/dayPlan';
 import { TimelineView } from './TimelineView';
 import type { StatusHistoryItem } from './ProgressMenu';
-import type { Progress } from '../utils/scheduleDisplay';
+import { progressOf, type Progress } from '../utils/scheduleDisplay';
+import { nowHmJst } from '../utils/timeline/dates';
 import { jstDate, type FeEvent } from '../utils/feEvents';
 import { Select } from './shared/Select';
 import DatePicker from './shared/DatePicker';
@@ -83,6 +84,7 @@ const formatTsvCell = (val: any): string => {
 
 const GRID_COLUMNS: (keyof Schedule)[] = [
   'division',
+  'request_number',
   'type',
   'box',
   'unit_number',
@@ -94,7 +96,6 @@ const GRID_COLUMNS: (keyof Schedule)[] = [
   'area',
   'transport',
   'co_worker',
-  'request_number',
   'result',
   'notes'
 ];
@@ -508,13 +509,22 @@ export const GridView: React.FC<GridViewProps> = ({
   };
 
 
+  // 表の「未対応／完了」ボタン。FE 画面や右クリックと同じく、完了にしたら完了の時刻（開始が空なら開始も）を記録し、
+  // 戻したら開始・完了の時刻も消す（開始だけ残ると「対応中」に見えるため）
   const handleQuickCompleteToggle = async (schedule: Schedule) => {
-    const newResult = schedule.result === '完了' ? '' : '完了';
+    const completing = schedule.result !== '完了';
+    const now = nowHmJst();
     try {
-      await onSave({
-        id: schedule.id,
-        result: newResult,
-      });
+      if (onUpdateResult) {
+        if (completing) await onUpdateResult(schedule.id, '完了', schedule.started_at || now, now);
+        else await onUpdateResult(schedule.id, '', null, null);
+      } else {
+        await onSave(
+          completing
+            ? { id: schedule.id, result: '完了', started_at: schedule.started_at || now, completed_at: now }
+            : { id: schedule.id, result: '', started_at: null, completed_at: null }
+        );
+      }
     } catch (error) {
       console.error('Failed to quick update status:', error);
     }
@@ -1247,6 +1257,7 @@ export const GridView: React.FC<GridViewProps> = ({
           <thead>
             <tr>
               <th style={{ width: '42px', textAlign: 'center' }}>区分</th>
+              <th style={{ width: '100px' }}>依頼番号</th>
               <th style={{ width: '40px' }}>タイプ</th>
               <th style={{ width: '42px' }}>BOX</th>
               <th 
@@ -1294,7 +1305,6 @@ export const GridView: React.FC<GridViewProps> = ({
               <th style={{ width: '75px' }}>エリア</th>
               <th style={{ width: '48px' }}>移動</th>
               <th style={{ width: '85px' }}>同行者</th>
-              <th style={{ width: '85px' }}>依頼番号</th>
               <th style={{ width: '72px', textAlign: 'center' }}>結果</th>
               <th style={{ width: '130px' }}>備考</th>
             </tr>
@@ -1310,6 +1320,8 @@ export const GridView: React.FC<GridViewProps> = ({
               sortedSchedules.map((schedule, rowIndex) => {
                 const staffMember = staff.find(st => st.id === schedule.staff_id);
                 const isCompleted = schedule.result === '完了';
+                // 行の色: 完了＝緑、対応中＝黄（結果の「完了」と同じ色の付け方。文字は薄くしない）
+                const rowProgress = progressOf(schedule, feEvents);
 
                 const isAdmin = canManageSchedules(currentUserRole);
                 const isLocked = typeof schedule.id === 'number' && Boolean(activeLocks[schedule.id]);
@@ -1325,7 +1337,7 @@ export const GridView: React.FC<GridViewProps> = ({
                       }
                       onOpenEditModal(schedule);
                     } : undefined}
-                    className={`spreadsheet-row ${isCompleted ? 'row-completed' : ''} ${isLocked ? 'locked-by-other-row' : ''}`}
+                    className={`spreadsheet-row ${rowProgress === 'done' ? 'row-completed' : rowProgress === 'working' ? 'row-working' : ''} ${isLocked ? 'locked-by-other-row' : ''}`}
                   >
                     <td 
                       id={`grid-cell-${rowIndex}-0`}
@@ -1343,7 +1355,7 @@ export const GridView: React.FC<GridViewProps> = ({
                       onMouseDown={(e) => handleCellMouseDown(e, rowIndex, 1)}
                       onMouseEnter={() => handleCellMouseEnter(rowIndex, 1)}
                     >
-                      {schedule.type}
+                      {schedule.request_number}
                       {isBottomRightSelectedCell(rowIndex, 1) && <div className="cell-fill-handle" />}
                     </td>
                     <td 
@@ -1352,7 +1364,7 @@ export const GridView: React.FC<GridViewProps> = ({
                       onMouseDown={(e) => handleCellMouseDown(e, rowIndex, 2)}
                       onMouseEnter={() => handleCellMouseEnter(rowIndex, 2)}
                     >
-                      {schedule.box}
+                      {schedule.type}
                       {isBottomRightSelectedCell(rowIndex, 2) && <div className="cell-fill-handle" />}
                     </td>
                     <td 
@@ -1361,15 +1373,24 @@ export const GridView: React.FC<GridViewProps> = ({
                       onMouseDown={(e) => handleCellMouseDown(e, rowIndex, 3)}
                       onMouseEnter={() => handleCellMouseEnter(rowIndex, 3)}
                     >
-                      {schedule.unit_number}
+                      {schedule.box}
                       {isBottomRightSelectedCell(rowIndex, 3) && <div className="cell-fill-handle" />}
                     </td>
                     <td 
                       id={`grid-cell-${rowIndex}-4`}
-                      className={getCellClassName(rowIndex, 4, 'bold-cell')}
-                      title={schedule.property_name}
+                      className={getCellClassName(rowIndex, 4, '')}
                       onMouseDown={(e) => handleCellMouseDown(e, rowIndex, 4)}
                       onMouseEnter={() => handleCellMouseEnter(rowIndex, 4)}
+                    >
+                      {schedule.unit_number}
+                      {isBottomRightSelectedCell(rowIndex, 4) && <div className="cell-fill-handle" />}
+                    </td>
+                    <td 
+                      id={`grid-cell-${rowIndex}-5`}
+                      className={getCellClassName(rowIndex, 5, 'bold-cell')}
+                      title={schedule.property_name}
+                      onMouseDown={(e) => handleCellMouseDown(e, rowIndex, 5)}
+                      onMouseEnter={() => handleCellMouseEnter(rowIndex, 5)}
                     >
                       <div className="property-cell-wrapper" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', gap: '4px' }}>
                         <div className="cell-clamp-2" style={{ flex: 1 }}>
@@ -1397,44 +1418,44 @@ export const GridView: React.FC<GridViewProps> = ({
                           {isLocked ? <Lock size={12} style={{ color: '#ef4444' }} /> : <Edit2 size={12} />}
                         </button>
                       </div>
-                      {isBottomRightSelectedCell(rowIndex, 4) && <div className="cell-fill-handle" />}
-                    </td>
-                    <td 
-                      id={`grid-cell-${rowIndex}-5`}
-                      className={getCellClassName(rowIndex, 5, '')}
-                      onMouseDown={(e) => handleCellMouseDown(e, rowIndex, 5)}
-                      onMouseEnter={() => handleCellMouseEnter(rowIndex, 5)}
-                    >
-                      {schedule.work_type}
                       {isBottomRightSelectedCell(rowIndex, 5) && <div className="cell-fill-handle" />}
                     </td>
                     <td 
                       id={`grid-cell-${rowIndex}-6`}
-                      className={getCellClassName(rowIndex, 6, 'description-cell')}
-                      title={schedule.description || ''}
+                      className={getCellClassName(rowIndex, 6, '')}
                       onMouseDown={(e) => handleCellMouseDown(e, rowIndex, 6)}
                       onMouseEnter={() => handleCellMouseEnter(rowIndex, 6)}
                     >
-                      <div className="cell-clamp-3">
-                        {schedule.description}
-                      </div>
+                      {schedule.work_type}
                       {isBottomRightSelectedCell(rowIndex, 6) && <div className="cell-fill-handle" />}
                     </td>
                     <td 
                       id={`grid-cell-${rowIndex}-7`}
-                      className={getCellClassName(rowIndex, 7, 'time-cell')}
+                      className={getCellClassName(rowIndex, 7, 'description-cell')}
+                      title={schedule.description || ''}
                       onMouseDown={(e) => handleCellMouseDown(e, rowIndex, 7)}
                       onMouseEnter={() => handleCellMouseEnter(rowIndex, 7)}
                     >
-                      {normalizeTargetTime(schedule.target_time)}
+                      <div className="cell-clamp-3">
+                        {schedule.description}
+                      </div>
                       {isBottomRightSelectedCell(rowIndex, 7) && <div className="cell-fill-handle" />}
                     </td>
                     <td 
                       id={`grid-cell-${rowIndex}-8`}
-                      className={getCellClassName(rowIndex, 8, '')}
-                      style={{ verticalAlign: 'middle' }}
+                      className={getCellClassName(rowIndex, 8, 'time-cell')}
                       onMouseDown={(e) => handleCellMouseDown(e, rowIndex, 8)}
                       onMouseEnter={() => handleCellMouseEnter(rowIndex, 8)}
+                    >
+                      {normalizeTargetTime(schedule.target_time)}
+                      {isBottomRightSelectedCell(rowIndex, 8) && <div className="cell-fill-handle" />}
+                    </td>
+                    <td 
+                      id={`grid-cell-${rowIndex}-9`}
+                      className={getCellClassName(rowIndex, 9, '')}
+                      style={{ verticalAlign: 'middle' }}
+                      onMouseDown={(e) => handleCellMouseDown(e, rowIndex, 9)}
+                      onMouseEnter={() => handleCellMouseEnter(rowIndex, 9)}
                     >
                       {staffMember ? (
                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', width: '100%' }}>
@@ -1474,15 +1495,6 @@ export const GridView: React.FC<GridViewProps> = ({
                           <span style={{ color: '#94a3b8', fontStyle: 'italic', fontSize: '0.85rem' }}>未設定</span>
                         )
                       )}
-                      {isBottomRightSelectedCell(rowIndex, 8) && <div className="cell-fill-handle" />}
-                    </td>
-                    <td 
-                      id={`grid-cell-${rowIndex}-9`}
-                      className={getCellClassName(rowIndex, 9, '')}
-                      onMouseDown={(e) => handleCellMouseDown(e, rowIndex, 9)}
-                      onMouseEnter={() => handleCellMouseEnter(rowIndex, 9)}
-                    >
-                      {schedule.area}
                       {isBottomRightSelectedCell(rowIndex, 9) && <div className="cell-fill-handle" />}
                     </td>
                     <td 
@@ -1491,7 +1503,7 @@ export const GridView: React.FC<GridViewProps> = ({
                       onMouseDown={(e) => handleCellMouseDown(e, rowIndex, 10)}
                       onMouseEnter={() => handleCellMouseEnter(rowIndex, 10)}
                     >
-                      {schedule.transport}
+                      {schedule.area}
                       {isBottomRightSelectedCell(rowIndex, 10) && <div className="cell-fill-handle" />}
                     </td>
                     <td 
@@ -1500,19 +1512,7 @@ export const GridView: React.FC<GridViewProps> = ({
                       onMouseDown={(e) => handleCellMouseDown(e, rowIndex, 11)}
                       onMouseEnter={() => handleCellMouseEnter(rowIndex, 11)}
                     >
-                      {(() => {
-                        const coWorkersStr = schedule.co_worker || '';
-                        const coWorkersList = splitCoWorkers(coWorkersStr, staff);
-                        return (
-                          <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
-                            {coWorkersList.map((name, idx) => (
-                              <span key={idx} className="staff-indicator-tag" style={{ borderLeft: '3px solid var(--primary)' }}>
-                                {getShortName(name)}
-                              </span>
-                            ))}
-                          </div>
-                        );
-                      })()}
+                      {schedule.transport}
                       {isBottomRightSelectedCell(rowIndex, 11) && <div className="cell-fill-handle" />}
                     </td>
                     <td 
@@ -1521,10 +1521,35 @@ export const GridView: React.FC<GridViewProps> = ({
                       onMouseDown={(e) => handleCellMouseDown(e, rowIndex, 12)}
                       onMouseEnter={() => handleCellMouseEnter(rowIndex, 12)}
                     >
-                      {schedule.request_number}
+                      {(() => {
+                        const coWorkersStr = schedule.co_worker || '';
+                        const coWorkersList = splitCoWorkers(coWorkersStr, staff);
+                        return (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap' }}>
+                            {/* 同行者も対応者と同じくアバター付き（月間予定の表と同じ出し方） */}
+                            {coWorkersList.map((name, idx) => {
+                              const member = findStaffByName(staff, name);
+                              const shortName = getShortName(name);
+                              return (
+                                <span key={idx} style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                  {member?.avatar_url ? (
+                                    <img src={member.avatar_url} alt={shortName} style={{ width: '18px', height: '18px', borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
+                                  ) : (
+                                    <span style={{ width: '18px', height: '18px', borderRadius: '50%', backgroundColor: 'var(--primary, #4f46e5)', color: 'white', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.6rem', fontWeight: 'bold', flexShrink: 0 }}>
+                                      {shortName.substring(0, 1)}
+                                    </span>
+                                  )}
+                                  <span className="staff-indicator-tag" style={{ borderLeft: '3px solid var(--primary)' }}>
+                                    {shortName}
+                                  </span>
+                                </span>
+                              );
+                            })}
+                          </div>
+                        );
+                      })()}
                       {isBottomRightSelectedCell(rowIndex, 12) && <div className="cell-fill-handle" />}
                     </td>
-                    
                     <td 
                       id={`grid-cell-${rowIndex}-13`}
                       className={getCellClassName(rowIndex, 13, '')}
@@ -1575,7 +1600,6 @@ export const GridView: React.FC<GridViewProps> = ({
                       )}
                       {isBottomRightSelectedCell(rowIndex, 13) && <div className="cell-fill-handle" />}
                     </td>
-
                     <td 
                       id={`grid-cell-${rowIndex}-14`}
                       className={getCellClassName(rowIndex, 14, 'notes-cell')}

@@ -390,22 +390,23 @@
   font-size: 0.95rem;
 }
 
-/* 完了行の消し込みスタイル */
+/* 対応状況で行に色を付ける（文字は薄くしない）。完了＝緑、対応中＝黄。結果欄の「完了」と同じ色の付け方で、左端に同じ色の線 */
 .row-completed {
-  opacity: 0.5;
-  background: rgba(16, 185, 129, 0.02) !important;
+  background: rgba(16, 185, 129, 0.1) !important;
+  box-shadow: inset 3px 0 0 var(--success);
 }
 
-.row-completed td:not(:first-child) {
-  color: var(--text-muted) !important;
+.row-working {
+  background: rgba(245, 158, 11, 0.1) !important;
+  box-shadow: inset 3px 0 0 var(--warning);
 }
 
-.row-completed .bold-cell {
-  color: var(--text-muted) !important;
+.dark-theme .row-completed {
+  background: rgba(16, 185, 129, 0.14) !important;
 }
 
-.row-completed .staff-indicator-tag {
-  opacity: 0.5;
+.dark-theme .row-working {
+  background: rgba(245, 158, 11, 0.14) !important;
 }
 
 /* 物件名、作業内容、備考の常時折り返し（最大2〜3行）スタイル */
