@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { CheckCircle2, ChevronDown, ChevronUp, Circle, LogIn, LogOut, MapPin, Navigation, Play, Search, Undo2, Wrench, type LucideIcon } from 'lucide-react';
+import { CheckCircle2, ChevronDown, ChevronUp, Circle, LogIn, LogOut, MapPin, Navigation, Play, Search, Table2, Undo2, Wrench, type LucideIcon } from 'lucide-react';
 import type { Schedule, Staff } from '../types';
 import { getShortName, normalizeTargetTime, compareSchedules } from '../types';
 import {
@@ -59,9 +59,11 @@ interface Props {
   onUpdateResult: (scheduleId: number | string, result: string, startedAt?: string | null, completedAt?: string | null) => Promise<void>;
   /** 訪問の順番を入れ替える（まだ手を付けていない訪問どうしだけ） */
   onReorder?: (orders: { id: number | string; sort_order: number }[]) => Promise<void>;
+  /** 「予定の詳細」: 今日の予定を表で開く（最初は自分の予定だけ） */
+  onOpenSchedules?: () => void;
 }
 
-export const FeActionView: React.FC<Props> = ({ schedules, staff, currentStaffId, isSandbox, isDemoLogin = false, feEvents, feUnavailable, onRecorded, onUpdateResult, onReorder }) => {
+export const FeActionView: React.FC<Props> = ({ schedules, staff, currentStaffId, isSandbox, isDemoLogin = false, feEvents, feUnavailable, onRecorded, onUpdateResult, onReorder, onOpenSchedules }) => {
   const [pickedStaffId, setPickedStaffId] = useState<number | null>(null);
   const [query, setQuery] = useState('');
   const [busy, setBusy] = useState(false);
@@ -224,6 +226,17 @@ export const FeActionView: React.FC<Props> = ({ schedules, staff, currentStaffId
           <span className="fe-date">{today.replace(/^(\d+)-(\d+)-(\d+)$/, (_, _y, m, d) => `${Number(m)}月${Number(d)}日`)}の予定</span>
         </div>
         <span className="fe-progress sc-num" title="完了した訪問 / 今日の訪問">{doneCount}/{day.visits.length}</span>
+        {onOpenSchedules && (
+          <button
+            type="button"
+            className="fe-icon-btn"
+            onClick={onOpenSchedules}
+            title="予定の詳細: 今日の予定を表で見る（最初は自分の予定だけ。人のアイコンで全員に切り替え）"
+            aria-label="予定の詳細"
+          >
+            <Table2 size={16} />
+          </button>
+        )}
         {isSandbox && currentStaffId == null && (
           <button type="button" className="fe-link" onClick={() => setPickedStaffId(null)}>選び直す</button>
         )}

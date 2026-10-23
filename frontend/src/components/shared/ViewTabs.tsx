@@ -14,12 +14,14 @@ interface Props<K extends string> {
   value: K;
   onChange: (key: K) => void;
   ariaLabel: string;
+  /** 文字を出さず、アイコンだけのスイッチにする（名前は乗せたときの説明と読み上げに出す） */
+  iconOnly?: boolean;
 }
 
 /** 上のアイコン（画面）の下に並べる、表示の切り替えタブ */
-export function ViewTabs<K extends string>({ items, value, onChange, ariaLabel }: Props<K>) {
+export function ViewTabs<K extends string>({ items, value, onChange, ariaLabel, iconOnly = false }: Props<K>) {
   return (
-    <div className="view-tabs" role="tablist" aria-label={ariaLabel}>
+    <div className={`view-tabs${iconOnly ? ' is-switch' : ''}`} role="tablist" aria-label={ariaLabel}>
       {items.map(item => (
         <button
           key={item.key}
@@ -28,10 +30,11 @@ export function ViewTabs<K extends string>({ items, value, onChange, ariaLabel }
           aria-selected={value === item.key}
           className={`view-tab${value === item.key ? ' is-active' : ''}`}
           onClick={() => onChange(item.key)}
-          title={item.title}
+          title={iconOnly ? `${item.label}: ${item.title}` : item.title}
+          aria-label={iconOnly ? item.label : undefined}
         >
           {item.icon}
-          <span>{item.label}</span>
+          {!iconOnly && <span>{item.label}</span>}
         </button>
       ))}
     </div>

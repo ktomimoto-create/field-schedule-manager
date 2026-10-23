@@ -52,6 +52,11 @@ const readStored = <K extends string>(key: string, allowed: readonly K[], fallba
 
 function App() {
   const [activeTab, setActiveTab] = useState<AppTab>('action');
+  // FE 画面の「予定の詳細」から表を開いたとき（最初は自分の予定だけにする）。ほかの画面へ移ったら戻す
+  const [openedFromFe, setOpenedFromFe] = useState(false);
+  useEffect(() => {
+    if (activeTab !== 'action') setOpenedFromFe(false);
+  }, [activeTab]);
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
     return (localStorage.getItem('theme') as 'light' | 'dark') || 'light';
   });
@@ -234,6 +239,10 @@ frontend/public/_sandbox/${viewDate}.json を置いてください。`);
   }, [theme]);
 
   const [user, setUser] = useState<any>(null);
+  // ログアウト・ログインし直したら、FE 画面から開いた印は戻す（次の人の表が「自分の予定だけ」で始まらないように）
+  useEffect(() => {
+    setOpenedFromFe(false);
+  }, [user?.id]);
   const [showUserMenu, setShowUserMenu] = useState(false);
   // アカウントのメニューは、外を押すか Esc で閉じる
   const userMenuRef = useRef<HTMLDivElement | null>(null);
@@ -342,6 +351,8 @@ frontend/public/_sandbox/${viewDate}.json を置いてください。`);
       if (matched) {
         setCurrentUserRole(normalizeRole(matched.role));
         setCurrentStaffId(matched.id);
+        // 作業者は自分の所属拠点に固定（東京／大阪は選べない）
+        if (!canManageSchedules(normalizeRole(matched.role))) setCurrentBranch(resolveStaffBranch(matched));
       } else {
         setCurrentUserRole('staff');
         setCurrentStaffId(null);
@@ -1438,10 +1449,12 @@ frontend/public/_sandbox/${viewDate}.json を置いてください。`);
   };
 
   // 行動予定・月間予定の表示の切り替えタブ
-  // PC の管理側はガントを出さない（全員の 1 日は「カード」の時間軸で見る）。前にガントを開いていた人はカードで開く。
-  // 携帯・一般作業者の「自分の予定」（同じ gantt の枠で出す DayScreen のカード）は残す
-  const hideGantt = canManageSchedules(currentUserRole) && !isMobile;
-  const shownDayView: DayViewKey = hideGantt && dayView === 'gantt' ? 'card' : dayView;
+  // 作業者は「表」だけ（切り替えは出さない。自分の予定は FE 画面で進める）。
+  // 予定管理者の PC はガントを出さず「カード／表」のスイッチ（全員の 1 日はカードの時間軸で見る）。前にガントを開いていた人はカードで開く。
+  // 予定管理者の携帯は「自分の予定」（同じ gantt の枠で出す DayScreen のカード）も残す
+  const canManageDay = canManageSchedules(currentUserRole);
+  const hideGantt = canManageDay && !isMobile;
+  const shownDayView: DayViewKey = !canManageDay ? 'table' : hideGantt && dayView === 'gantt' ? 'card' : dayView;
   const dayViewItems: ViewTabItem<DayViewKey>[] = [
     ...(hideGantt
       ? []
@@ -1556,8 +1569,24 @@ frontend/public/_sandbox/${viewDate}.json を置いてください。`);
 
             </div>
 
-            {/* 切り替えタブ（広い画面では画面の中央線上に置く）と、その右の FE画面ボタン */}
+            {/* 切り替えタブ（広い画面では画面の中央線上に置く）と、その右の FE画面ボタン。
+                作業者は FE画面と行動予定（表）だけなので、2 つをアイコンのスイッチで切り替える */}
             <div className="header-center">
+            {!canManageSchedules(currentUserRole) ? (
+              <div className="header-switch">
+                <ViewTabs
+                  ariaLabel="画面の切り替え"
+                  iconOnly
+                  value={activeTab === 'fe' ? 'fe' : 'action'}
+                  onChange={key => { setDayFocusStaffId(null); setActiveTab(key); }}
+                  items={[
+                    { key: 'fe' as const, icon: <Smartphone size={18} />, label: 'FE画面', title: '出発・到着・作業完了を押して記録' },
+                    { key: 'action' as const, icon: <Table2 size={18} />, label: '行動予定', title: '今日の予定を表で見る（最初は自分の予定だけ）' },
+                  ]}
+                />
+              </div>
+            ) : (
+            <>
             <div className="nav-tabs">
               <button
                 className={`tab-btn tab-icon-only tab-action ${activeTab === 'action' ? 'active' : ''}`}
@@ -1600,6 +1629,8 @@ frontend/public/_sandbox/${viewDate}.json を置いてください。`);
             >
               <Smartphone size={18} />
             </button>
+            </>
+            )}
             </div>
 
             <div className="header-actions">
@@ -1730,6 +1761,9 @@ frontend/public/_sandbox/${viewDate}.json を置いてください。`);
                         <p className="user-menu-email">{user.email}</p>
                         <p className="user-menu-role">権限: {currentUserRole === 'developer' ? '開発者' : currentUserRole === 'manager' ? '予定管理者' : '一般作業者'}</p>
                       </div>
+                      {/* 東京／大阪の切り替えは予定管理者だけ。作業者は所属拠点に固定 */}
+                      {canManageSchedules(currentUserRole) && (
+                      <>
                       <div className="user-menu-divider"></div>
                       <div className="user-menu-section-title">管理画面</div>
                       {(['tokyo', 'osaka'] as const).map(b => (
@@ -1749,6 +1783,8 @@ frontend/public/_sandbox/${viewDate}.json を置いてください。`);
                           {currentBranch === b && <Check size={16} className="branch-option-check" />}
                         </button>
                       ))}
+                      </>
+                      )}
                       <div className="user-menu-divider"></div>
                       {currentUserRole === 'developer' && (
                         <button
@@ -1818,12 +1854,13 @@ frontend/public/_sandbox/${viewDate}.json を置いてください。`);
                     <Spinner size={32} />
                   </div>
                 )}
-                {activeTab === 'action' && (
+                {activeTab === 'action' && canManageDay && (
                   <ViewTabs
                     ariaLabel="行動予定の表示"
                     items={dayViewItems}
                     value={shownDayView}
                     onChange={setDayView}
+                    iconOnly
                   />
                 )}
                 {activeTab === 'month' && canManageSchedules(currentUserRole) && (
@@ -1872,6 +1909,7 @@ frontend/public/_sandbox/${viewDate}.json を置いてください。`);
                 {activeTab === 'action' && shownDayView !== 'gantt' && (
                   <GridView
                     viewMode={shownDayView}
+                    initialMyScheduleOnly={!canManageDay || openedFromFe}
                     feEvents={feEvents}
                     onUpdateResult={handleUpdateScheduleResult}
                     onReorder={handleReorderSchedules}
@@ -1923,6 +1961,12 @@ frontend/public/_sandbox/${viewDate}.json を置いてください。`);
                     onRecorded={() => void refreshFeEvents()}
                     onUpdateResult={(id, result, startedAt, completedAt) => handleUpdateScheduleResult(id, result, startedAt, completedAt)}
                     onReorder={handleReorderSchedules}
+                    onOpenSchedules={() => {
+                      // 今日の予定を表で開く（最初は自分の予定だけ）
+                      setOpenedFromFe(true);
+                      if (canManageDay) setDayView('table');
+                      setActiveTab('action');
+                    }}
                   />
                 )}
                 {canManageSchedules(currentUserRole) && activeTab === 'month' && (monthView === 'card' || monthView === 'table') && (

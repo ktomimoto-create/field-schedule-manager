@@ -102,6 +102,8 @@ const GRID_COLUMNS: (keyof Schedule)[] = [
 interface GridViewProps {
   /** 表示（カード一覧 / 時間軸 / 表）。渡したときは画面の中の切替ボタンを出さない */
   viewMode?: 'card' | 'timeline' | 'table';
+  /** 開いたときに「自分の予定だけ」にする（作業者・FE 画面の「予定の詳細」から開いたとき） */
+  initialMyScheduleOnly?: boolean;
   schedules: Schedule[];
   staff: Staff[];
   workTypes?: WorkType[];
@@ -130,6 +132,7 @@ interface GridViewProps {
 
 export const GridView: React.FC<GridViewProps> = ({
   viewMode: viewModeProp,
+  initialMyScheduleOnly = false,
   schedules,
   staff,
   onOpenAddModal,
@@ -276,7 +279,11 @@ export const GridView: React.FC<GridViewProps> = ({
   };
 
   const [showFullText, setShowFullText] = useState(false);
-  const [myScheduleOnly, setMyScheduleOnly] = useState(false);
+  const [myScheduleOnly, setMyScheduleOnly] = useState(initialMyScheduleOnly);
+  // 権限の読み込みが終わって作業者／管理者が分かったとき・FE 画面から開いたときに、既定の絞り込みを付け直す
+  useEffect(() => {
+    setMyScheduleOnly(initialMyScheduleOnly);
+  }, [initialMyScheduleOnly]);
   const [filterStaff, setFilterStaff] = useState<string>('all');
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [isPrintPreviewOpen, setIsPrintPreviewOpen] = useState(false);

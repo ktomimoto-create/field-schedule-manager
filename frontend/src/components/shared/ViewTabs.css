@@ -38,3 +38,41 @@
   color: var(--primary);
   font-weight: 700;
 }
+
+/* アイコンだけのスイッチ（行動予定のカード／表）。丸い枠の中で、選んでいる方だけ色が付く */
+.view-tabs.is-switch {
+  display: inline-flex;
+  align-self: flex-start;
+  /* ヘッダーの真下に貼り付かないよう、上にもすき間を空ける */
+  margin: 8px 0;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--border-glass);
+  border-radius: 999px;
+  background: var(--bg-secondary);
+}
+
+.view-tabs.is-switch .view-tab {
+  justify-content: center;
+  width: 36px;
+  height: 28px;
+  margin: 0;
+  padding: 0;
+  border: none;
+  border-radius: 999px;
+}
+
+.view-tabs.is-switch .view-tab.is-active {
+  background: color-mix(in srgb, var(--primary) 16%, transparent);
+  color: var(--primary);
+}
+
+/* ヘッダーの中に置くスイッチ（作業者の FE画面／行動予定）。上下のすき間は要らない */
+.header-switch .view-tabs.is-switch {
+  margin: 0;
+}
+
+.header-switch .view-tabs.is-switch .view-tab {
+  width: 40px;
+  height: 32px;
+}

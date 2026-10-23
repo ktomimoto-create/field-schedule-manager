@@ -114,6 +114,30 @@
   font-size: 1.1rem;
   font-weight: 700;
 }
+/* アイコンだけのボタン（予定の詳細）。塗りつぶさないゴースト */
+.fe-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 1px solid color-mix(in srgb, var(--primary) 35%, transparent);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--primary);
+  cursor: pointer;
+  position: relative;
+  top: 0;
+}
+.fe-icon-btn:hover {
+  background: color-mix(in srgb, var(--primary) 10%, transparent);
+}
+.fe-icon-btn:active {
+  top: 1px; /* 押したら 1px 沈める（translateY は境目でちらつくので使わない） */
+}
+
 .fe-link {
   display: inline-flex;
   align-items: center;
