@@ -29,6 +29,17 @@ export const parseTimeSlot = (raw: string | null | undefined): TimeSlot | null =
     return null
   }
 
+  // 範囲（時だけ）: 13-15時 / 13~15時
+  const hourRange = t.match(/^(\d{1,2})\s*[~-]\s*(\d{1,2})時/)
+  if (hourRange) {
+    const from = hmToMin(`${hourRange[1]}:00`)
+    const to = hmToMin(`${hourRange[2]}:00`)
+    if (from !== null && to !== null && to > from) {
+      return { from, to, kind: 'range', label: `${minToHm(from)}〜${minToHm(to)}` }
+    }
+    return null
+  }
+
   // 開始だけ: 9:00~ / 9時~ は 9:00 から
   const open = t.match(/^(\d{1,2})(?::(\d{2})|時)\s*[~-]\s*$/)
   if (open) {

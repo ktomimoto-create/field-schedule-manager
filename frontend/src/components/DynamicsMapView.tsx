@@ -157,7 +157,8 @@ export const DynamicsMapView: React.FC<Props> = ({ schedules, staff, feEvents, f
     let cancelled = false;
     (async () => {
       const units = unitsKey.split(',');
-      const addr = await fetchAddressesByUnit(units);
+      const names = Object.fromEntries(people.flatMap(p => p.visits).filter(v => (v.unit_number || '').trim()).map(v => [(v.unit_number || '').trim(), v.property_name || '']));
+      const addr = await fetchAddressesByUnit(units, names);
       const targets = units.filter(u => addr[u]);
       setGeoProgress({ done: 0, total: targets.length });
       let done = 0;

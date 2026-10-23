@@ -1082,7 +1082,7 @@ export const GridView: React.FC<GridViewProps> = ({
       </div>
 
       {holidayStaffNames.length > 0 && (
-        <div className="holiday-summary-bar" style={{ margin: '0 1.5rem 1rem' }}>
+        <div className="holiday-summary-bar" style={{ margin: '0 0 0.75rem' }}>
           <span className="holiday-label">本日の公休：</span>
           {holidayStaffNames.map(name => (
             <span key={name} className="holiday-badge">{name}</span>

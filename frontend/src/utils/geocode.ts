@@ -24,16 +24,35 @@ const writeCache = (c: Record<string, LatLng | null>) => {
   } catch { /* 保存できなくても動く */ }
 };
 
-/** 号機 → 住所（物件マスタ）。まとめて 1 回で引く */
-export const fetchAddressesByUnit = async (units: string[]): Promise<Record<string, string>> => {
+// 物件名の比べ方: 全角半角・空白・括弧・記号・丸数字の違いは無視する
+const normName = (v: string) =>
+  v.normalize('NFKC').replace(/[\s・()［］\[\]【】「」〈〉<>\-－ー‐_.,、。]/g, '').replace(/[①-⑳]/g, '').toLowerCase();
+
+/** 予定の物件名と物件マスタの物件名が、同じ物件と言えるか（どちらかが空なら確かめようがないので同じとみなす）。
+ *  片方がもう片方を含むか、3 文字続く部分が 1 つでも共通なら同じとみなす */
+export const isSamePropertyName = (a: string | null | undefined, b: string | null | undefined): boolean => {
+  const x = normName(a || '');
+  const y = normName(b || '');
+  if (!x || !y) return true;
+  if (x.includes(y) || y.includes(x)) return true;
+  for (let i = 0; i + 3 <= x.length; i++) if (y.includes(x.slice(i, i + 3))) return true;
+  return false;
+};
+
+/** 号機 → 住所（物件マスタ）。まとめて 1 回で引く。
+ *  namesByUnit（号機 → 予定の物件名）を渡すと、物件マスタの物件名と食い違う号機は住所を返さない
+ *  （号機の打ち間違いで別の物件、たとえば大阪の物件の住所を拾うと、移動の見込みが何百分にもなるため） */
+export const fetchAddressesByUnit = async (units: string[], namesByUnit?: Record<string, string>): Promise<Record<string, string>> => {
   const uniq = [...new Set(units.map(u => u.trim()).filter(Boolean))];
   if (uniq.length === 0) return {};
   const out: Record<string, string> = {};
   for (let i = 0; i < uniq.length; i += 100) {
     const chunk = uniq.slice(i, i + 100);
-    const { data } = await supabase.from('properties').select('unit_number, address').in('unit_number', chunk);
-    for (const r of (data || []) as { unit_number: string; address: string | null }[]) {
-      if (r.address) out[r.unit_number] = r.address;
+    const { data } = await supabase.from('properties').select('unit_number, address, property_name').in('unit_number', chunk);
+    for (const r of (data || []) as { unit_number: string; address: string | null; property_name: string | null }[]) {
+      if (!r.address) continue;
+      if (namesByUnit && !isSamePropertyName(namesByUnit[r.unit_number], r.property_name)) continue;
+      out[r.unit_number] = r.address;
     }
   }
   return out;

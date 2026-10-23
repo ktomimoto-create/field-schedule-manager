@@ -1,5 +1,5 @@
 import type { Schedule } from '../types';
-import { normalizeTargetTime } from '../types';
+import { parseTimeSlot as parseTargetSlot } from './timeline/parseTargetTime';
 
 // カード一覧・時間軸で共通に使う表示用の小道具
 
@@ -20,7 +20,7 @@ export const isUnassignedFiller = (s: Schedule) =>
   typeof s.id === 'string' && s.id.startsWith('temp-unassigned-');
 
 // 指定時間 → 時間軸に置く枠（分単位: 0:00 からの経過分）
-// 終了時刻は予定表に無いので、時刻指定は1時間の枠、「〜迄」は締切の1時間前から締切まで、AM/PM は時間帯全体で置く。
+// 読み方は行動予定のガントと同じ（utils/timeline/parseTargetTime）。「16:30~」は 16:30 から、「13-15時」などの範囲は時間帯（band）として置く。
 export interface TimeSlot {
   from: number;
   to: number;
@@ -28,25 +28,10 @@ export interface TimeSlot {
   label: string;
 }
 
-const toMin = (hm: string): number | null => {
-  const m = hm.match(/^(\d{1,2}):(\d{2})$/);
-  if (!m) return null;
-  return parseInt(m[1], 10) * 60 + parseInt(m[2], 10);
-};
-
 export const parseTimeSlot = (raw: string | null | undefined): TimeSlot | null => {
-  const t = normalizeTargetTime(raw);
-  if (!t) return null;
-  if (t === 'AM') return { from: 9 * 60, to: 12 * 60, kind: 'band', label: 'AM' };
-  if (t === 'PM') return { from: 13 * 60, to: 17 * 60, kind: 'band', label: 'PM' };
-  if (t.endsWith('迄')) {
-    const end = toMin(t.slice(0, -1));
-    if (end == null) return null;
-    return { from: end - 60, to: end, kind: 'until', label: t };
-  }
-  const start = toMin(t);
-  if (start == null) return null;
-  return { from: start, to: start + 60, kind: 'at', label: t };
+  const sl = parseTargetSlot(raw);
+  if (!sl) return null;
+  return { ...sl, kind: sl.kind === 'range' ? 'band' : sl.kind };
 };
 
 // "HH:MM" の実績時刻 → 分

@@ -34,6 +34,9 @@ const lunchSpan = (mv: number) => Math.max(mv, Math.min(LUNCH_MIN + mv, LUNCH_WI
 const STACK_SHIFT = 6;
 const STACK_MAX = 2;
 /** カードの下に、移動・待ちの見込み（点線）と実績（帯）を置く。重なりの有無で線の高さが変わらないように固定の位置 */
+/** 1 時間の幅（px）。訪問 1 件（60 分）のカードがこの幅になるので、物件名が読める幅にする。画面に入らなければ横にスクロール */
+const HOUR_W = 170;
+const PERSON_W = 150;
 const CARD_H = 86;
 // 線はカードの上に置く（カードは重なっても上端がずれないので、どの行も同じ高さに並ぶ）
 const MOVE_Y = 10;
@@ -452,7 +455,7 @@ export const StaffTimelineBoard: React.FC<Props> = ({ schedules, staff, date, ca
   };
 
   return (
-    <div className="stl-board">
+    <div className="stl-board" style={{ minWidth: PERSON_W + hours.length * HOUR_W + 32 }}>
       <div className="stl-legend">
         <span><i className="stl-lg is-confirmed" />確定</span>
         <span><i className="stl-lg is-draft" />仮</span>

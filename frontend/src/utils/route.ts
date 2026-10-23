@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Schedule } from '../types';
 import { fetchAddressesByUnit, geocodeAddress, type LatLng } from './geocode';
 import { parseTimeSlot } from './scheduleDisplay';
@@ -105,12 +105,15 @@ export const sameBuilding = (a: Schedule | null | undefined, b: Schedule) => !!a
 export const useSitePositions = (schedules: Schedule[]) => {
   const [pos, setPos] = useState<Record<string, LatLng | null>>({});
   const unitsKey = useMemo(() => [...new Set(schedules.map(unitOf).filter(Boolean))].sort().join(','), [schedules]);
+  // 号機 → 予定の物件名（物件マスタと食い違う号機の住所は使わない）
+  const namesRef = useRef<Record<string, string>>({});
+  namesRef.current = Object.fromEntries(schedules.filter(x => unitOf(x)).map(x => [unitOf(x), x.property_name || '']));
   useEffect(() => {
     if (!unitsKey) return;
     let cancelled = false;
     (async () => {
       const units = unitsKey.split(',');
-      const addr = await fetchAddressesByUnit(units).catch(() => ({} as Record<string, string>));
+      const addr = await fetchAddressesByUnit(units, namesRef.current).catch(() => ({} as Record<string, string>));
       let batch: Record<string, LatLng | null> = {};
       for (let i = 0; i < units.length; i++) {
         if (cancelled) return;

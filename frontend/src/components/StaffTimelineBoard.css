@@ -373,3 +373,17 @@
 .lane-card.stl-card .lane-time.is-set {
   padding: 0 3px;
 }
+
+/* 横にスクロールしても担当の列は左に残す（overflow: clip は sticky を止めない） */
+.stl-row {
+  overflow: clip;
+}
+.stl-row .lane-person,
+.stl-head-person {
+  position: sticky;
+  left: 0;
+  z-index: 6;
+}
+.stl-head-person {
+  background: var(--bg-primary);
+}

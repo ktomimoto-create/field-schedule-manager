@@ -36,6 +36,15 @@ describe('parseTimeSlot', () => {
     expect(parseTimeSlot('9:00~')).toEqual({ from: 540, to: 600, kind: 'at', label: '9:00' })
   })
 
+  it('「16:30~」「16:30-」は 16:30 から', () => {
+    expect(parseTimeSlot('16:30~')).toEqual({ from: 990, to: 1050, kind: 'at', label: '16:30' })
+    expect(parseTimeSlot('16:30-')).toEqual({ from: 990, to: 1050, kind: 'at', label: '16:30' })
+  })
+
+  it('「13-15時」は 13:00〜15:00 の範囲', () => {
+    expect(parseTimeSlot('13-15時')).toEqual({ from: 780, to: 900, kind: 'range', label: '13:00〜15:00' })
+  })
+
   it('「~11:30」は 11:30 迄、「1300」は 13:00', () => {
     expect(parseTimeSlot('~11:30')).toEqual({ from: 630, to: 690, kind: 'until', label: '11:30迄' })
     expect(parseTimeSlot('1300')).toEqual({ from: 780, to: 840, kind: 'at', label: '13:00' })
