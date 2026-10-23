@@ -14,7 +14,7 @@ import { AnalyticsView } from './components/AnalyticsView';
 import { ScheduleModal } from './components/ScheduleModal';
 import { PasteImportModal } from './components/PasteImportModal';
 import { HelpGuideModal } from './components/HelpGuideModal';
-import { Calendar, CalendarDays, ListChecks, RefreshCw, AlertCircle, Settings, Sun, Moon, BarChart3, HelpCircle, ZoomIn, ZoomOut, Smartphone, ChartGantt, LayoutList, Table2, Grid3x3, MapPinned, Download, FlaskConical, Check } from 'lucide-react';
+import { Calendar, CalendarDays, ListChecks, RefreshCw, AlertCircle, Settings, Sun, Moon, BarChart3, HelpCircle, ZoomIn, ZoomOut, Smartphone, LayoutList, Table2, Grid3x3, MapPinned, Download, FlaskConical, Check } from 'lucide-react';
 import { HeaderMoreMenu, type HeaderMoreItem } from './components/shared/HeaderMoreMenu';
 import { ViewTabs, type ViewTabItem } from './components/shared/ViewTabs';
 import { useViewport } from './hooks/useViewport';
@@ -1438,10 +1438,14 @@ frontend/public/_sandbox/${viewDate}.json を置いてください。`);
   };
 
   // 行動予定・月間予定の表示の切り替えタブ
+  // PC の管理側はガントを出さない（全員の 1 日は「カード」の時間軸で見る）。前にガントを開いていた人はカードで開く。
+  // 携帯・一般作業者の「自分の予定」（同じ gantt の枠で出す DayScreen のカード）は残す
+  const hideGantt = canManageSchedules(currentUserRole) && !isMobile;
+  const shownDayView: DayViewKey = hideGantt && dayView === 'gantt' ? 'card' : dayView;
   const dayViewItems: ViewTabItem<DayViewKey>[] = [
-    canManageSchedules(currentUserRole) && !isMobile
-      ? { key: 'gantt', icon: <ChartGantt size={16} />, label: 'ガント', title: '全員の 1 日を担当×時間で見る' }
-      : { key: 'gantt', icon: <ListChecks size={16} />, label: '自分の予定', title: '自分の予定を進む順にカードで見る（開始・完了を押せる）' },
+    ...(hideGantt
+      ? []
+      : [{ key: 'gantt' as const, icon: <ListChecks size={16} />, label: '自分の予定', title: '自分の予定を進む順にカードで見る（開始・完了を押せる）' }]),
     { key: 'card', icon: <LayoutList size={16} />, label: 'カード', title: '担当ごとに訪問を横に並べる（中のボタンで時間軸に切り替え）' },
     { key: 'table', icon: <Table2 size={16} />, label: '表', title: '表で見る・編集する' },
   ];
@@ -1818,7 +1822,7 @@ frontend/public/_sandbox/${viewDate}.json を置いてください。`);
                   <ViewTabs
                     ariaLabel="行動予定の表示"
                     items={dayViewItems}
-                    value={dayView}
+                    value={shownDayView}
                     onChange={setDayView}
                   />
                 )}
@@ -1830,7 +1834,7 @@ frontend/public/_sandbox/${viewDate}.json を置いてください。`);
                     onChange={setMonthView}
                   />
                 )}
-                {activeTab === 'action' && dayView === 'gantt' && (
+                {activeTab === 'action' && shownDayView === 'gantt' && (
                   <DayScreen
                     schedules={transferredSchedules}
                     staff={branchStaff}
@@ -1865,9 +1869,9 @@ frontend/public/_sandbox/${viewDate}.json を置いてください。`);
                     }}
                   />
                 )}
-                {activeTab === 'action' && dayView !== 'gantt' && (
+                {activeTab === 'action' && shownDayView !== 'gantt' && (
                   <GridView
-                    viewMode={dayView}
+                    viewMode={shownDayView}
                     feEvents={feEvents}
                     onUpdateResult={handleUpdateScheduleResult}
                     onReorder={handleReorderSchedules}
