@@ -5,6 +5,7 @@ import type { LatLng } from './geocode';
 import { isSameSite, sameBuilding, travelLeg, travelModeOf, useHomeBase, useSitePositions, WORK_MIN, type LegKind, type TravelMode } from './route';
 import { hmToMin, parseTimeSlot } from './scheduleDisplay';
 import { useFunnaviReservations, usesVehicle, type FunnaviReservation } from './vehicleUsers';
+import { isHoliday, workTone } from './timeline/workTone';
 
 // 1 人の 1 日の訪問を時間の軸に置く（行動予定のガントと予定表の時間軸で共通）。
 // 時間の指定を守る順に枠を押さえ、移動は訪問先の位置（号機 → 物件マスタの住所）からの距離で見積もり、昼休憩を入れる。
@@ -57,16 +58,23 @@ export interface PlanInput {
   mode: TravelMode;
   /** 出動（勤務開始）の記録の時刻 */
   departRec?: number;
+  /** 拠点で行う予定（社内）。出動からそのまま始めるので 1 件目でも移動なし */
+  atBase?: (s: Schedule) => boolean;
 }
 
-export const planStaffDay = ({ items, posOf, base, mode, departRec }: PlanInput): DayPlan => {
+/** 物件名も号機も無い予定、または種別が社内・ミーティングなどは社内（拠点で行う） */
+export const isInOffice = (s: Schedule) =>
+  (!(s.property_name || '').trim() && !(s.unit_number || '').trim()) || (workTone(s.work_type) === 'internal' && !isHoliday(s));
+
+export const planStaffDay = ({ items, posOf, base, mode, departRec, atBase }: PlanInput): DayPlan => {
+  const fromBase = (x: Schedule) => (atBase?.(x) ? { min: 0, kind: 'same' as LegKind } : travelLeg(base, posOf(x), mode));
   const g = { items };
   // 出動の記録が無ければ 9:00 の見込み。ただし 1 件目が 8:00 指定などなら、間に合うように早めに出たとみなす
   const firstNeed = Math.min(
     Infinity,
     ...g.items.map(x => {
       const sl = parseTimeSlot(x.target_time);
-      return sl && sl.kind !== 'until' && sl.from < LUNCH_FROM ? sl.from - travelLeg(base, posOf(x), mode).min : Infinity;
+      return sl && sl.kind !== 'until' && sl.from < LUNCH_FROM ? sl.from - fromBase(x).min : Infinity;
     })
   );
   const depart = departRec ?? Math.min(DAY_START, firstNeed);
@@ -78,7 +86,7 @@ export const planStaffDay = ({ items, posOf, base, mode, departRec }: PlanInput)
   type Blk = { s: Schedule | null; from: number; to: number; pos: LatLng | null; lunch?: boolean };
   const blocks: Blk[] = [{ s: null, from: depart, to: depart, pos: base }];
   const leg = (a: Blk, b: Schedule, bPos: LatLng | null) =>
-    a.s && (sameBuilding(a.s, b) || isSameSite(a.pos, bPos)) ? 0 : travelLeg(a.pos ?? base, bPos, mode).min;
+    a.s && (sameBuilding(a.s, b) || isSameSite(a.pos, bPos)) ? 0 : !a.s ? fromBase(b).min : travelLeg(a.pos ?? base, bPos, mode).min;
   // t より前に終わっている最後の訪問（なければ出動）と、その間の昼休憩
   const prevOf = (t: number) => {
     const done = blocks.filter(b => b.to <= t);
@@ -132,7 +140,7 @@ export const planStaffDay = ({ items, posOf, base, mode, departRec }: PlanInput)
   // 時刻の早い順に並べ、昼休憩を入れる（12:00 以降、最初に 60 分空いたところ。空きが無ければその後の訪問を後ろへずらす）
   const chrono = withSlot.map(w => ({ ...w, start: startOf.get(w.x)! })).sort((a, b) => a.start - b.start || a.idx - b.idx);
   const legBetween = (prev: { x: Schedule } | null, x: Schedule) => {
-    if (!prev) return travelLeg(base, posOf(x), mode);
+    if (!prev) return fromBase(x);
     if (sameBuilding(prev.x, x) || isSameSite(posOf(prev.x), posOf(x))) return { min: 0, kind: 'same' as LegKind };
     return travelLeg(posOf(prev.x) ?? base, posOf(x), mode);
   };
@@ -261,8 +269,9 @@ export const planPersonDay = (name: string, member: Staff | undefined, items: Sc
   const departRec = shiftEv ? hmToMin(jstHm(shiftEv.occurred_at)) ?? undefined : undefined;
   // 出発地: 出動を押した場所。記録が無ければその人の拠点（既定は岩本町、北新横浜の人もいる）から
   const base: LatLng | null = shiftEv?.lat != null && shiftEv?.lng != null ? { lat: shiftEv.lat, lng: shiftEv.lng } : ctx.homeBase(name);
-  const posOf = (x: Schedule) => ctx.sitePos[(x.unit_number || '').trim()] ?? null;
+  // 物件名・号機の無い予定は社内（拠点にいる）。1 件目なら移動なし、現場からなら拠点まで移動する
+  const posOf = (x: Schedule) => (isInOffice(x) ? base : ctx.sitePos[(x.unit_number || '').trim()] ?? null);
   // 移動の手段: 車両の基本利用者（または交通手段が車）なら車、それ以外は電車・徒歩
   const mode = travelModeOf(items, usesVehicle(name, ctx.reservations, ctx.knownSurnames));
-  return { ...planStaffDay({ items, posOf, base, mode, departRec }), base, posOf, mode, departRec };
+  return { ...planStaffDay({ items, posOf, base, mode, departRec, atBase: isInOffice }), base, posOf, mode, departRec };
 };

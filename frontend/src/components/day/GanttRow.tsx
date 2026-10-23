@@ -46,6 +46,10 @@ export function GanttRow({ row, x, now, focused, rowRef, onOpen }: Props) {
         )}
       </div>
       <div className="dg-track">
+        {/* いまの線は帯・移動の下を通す（先に置いて z-index 0） */}
+        {now !== null && now >= DAY_START_MIN && now <= DAY_END_MIN && (
+          <span className="dg-now" style={{ left: x(now) }} aria-hidden="true" />
+        )}
         {row.layout.lunch && (
           <div
             className="dg-lunch"
@@ -88,9 +92,6 @@ export function GanttRow({ row, x, now, focused, rowRef, onOpen }: Props) {
             </button>
           )
         })}
-        {now !== null && now >= DAY_START_MIN && now <= DAY_END_MIN && (
-          <span className="dg-now" style={{ left: x(now) }} aria-hidden="true" />
-        )}
       </div>
     </div>
   )
