@@ -2,7 +2,6 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import type { Schedule, Staff, WorkType, UserRole, Branch } from './types';
 import { GridView } from './components/GridView';
 import { CalendarView } from './components/CalendarView';
-import { TimelineView } from './components/TimelineView';
 import { FeActionView } from './components/FeActionView';
 import { DynamicsMapView } from './components/DynamicsMapView';
 import { TokyoIcon, OsakaIcon } from './components/BranchIcons';
@@ -15,8 +14,10 @@ import { AnalyticsView } from './components/AnalyticsView';
 import { ScheduleModal } from './components/ScheduleModal';
 import { PasteImportModal } from './components/PasteImportModal';
 import { HelpGuideModal } from './components/HelpGuideModal';
-import { Calendar, CalendarDays, Layers, ListChecks, History, RefreshCw, AlertCircle, List, Settings, Sun, Moon, BarChart3, HelpCircle, ZoomIn, ZoomOut, Smartphone, MapPinned, Download, FlaskConical, Check } from 'lucide-react';
+import { Calendar, CalendarDays, Layers, ListChecks, RefreshCw, AlertCircle, Settings, Sun, Moon, BarChart3, HelpCircle, ZoomIn, ZoomOut, Smartphone, ChartGantt, LayoutList, Table2, Grid3x3, MapPinned, Download, FlaskConical, Check } from 'lucide-react';
 import { HeaderMoreMenu, type HeaderMoreItem } from './components/shared/HeaderMoreMenu';
+import { ViewTabs, type ViewTabItem } from './components/shared/ViewTabs';
+import { useViewport } from './hooks/useViewport';
 import { supabase, talkScriptSupabase } from './supabaseClient';
 import { resolveAddress } from './utils/addressResolver';
 import { findStaffByName, canManageSchedules, normalizeRole, BRANCH_NAMES, resolveScheduleBranch, resolveStaffBranch } from './types';
@@ -29,15 +30,25 @@ import { NotificationToast } from './components/shared/NotificationToast';
 import { withTimeout } from './utils/withTimeout';
 import { NotificationBadge } from './components/shared/NotificationBadge';
 import { useRealtimeNotifications } from './hooks/useRealtimeNotifications';
-import { todayJst } from './utils/timeline/dates';
 import './styles/timeline.css';
 
 
 
-// action=行動予定（新）/ month=月間予定（新）/ grid=予定表・calendar=月間予定表（カード・時間軸・表の切り替えつき）
-// map=動態マップ / fe=FE画面 / timeline=旧画面（Phase 2 で削除）
-type AppTab = 'action' | 'month' | 'map' | 'fe' | 'grid' | 'timeline' | 'calendar' | 'master_management' | 'analytics';
-const LEGACY_TABS: AppTab[] = ['timeline'];
+// 上のアイコン: action=行動予定 / month=月間予定 / map=動態マップ（＋ fe=FE画面）
+type AppTab = 'action' | 'month' | 'map' | 'fe' | 'master_management' | 'analytics';
+// 行動予定・月間予定の中の表示は、アイコンの下のタブで切り替える
+// gantt=DayScreen（PC はガント・携帯はカード）、card / timeline / table=予定表（GridView）
+type DayViewKey = 'gantt' | 'card' | 'timeline' | 'table';
+// calendar / heatmap=MonthView、card / table=月間予定表（CalendarView）
+type MonthViewKey = 'calendar' | 'heatmap' | 'card' | 'table';
+
+const readStored = <K extends string>(key: string, allowed: readonly K[], fallback: K): K => {
+  try {
+    const v = localStorage.getItem(key);
+    if (v && (allowed as readonly string[]).includes(v)) return v as K;
+  } catch { /* 保存できない環境では既定 */ }
+  return fallback;
+};
 
 function App() {
   const [activeTab, setActiveTab] = useState<AppTab>('action');
@@ -265,26 +276,17 @@ frontend/public/_sandbox/${viewDate}.json を置いてください。`);
   }, []);
   const [currentStaffId, setCurrentStaffId] = useState<number | null>(null);
 
-  // 旧画面（当日行動予定表）のタブを出すか。管理側だけ。新画面で 2 週間問題なければ Phase 2 で消す
-  const [legacyUi, setLegacyUi] = useState<boolean>(() => {
-    try {
-      return localStorage.getItem('field_app_legacy_ui') === 'true';
-    } catch {
-      return false;
-    }
-  });
-  const toggleLegacyUi = () => {
-    const next = !legacyUi;
-    setLegacyUi(next);
-    try {
-      localStorage.setItem('field_app_legacy_ui', String(next));
-    } catch {
-      // 保存できなくても切り替えはする
-    }
-  };
 
   // 行動予定タブの日付と、ヒートマップから飛んできたときの担当
-  const [dayDate, setDayDate] = useState<string>(() => todayJst());
+  const { isMobile } = useViewport();
+  const [dayView, setDayView] = useState<DayViewKey>(() => readStored('field_app_day_view', ['gantt', 'card', 'timeline', 'table'] as const, 'gantt'));
+  const [monthView, setMonthView] = useState<MonthViewKey>(() => readStored('field_app_month_view', ['calendar', 'heatmap', 'card', 'table'] as const, 'calendar'));
+  useEffect(() => {
+    try { localStorage.setItem('field_app_day_view', dayView); } catch { /* noop */ }
+  }, [dayView]);
+  useEffect(() => {
+    try { localStorage.setItem('field_app_month_view', monthView); } catch { /* noop */ }
+  }, [monthView]);
   const [dayFocusStaffId, setDayFocusStaffId] = useState<number | null>(null);
 
   // ユーザーとスタッフマスタの突合でロール・IDを自動決定
@@ -342,18 +344,15 @@ frontend/public/_sandbox/${viewDate}.json を置いてください。`);
   }, [user, staff]);
 
   useEffect(() => {
-    // 現地対応者は「行動予定」「予定表」と FE画面だけ（他のタブは出さない）
+    // 現地対応者は「行動予定」と FE画面だけ（他のタブは出さない）
     if (!canManageSchedules(currentUserRole)) {
-      if (activeTab !== 'action' && activeTab !== 'grid' && activeTab !== 'fe') setActiveTab('action');
+      if (activeTab !== 'action' && activeTab !== 'fe') setActiveTab('action');
       return;
     }
-    if (
-      (currentUserRole !== 'developer' && activeTab === 'master_management') ||
-      (!legacyUi && LEGACY_TABS.includes(activeTab))
-    ) {
+    if (currentUserRole !== 'developer' && activeTab === 'master_management') {
       setActiveTab('action');
     }
-  }, [currentUserRole, activeTab, legacyUi]);
+  }, [currentUserRole, activeTab]);
 
   useEffect(() => {
     // 現在のセッションを取得
@@ -1429,6 +1428,22 @@ frontend/public/_sandbox/${viewDate}.json を置いてください。`);
     }
   };
 
+  // 行動予定・月間予定の表示の切り替えタブ
+  const dayViewItems: ViewTabItem<DayViewKey>[] = [
+    canManageSchedules(currentUserRole) && !isMobile
+      ? { key: 'gantt', icon: <ChartGantt size={16} />, label: 'ガント', title: '全員の 1 日を担当×時間で見る' }
+      : { key: 'gantt', icon: <ListChecks size={16} />, label: '自分の予定', title: '自分の予定を進む順にカードで見る（開始・完了を押せる）' },
+    { key: 'card', icon: <LayoutList size={16} />, label: 'カード', title: '担当ごとに訪問を順番どおり横に並べる' },
+    { key: 'timeline', icon: <Layers size={16} />, label: '時間軸', title: '担当ごとに訪問を時刻の位置に置く（移動の見積もりつき）' },
+    { key: 'table', icon: <Table2 size={16} />, label: '表', title: '表で見る・編集する' },
+  ];
+  const monthViewItems: ViewTabItem<MonthViewKey>[] = [
+    { key: 'calendar', icon: <CalendarDays size={16} />, label: 'カレンダー', title: '担当×日で予定の中身を見る' },
+    { key: 'heatmap', icon: <Grid3x3 size={16} />, label: 'ヒートマップ', title: '人ごとの混み具合を見る' },
+    { key: 'card', icon: <Calendar size={16} />, label: '月のマス目', title: '1 か月のマス目と、選んだ日の詳細' },
+    { key: 'table', icon: <Table2 size={16} />, label: '表', title: '表で見る・編集する' },
+  ];
+
   // 携帯幅のヘッダーで「⋯」に入れる操作（PC 幅ではヘッダーに並ぶボタンと同じもの）
   const headerMoreItems: HeaderMoreItem[] = [
     { key: 'refresh', icon: <RefreshCw size={16} />, label: 'データを更新', onSelect: () => fetchData(false) },
@@ -1441,13 +1456,6 @@ frontend/public/_sandbox/${viewDate}.json を置いてください。`);
     },
     ...(canManageSchedules(currentUserRole)
       ? [
-          {
-            key: 'legacy',
-            icon: <History size={16} />,
-            label: legacyUi ? '旧画面のタブを隠す' : '旧画面のタブを出す',
-            onSelect: toggleLegacyUi,
-            active: legacyUi,
-          },
           {
             key: 'analytics',
             icon: <BarChart3 size={16} />,
@@ -1547,14 +1555,6 @@ frontend/public/_sandbox/${viewDate}.json を置いてください。`);
               >
                 <ListChecks size={18} />
               </button>
-              <button
-                className={`tab-btn tab-icon-only tab-grid ${activeTab === 'grid' ? 'active' : ''}`}
-                onClick={() => setActiveTab('grid')}
-                title="予定表（カード・時間軸・表）"
-                aria-label="予定表"
-              >
-                <List size={18} />
-              </button>
               {canManageSchedules(currentUserRole) && (
                 <button
                   className={`tab-btn tab-icon-only tab-month ${activeTab === 'month' ? 'active' : ''}`}
@@ -1567,32 +1567,12 @@ frontend/public/_sandbox/${viewDate}.json を置いてください。`);
               )}
               {canManageSchedules(currentUserRole) && (
                 <button
-                  className={`tab-btn tab-icon-only tab-calendar ${activeTab === 'calendar' ? 'active' : ''}`}
-                  onClick={() => setActiveTab('calendar')}
-                  title="月間予定表（カード・表）"
-                  aria-label="月間予定表"
-                >
-                  <Calendar size={18} />
-                </button>
-              )}
-              {canManageSchedules(currentUserRole) && (
-                <button
                   className={`tab-btn tab-icon-only tab-map ${activeTab === 'map' ? 'active' : ''}`}
                   onClick={() => setActiveTab('map')}
                   title="動態マップ"
                   aria-label="動態マップ"
                 >
                   <MapPinned size={18} />
-                </button>
-              )}
-              {canManageSchedules(currentUserRole) && legacyUi && (
-                <button
-                  className={`tab-btn tab-icon-only tab-legacy ${activeTab === 'timeline' ? 'active' : ''}`}
-                  onClick={() => setActiveTab('timeline')}
-                  title="旧 当日行動予定表"
-                  aria-label="旧 当日行動予定表"
-                >
-                  <Layers size={18} />
                 </button>
               )}
             </div>
@@ -1667,17 +1647,6 @@ frontend/public/_sandbox/${viewDate}.json を置いてください。`);
                   onOpen={handleOpenNotice}
                   onMarkAllRead={notifications.markAllRead}
                 />
-              )}
-              {canManageSchedules(currentUserRole) && (
-                <button
-                  type="button"
-                  className={`btn header-desktop-only ${legacyUi ? 'btn-primary' : 'btn-secondary'}`}
-                  onClick={toggleLegacyUi}
-                  aria-pressed={legacyUi}
-                  title={legacyUi ? '旧画面のタブを隠す' : '旧画面（当日行動予定表）のタブを出す'}
-                >
-                  <History size={16} />
-                </button>
               )}
               {canManageSchedules(currentUserRole) && (
                 <button
@@ -1837,14 +1806,30 @@ frontend/public/_sandbox/${viewDate}.json を置いてください。`);
                   </div>
                 )}
                 {activeTab === 'action' && (
+                  <ViewTabs
+                    ariaLabel="行動予定の表示"
+                    items={dayViewItems}
+                    value={dayView}
+                    onChange={setDayView}
+                  />
+                )}
+                {activeTab === 'month' && canManageSchedules(currentUserRole) && (
+                  <ViewTabs
+                    ariaLabel="月間予定の表示"
+                    items={monthViewItems}
+                    value={monthView}
+                    onChange={setMonthView}
+                  />
+                )}
+                {activeTab === 'action' && dayView === 'gantt' && (
                   <DayScreen
                     schedules={transferredSchedules}
                     staff={branchStaff}
                     role={currentUserRole}
                     currentStaffId={currentStaffId}
-                    date={dayDate}
+                    date={viewDate}
                     onDateChange={(d) => {
-                      setDayDate(d);
+                      setViewDate(d);
                       setDayFocusStaffId(null);
                     }}
                     focusStaffId={dayFocusStaffId}
@@ -1853,8 +1838,9 @@ frontend/public/_sandbox/${viewDate}.json を置いてください。`);
                     onUpdateResult={handleUpdateScheduleResult}
                   />
                 )}
-                {canManageSchedules(currentUserRole) && activeTab === 'month' && (
+                {canManageSchedules(currentUserRole) && activeTab === 'month' && (monthView === 'calendar' || monthView === 'heatmap') && (
                   <MonthView
+                    mode={monthView}
                     schedules={branchSchedules}
                     staff={branchStaff}
                     onOpenAdd={handleOpenAddModal}
@@ -1862,14 +1848,16 @@ frontend/public/_sandbox/${viewDate}.json を置いてください。`);
                     onTransfer={handleTransferSchedules}
                     onOpenPasteImport={() => setIsImportOpen(true)}
                     onJumpToDay={(d, staffId) => {
-                      setDayDate(d);
+                      setViewDate(d);
                       setDayFocusStaffId(staffId);
+                      setDayView('gantt');
                       setActiveTab('action');
                     }}
                   />
                 )}
-                {activeTab === 'grid' && (
+                {activeTab === 'action' && dayView !== 'gantt' && (
                   <GridView
+                    viewMode={dayView}
                     feEvents={feEvents}
                     onUpdateResult={handleUpdateScheduleResult}
                     onReorder={handleReorderSchedules}
@@ -1890,18 +1878,6 @@ frontend/public/_sandbox/${viewDate}.json を置いてください。`);
                     activeLocks={activeLocks}
                     onLockSchedule={handleLockSchedule}
                     onUnlockSchedule={handleUnlockSchedule}
-                    zoomLevel={zoomLevel}
-                  />
-                )}
-                {activeTab === 'timeline' && (
-                  <TimelineView
-                    schedules={transferredSchedules}
-                    staff={branchStaff}
-                    onOpenEditModal={handleOpenEditModal}
-                    currentUserRole={currentUserRole}
-                    currentStaffId={currentStaffId}
-                    onUpdateResult={handleUpdateScheduleResult}
-                    onReorder={handleReorderSchedules}
                     zoomLevel={zoomLevel}
                   />
                 )}
@@ -1935,8 +1911,9 @@ frontend/public/_sandbox/${viewDate}.json を置いてください。`);
                     onReorder={handleReorderSchedules}
                   />
                 )}
-                {canManageSchedules(currentUserRole) && activeTab === 'calendar' && (
+                {canManageSchedules(currentUserRole) && activeTab === 'month' && (monthView === 'card' || monthView === 'table') && (
                   <CalendarView
+                    viewMode={monthView}
                     schedules={branchSchedules}
                     staff={branchStaff}
                     onOpenAddModal={handleOpenAddModal}
@@ -1986,7 +1963,7 @@ frontend/public/_sandbox/${viewDate}.json を置いてください。`);
             workTypes={workTypes}
             currentUserEmail={user?.email || 'system'}
             currentUserName={user?.user_metadata?.full_name || user?.user_metadata?.name || staff.find(s => s.email && s.email.toLowerCase() === (user?.email || '').toLowerCase())?.name || ''}
-            defaultTransferred={activeTab === 'calendar' || activeTab === 'month' ? 0 : 1}
+            defaultTransferred={activeTab === 'month' ? 0 : 1}
             lockedBy={selectedSchedule && typeof selectedSchedule.id === 'number' ? activeLocks[selectedSchedule.id] : null}
             readOnly={modalReadOnly}
             currentUserRole={currentUserRole}

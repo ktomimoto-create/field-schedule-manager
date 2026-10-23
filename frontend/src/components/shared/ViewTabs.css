@@ -1,0 +1,40 @@
+/* 表示の切り替えタブ（行動予定・月間予定の上に並ぶ）。選んでいるタブは下線とアクセント色 */
+.view-tabs {
+  display: flex;
+  flex-shrink: 0;
+  gap: 4px;
+  margin: 0 0 8px;
+  border-bottom: 1px solid var(--border-glass);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.view-tab {
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  margin-bottom: -1px;
+  padding: 8px 12px;
+  border: none;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 0.85rem;
+  line-height: 1.4;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.view-tab:hover {
+  filter: brightness(1.12);
+  color: var(--text-primary);
+}
+
+.view-tab.is-active {
+  border-bottom-color: var(--primary);
+  color: var(--primary);
+  font-weight: 700;
+}

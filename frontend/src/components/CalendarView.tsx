@@ -253,6 +253,8 @@ const InlineInput: React.FC<InlineInputProps> = ({
 };
 
 interface CalendarViewProps {
+  /** 表示（カード一覧 / 表）。渡したときは画面の中の切替ボタンを出さない */
+  viewMode?: 'card' | 'table';
   schedules: Schedule[];
   staff: Staff[];
   onOpenAddModal: (date: string) => void;
@@ -271,6 +273,7 @@ interface CalendarViewProps {
 }
 
 export const CalendarView: React.FC<CalendarViewProps> = ({
+  viewMode: viewModeProp,
   schedules,
   staff,
   onOpenAddModal,
@@ -317,7 +320,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
     });
 
   // 表示の切替: カード一覧（既定）/ 表
-  const [viewMode, setViewMode] = useState<'card' | 'table'>(() => {
+  const [ownViewMode, setViewMode] = useState<'card' | 'table'>(() => {
     try {
       return localStorage.getItem('field_app_calendar_view_mode') === 'table' ? 'table' : 'card';
     } catch {
@@ -325,8 +328,9 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
     }
   });
   React.useEffect(() => {
-    try { localStorage.setItem('field_app_calendar_view_mode', viewMode); } catch { /* noop */ }
-  }, [viewMode]);
+    try { localStorage.setItem('field_app_calendar_view_mode', ownViewMode); } catch { /* noop */ }
+  }, [ownViewMode]);
+  const viewMode = viewModeProp ?? ownViewMode;
 
 
   // クイック追加用の状態変数
@@ -2635,6 +2639,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
             </button>
           </div>
           <div className="matrix-nav-buttons action-group">
+            {!viewModeProp && (
             <div className="view-mode-switch" role="group" aria-label="表示の切替">
               <button type="button" className={`view-mode-btn ${viewMode === 'card' ? 'active' : ''}`} onClick={() => setViewMode('card')} title="カード一覧で表示" aria-pressed={viewMode === 'card'}>
                 <LayoutList size={16} />
@@ -2643,6 +2648,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                 <Table2 size={16} />
               </button>
             </div>
+            )}
             {/* 全文表示（表のときだけ。位置がずれないよう、カードでも場所は取っておく） */}
             <button
               type="button"

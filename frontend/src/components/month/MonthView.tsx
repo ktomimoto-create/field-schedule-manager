@@ -21,12 +21,15 @@ interface Props {
   onTransfer: (date: string) => Promise<void>
   onOpenPasteImport: () => void
   onJumpToDay: (date: string, staffId: number | null) => void
+  /** 表示（カレンダー / ヒートマップ）。渡したときは画面の中の切替ボタンを出さない */
+  mode?: MonthMode
 }
 
-export function MonthView({ schedules, staff, onOpenAdd, onOpenEdit, onTransfer, onOpenPasteImport, onJumpToDay }: Props) {
+export function MonthView({ schedules, staff, onOpenAdd, onOpenEdit, onTransfer, onOpenPasteImport, onJumpToDay, mode: modeProp }: Props) {
   const today = todayJst()
   const [month, setMonth] = useState(() => today.slice(0, 7))
-  const [mode, setModeState] = useState<MonthMode>(readMode)
+  const [ownMode, setModeState] = useState<MonthMode>(readMode)
+  const mode = modeProp ?? ownMode
   const [transferring, setTransferring] = useState<string | null>(null)
 
   // ブックマークできるように URL の ?mode= に残す
@@ -76,6 +79,7 @@ export function MonthView({ schedules, staff, onOpenAdd, onOpenEdit, onTransfer,
           )}
         </div>
 
+        {!modeProp && (
         <div className="mv-mode" role="group" aria-label="表示の切り替え">
           <button
             type="button"
@@ -98,6 +102,7 @@ export function MonthView({ schedules, staff, onOpenAdd, onOpenEdit, onTransfer,
             <Grid3x3 size={16} />
           </button>
         </div>
+        )}
 
         <div className="mv-actions">
           <button type="button" className="tl-ghost-btn tl-icon-btn" onClick={onOpenPasteImport} title="スプレッドシートから貼り付けて登録" aria-label="貼り付けて登録">

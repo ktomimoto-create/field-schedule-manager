@@ -992,9 +992,8 @@
   color: var(--danger);
 }
 
-/* 行動予定・月間予定（新）は、予定表・月間予定表と見分けられる色にする */
-.nav-tabs .tab-btn.tab-action { --tab-c: #7c3aed; }
-.nav-tabs .tab-btn.tab-month { --tab-c: #db2777; }
+.nav-tabs .tab-btn.tab-action { --tab-c: #4f46e5; }
+.nav-tabs .tab-btn.tab-month { --tab-c: #ea580c; }
 .nav-tabs .tab-btn.tab-legacy { --tab-c: var(--text-muted); }
 
 /* 携帯幅のヘッダー: 2 段（拠点・ベル・⋯・アカウント ／ タブ）に詰める。

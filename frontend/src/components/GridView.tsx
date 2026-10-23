@@ -99,6 +99,8 @@ const GRID_COLUMNS: (keyof Schedule)[] = [
 ];
 
 interface GridViewProps {
+  /** 表示（カード一覧 / 時間軸 / 表）。渡したときは画面の中の切替ボタンを出さない */
+  viewMode?: 'card' | 'timeline' | 'table';
   schedules: Schedule[];
   staff: Staff[];
   workTypes?: WorkType[];
@@ -126,6 +128,7 @@ interface GridViewProps {
 }
 
 export const GridView: React.FC<GridViewProps> = ({
+  viewMode: viewModeProp,
   schedules,
   staff,
   onOpenAddModal,
@@ -278,7 +281,7 @@ export const GridView: React.FC<GridViewProps> = ({
   const [isPrintPreviewOpen, setIsPrintPreviewOpen] = useState(false);
 
   // 表示の切替: カード一覧（既定）/ 時間軸 / 表
-  const [viewMode, setViewMode] = useState<'card' | 'timeline' | 'table'>(() => {
+  const [ownViewMode, setViewMode] = useState<'card' | 'timeline' | 'table'>(() => {
     try {
       const saved = localStorage.getItem('field_app_grid_view_mode');
       if (saved === 'card' || saved === 'timeline' || saved === 'table') return saved;
@@ -286,8 +289,9 @@ export const GridView: React.FC<GridViewProps> = ({
     return 'card';
   });
   useEffect(() => {
-    try { localStorage.setItem('field_app_grid_view_mode', viewMode); } catch { /* noop */ }
-  }, [viewMode]);
+    try { localStorage.setItem('field_app_grid_view_mode', ownViewMode); } catch { /* noop */ }
+  }, [ownViewMode]);
+  const viewMode = viewModeProp ?? ownViewMode;
   // スマホ（幅 768px 以下）では、自分の予定を担当ごとのカードで出す
   const [isPhone, setIsPhone] = useState(() => typeof window !== 'undefined' && window.matchMedia('(max-width: 768px)').matches);
   useEffect(() => {
@@ -1006,6 +1010,7 @@ export const GridView: React.FC<GridViewProps> = ({
           </div>
 
           <div className="grid-actions-right">
+            {!viewModeProp && (
             <div className="view-mode-switch" role="group" aria-label="表示の切替">
               {([
                 { key: 'card', icon: <LayoutList size={16} />, label: 'カード一覧' },
@@ -1024,6 +1029,7 @@ export const GridView: React.FC<GridViewProps> = ({
                 </button>
               ))}
             </div>
+            )}
 
             {viewMode === 'table' && sortColumn !== 'default' && (
               <button 
