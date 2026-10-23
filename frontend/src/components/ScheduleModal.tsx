@@ -492,6 +492,28 @@ ${description || ''}
     }
   };
 
+  // 外側のクリック・Esc でも閉じる（うしろの画面は触れるように、外側は透明でクリックを通している）
+  //   プルダウン・日付の選択欄は画面の別の所に出るので、その中のクリック・Esc では閉じない
+  useEffect(() => {
+    if (!isOpen) return;
+    const POPUPS = '.schedule-sidebar-content, .select-panel, .dp-popup';
+    const onDown = (e: MouseEvent) => {
+      if (isSubmitting || (e.target as HTMLElement).closest?.(POPUPS)) return;
+      onClose();
+    };
+    const onKey = (e: KeyboardEvent) => {
+      // プルダウン・日付の選択欄は先に Esc を受けて preventDefault する（そのときは選択欄だけ閉じる）
+      if (e.key !== 'Escape' || e.defaultPrevented || isSubmitting || document.querySelector('.select-panel, .dp-popup')) return;
+      onClose();
+    };
+    document.addEventListener('mousedown', onDown);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onDown);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [isOpen, isSubmitting, onClose]);
+
   if (!isOpen) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
