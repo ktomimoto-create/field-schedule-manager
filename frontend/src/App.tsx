@@ -34,9 +34,10 @@ import './styles/timeline.css';
 
 
 
-// action=行動予定（新）/ month=月間予定（新）/ map=動態マップ / fe=FE画面 / grid・timeline・calendar=旧画面（Phase 2 で削除）
+// action=行動予定（新）/ month=月間予定（新）/ grid=予定表・calendar=月間予定表（カード・時間軸・表の切り替えつき）
+// map=動態マップ / fe=FE画面 / timeline=旧画面（Phase 2 で削除）
 type AppTab = 'action' | 'month' | 'map' | 'fe' | 'grid' | 'timeline' | 'calendar' | 'master_management' | 'analytics';
-const LEGACY_TABS: AppTab[] = ['grid', 'timeline', 'calendar'];
+const LEGACY_TABS: AppTab[] = ['timeline'];
 
 function App() {
   const [activeTab, setActiveTab] = useState<AppTab>('action');
@@ -264,7 +265,7 @@ frontend/public/_sandbox/${viewDate}.json を置いてください。`);
   }, []);
   const [currentStaffId, setCurrentStaffId] = useState<number | null>(null);
 
-  // 旧画面（表の予定表・当日行動予定表・月間予定表）のタブを出すか。管理側だけ。新画面で 2 週間問題なければ Phase 2 で消す
+  // 旧画面（当日行動予定表）のタブを出すか。管理側だけ。新画面で 2 週間問題なければ Phase 2 で消す
   const [legacyUi, setLegacyUi] = useState<boolean>(() => {
     try {
       return localStorage.getItem('field_app_legacy_ui') === 'true';
@@ -341,9 +342,9 @@ frontend/public/_sandbox/${viewDate}.json を置いてください。`);
   }, [user, staff]);
 
   useEffect(() => {
-    // 現地対応者は「行動予定」と FE画面だけ（他のタブは出さない）
+    // 現地対応者は「行動予定」「予定表」と FE画面だけ（他のタブは出さない）
     if (!canManageSchedules(currentUserRole)) {
-      if (activeTab !== 'action' && activeTab !== 'fe') setActiveTab('action');
+      if (activeTab !== 'action' && activeTab !== 'grid' && activeTab !== 'fe') setActiveTab('action');
       return;
     }
     if (
@@ -1546,6 +1547,14 @@ frontend/public/_sandbox/${viewDate}.json を置いてください。`);
               >
                 <ListChecks size={18} />
               </button>
+              <button
+                className={`tab-btn tab-icon-only tab-grid ${activeTab === 'grid' ? 'active' : ''}`}
+                onClick={() => setActiveTab('grid')}
+                title="予定表（カード・時間軸・表）"
+                aria-label="予定表"
+              >
+                <List size={18} />
+              </button>
               {canManageSchedules(currentUserRole) && (
                 <button
                   className={`tab-btn tab-icon-only tab-month ${activeTab === 'month' ? 'active' : ''}`}
@@ -1554,6 +1563,16 @@ frontend/public/_sandbox/${viewDate}.json を置いてください。`);
                   aria-label="月間予定"
                 >
                   <CalendarDays size={18} />
+                </button>
+              )}
+              {canManageSchedules(currentUserRole) && (
+                <button
+                  className={`tab-btn tab-icon-only tab-calendar ${activeTab === 'calendar' ? 'active' : ''}`}
+                  onClick={() => setActiveTab('calendar')}
+                  title="月間予定表（カード・表）"
+                  aria-label="月間予定表"
+                >
+                  <Calendar size={18} />
                 </button>
               )}
               {canManageSchedules(currentUserRole) && (
@@ -1567,32 +1586,14 @@ frontend/public/_sandbox/${viewDate}.json を置いてください。`);
                 </button>
               )}
               {canManageSchedules(currentUserRole) && legacyUi && (
-                <>
-                  <button
-                    className={`tab-btn tab-icon-only tab-legacy ${activeTab === 'grid' ? 'active' : ''}`}
-                    onClick={() => setActiveTab('grid')}
-                    title="旧 予定表"
-                    aria-label="旧 予定表"
-                  >
-                    <List size={18} />
-                  </button>
-                  <button
-                    className={`tab-btn tab-icon-only tab-legacy ${activeTab === 'timeline' ? 'active' : ''}`}
-                    onClick={() => setActiveTab('timeline')}
-                    title="旧 当日行動予定表"
-                    aria-label="旧 当日行動予定表"
-                  >
-                    <Layers size={18} />
-                  </button>
-                  <button
-                    className={`tab-btn tab-icon-only tab-legacy ${activeTab === 'calendar' ? 'active' : ''}`}
-                    onClick={() => setActiveTab('calendar')}
-                    title="旧 月間予定表"
-                    aria-label="旧 月間予定表"
-                  >
-                    <Calendar size={18} />
-                  </button>
-                </>
+                <button
+                  className={`tab-btn tab-icon-only tab-legacy ${activeTab === 'timeline' ? 'active' : ''}`}
+                  onClick={() => setActiveTab('timeline')}
+                  title="旧 当日行動予定表"
+                  aria-label="旧 当日行動予定表"
+                >
+                  <Layers size={18} />
+                </button>
               )}
             </div>
 
@@ -1673,7 +1674,7 @@ frontend/public/_sandbox/${viewDate}.json を置いてください。`);
                   className={`btn header-desktop-only ${legacyUi ? 'btn-primary' : 'btn-secondary'}`}
                   onClick={toggleLegacyUi}
                   aria-pressed={legacyUi}
-                  title={legacyUi ? '旧画面のタブを隠す' : '旧画面（表の予定表・当日行動予定表・月間予定表）のタブを出す'}
+                  title={legacyUi ? '旧画面のタブを隠す' : '旧画面（当日行動予定表）のタブを出す'}
                 >
                   <History size={16} />
                 </button>
