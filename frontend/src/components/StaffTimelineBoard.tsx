@@ -9,7 +9,7 @@ import { UNASSIGNED, VisitCardBody } from './StaffLaneBoard';
 import { usePlaceLabel } from '../utils/usePlaceLabel';
 import { ProgressMenu, type StatusHistoryItem } from './ProgressMenu';
 import type { Progress } from '../utils/scheduleDisplay';
-import { planRoute, totalTravel, WORK_MIN, type LegKind, type TravelMode } from '../utils/route';
+import { MOVE_BUFFER_MIN, planRoute, totalTravel, WORK_MIN, type LegKind, type TravelMode } from '../utils/route';
 import { planPersonDay, type DayPlanContext, type PlannedVisit } from '../utils/dayPlan';
 import './StaffLaneBoard.css';
 import './StaffTimelineBoard.css';
@@ -266,6 +266,7 @@ export const StaffTimelineBoard: React.FC<Props> = ({ schedules, staff, date, pl
     '・カードの上の帯: 青＝移動（実績）、緑＝作業（実績）',
     ...(showNow ? ['・赤い縦線: いま'] : []),
     `出動から 1 件 ${WORK_MIN} 分・移動は距離からの見込み（Fun-navi の予約がある人・専用車の人は車、それ以外は電車・徒歩）＋10 分で置いています${reservations == null ? '（予約を読めないため専用車の人だけ車）' : ''}`,
+    '同じ団地の別の棟と 100m 以内は同じ場所として重ね、200m 以内は隣として歩きの時間だけ（＋10 分しない）',
   ].join('\n');
 
   return (
@@ -303,7 +304,7 @@ export const StaffTimelineBoard: React.FC<Props> = ({ schedules, staff, date, pl
           <div className="lane-person">
             <StaffAvatar member={r.member} name={r.name} size={30} />
             <span className="lane-person-text">
-              <span className="lane-name">{r.name}</span>
+              <span className="lane-name" title={r.name} style={{ '--len': [...r.name].length } as React.CSSProperties}>{r.name}</span>
               <span className="lane-meta"><b>{r.live}</b>件・完了 <b>{r.done}</b></span>
               <span className="lane-meta stl-travel">
                 <span title={`今の順番で回ったときの移動の合計（${r.mode === 'car' ? '車' : '電車・徒歩'}）`}>
@@ -382,7 +383,7 @@ export const StaffTimelineBoard: React.FC<Props> = ({ schedules, staff, date, pl
                   <span
                     className={`stl-move leg-${p.legKind}`}
                     style={{ left: `${pct(moveFrom)}%`, width: `${pct(p.start) - pct(moveFrom)}%`, top: MOVE_Y }}
-                    title={`移動 ${p.move} 分の見込み（${LEG_LABEL[p.legKind]}・余裕 10 分を含む）`}
+                    title={`移動 ${p.move} 分の見込み（${LEG_LABEL[p.legKind]}${p.move < MOVE_BUFFER_MIN ? '。200m 以内の隣なので余裕は足していません' : '・余裕 10 分を含む'}）`}
                   >
                     <span>
                       {LegIcon && <LegIcon size={11} />}

@@ -8,6 +8,7 @@ import { parseTimeSlot } from './scheduleDisplay';
 // 通常の所要時間は直線距離からの見込み（道路・線路の地図は使わない）:
 //   車      … 直線 × 1.3 を道のりとし、10km までは時速 25km（都内の一般道）、それを超える分は時速 45km（高速・幹線）
 //   電車・徒歩 … 1km 未満は歩き（直線 × 1.3 を時速 4.8km）。それ以上は駅までの歩き 10 分＋待ち 5 分＋電車（直線 × 1.3 を時速 30km）
+// 近い物件どうし: 100m 以内（と同じ団地の別の棟）は同じ場所として重ね、200m 以内は隣として歩きの時間だけ（余裕の 10 分は足さない）
 
 export const WORK_MIN = 60;
 export const MOVE_BUFFER_MIN = 10;
@@ -35,8 +36,12 @@ const distanceKm = (a: LatLng, b: LatLng) => {
   return 2 * R * Math.asin(Math.sqrt(h));
 };
 
-/** 同じ建物とみなす（50m 以内） */
-export const isSameSite = (a: LatLng | null | undefined, b: LatLng | null | undefined) => !!a && !!b && distanceKm(a, b) < 0.05;
+/** 同じ場所とみなして重ねる距離 */
+const SAME_SITE_KM = 0.1;
+/** 隣とみなし、移動に余裕の 10 分を足さない距離（車の人もこの距離は歩く） */
+const NEXT_DOOR_KM = 0.2;
+/** 同じ場所とみなす（100m 以内） */
+export const isSameSite = (a: LatLng | null | undefined, b: LatLng | null | undefined) => !!a && !!b && distanceKm(a, b) < SAME_SITE_KM;
 /** 歩いて回れる近さ（同じ団地の別の棟など） */
 export const isNearSite = (a: LatLng | null | undefined, b: LatLng | null | undefined) => !!a && !!b && distanceKm(a, b) < WALK_ONLY_KM;
 
@@ -45,6 +50,8 @@ export const travelLeg = (a: LatLng | null | undefined, b: LatLng | null | undef
   if (!a || !b) return { min: MOVE_UNKNOWN_MIN, kind: 'unknown' };
   if (isSameSite(a, b)) return { min: 0, kind: 'same' }; // 同じ建物（A/B/C 制御など）は移動なし
   const road = distanceKm(a, b) * ROAD_FACTOR;
+  // 隣（200m 以内）は歩きの時間だけ。余裕の 10 分は足さない
+  if (road / ROAD_FACTOR < NEXT_DOOR_KM) return { min: Math.max(1, Math.round((road / WALK_KMH) * 60)), kind: 'walk' };
   if (mode === 'car') {
     const drive = (Math.min(road, CAR_CITY_KM) / CAR_KMH + Math.max(0, road - CAR_CITY_KM) / CAR_FAR_KMH) * 60;
     return { min: Math.max(5, Math.round(drive)) + MOVE_BUFFER_MIN, kind: 'car' };
@@ -94,12 +101,13 @@ export const useHomeBase = (): ((staffName: string) => LatLng | null) => {
   );
 };
 
-/** 物件名から（A制御）などの括弧書き・末尾の①②／A制御／B棟・空白を外したもの。同じなら同じ建物とみなす（住所が無い新築でも移動なしにする） */
+/** 物件名から（A制御）などの括弧書き・末尾の①②／A制御／B棟／５号棟・１３号棟・空白を外したもの。
+ *  同じなら同じ敷地とみなす（同じ団地の別の棟も重ねて、移動なしにする。住所が無い新築でも移動なしにする） */
 export const siteKey = (s: Schedule) =>
   (s.property_name || '')
     .replace(/[（(][^）)]*[）)]/g, '')
     .replace(/[①-⑳]+$/u, '')
-    .replace(/\s*[A-ZＡ-Ｚa-z]?(制御|号棟|棟)$/u, '')
+    .replace(/\s*[A-ZＡ-Ｚa-z0-9０-９]*(制御|号棟|棟)$/u, '')
     .replace(/\s/g, '');
 export const sameBuilding = (a: Schedule | null | undefined, b: Schedule) => !!a && !!siteKey(b) && siteKey(a) === siteKey(b);
 
