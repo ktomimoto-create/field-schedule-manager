@@ -292,6 +292,13 @@ export const resolveStaffBranch = (member: Staff | null | undefined): Branch => 
   return 'tokyo';
 };
 
+// 同じ名前・苗字に複数の人が当たるときは、現役の現地対応者（is_active=1 かつ staff）→ 現役 → 名簿の順で選ぶ
+// （例: 「原」が予定管理者の原 拓平ではなく、現地対応者の原 悠介に当たるように）
+const preferFieldStaff = (cands: Staff[]): Staff | undefined =>
+  cands.find(st => st.is_active === 1 && normalizeRole(st.role) === 'staff') ??
+  cands.find(st => st.is_active === 1) ??
+  cands[0];
+
 export const findStaffByName = (staff: Staff[], name: string | null | undefined): Staff | undefined => {
   if (!name) return undefined;
   const cleanName = name.trim();
@@ -310,33 +317,33 @@ export const findStaffByName = (staff: Staff[], name: string | null | undefined)
   }
   
   // 1. 完全一致
-  let matched = staff.find(st => st.name.trim() === cleanName);
+  let matched = preferFieldStaff(staff.filter(st => st.name.trim() === cleanName));
   if (matched) return matched;
 
   // 2. スペース除去同士の完全一致（例: "高田 晴規" === "高田晴規"）
   const noSpaceTarget = cleanName.replace(/[\s　]+/g, '');
-  matched = staff.find(st => st.name.replace(/[\s　]+/g, '') === noSpaceTarget);
+  matched = preferFieldStaff(staff.filter(st => st.name.replace(/[\s　]+/g, '') === noSpaceTarget));
   if (matched) return matched;
   
   // 3. getShortName 同士の一致（例: "高田" === "高田"）
   const targetShort = getShortName(cleanName);
-  matched = staff.find(st => getShortName(st.name) === targetShort);
+  matched = preferFieldStaff(staff.filter(st => getShortName(st.name) === targetShort));
   if (matched) return matched;
 
   // 4. 前方一致（例: マスタが "高田晴規" で検索名が "高田"）
   if (cleanName.length >= 2) {
-    matched = staff.find(st => {
+    matched = preferFieldStaff(staff.filter(st => {
       const stClean = st.name.replace(/^(?:FE|SF|FR|FTS)[\s　]*/i, '').trim();
       return stClean.startsWith(cleanName);
-    });
+    }));
     if (matched) return matched;
   }
 
   // 5. 逆前方一致（例: マスタが "高田" で検索名が "高田晴規"）
-  matched = staff.find(st => {
+  matched = preferFieldStaff(staff.filter(st => {
     const stShort = getShortName(st.name);
     return stShort.length >= 2 && cleanName.startsWith(stShort);
-  });
+  }));
   if (matched) return matched;
 
   return undefined;
