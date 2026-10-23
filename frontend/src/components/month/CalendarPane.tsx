@@ -1,4 +1,4 @@
-import { Fragment, useMemo } from 'react'
+import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState, type MouseEvent } from 'react'
 import { ArrowRightToLine } from 'lucide-react'
 import type { Schedule } from '../../types'
 import { getShortName } from '../../types'
@@ -21,7 +21,37 @@ interface Props {
   onOpenEdit: (s: Schedule) => void
 }
 
-function CalendarChip({ schedule: s, onOpen }: { schedule: Schedule; onOpen: (s: Schedule) => void }) {
+interface Hover {
+  schedule: Schedule
+  rect: { top: number; left: number; right: number }
+}
+
+interface ChipProps {
+  schedule: Schedule
+  onOpen: (s: Schedule) => void
+  onHover: (h: Hover | null) => void
+}
+
+/** 吹き出しに出す項目（空のものは出さない） */
+const DETAIL_FIELDS: { label: string; value: (s: Schedule) => string | null | undefined }[] = [
+  { label: '作業内容', value: s => s.description },
+  { label: '指定時間', value: s => s.target_time },
+  { label: '同行者', value: s => s.co_worker },
+  { label: '移動手段', value: s => s.transport },
+  { label: 'エリア', value: s => [s.prefecture, s.area].filter(Boolean).join(' ') },
+  { label: '依頼番号', value: s => s.request_number },
+  { label: '障害区分', value: s => s.disorder_type },
+  { label: '備考', value: s => s.notes },
+]
+
+function CalendarChip({ schedule: s, onOpen, onHover }: ChipProps) {
+  const hoverProps = {
+    onMouseEnter: (e: MouseEvent<HTMLButtonElement>) => {
+      const r = e.currentTarget.getBoundingClientRect()
+      onHover({ schedule: s, rect: { top: r.top, left: r.left, right: r.right } })
+    },
+    onMouseLeave: () => onHover(null),
+  }
   if (isHoliday(s)) {
     return (
       <button type="button" className="cp-chip cp-holiday tl-wt-internal" onClick={() => onOpen(s)}>
@@ -35,8 +65,8 @@ function CalendarChip({ schedule: s, onOpen }: { schedule: Schedule; onOpen: (s:
     <button
       type="button"
       className={`cp-chip tl-wt-${workTone(s.work_type)} ${pending ? 'is-pending' : ''} ${progressOf(s) === 'cancelled' ? 'is-cancelled' : ''}`}
-      title={pending ? 'まだ行動予定に移していない予定' : undefined}
       onClick={() => onOpen(s)}
+      {...hoverProps}
     >
       <span className="cp-chip-top">
         <span className="cp-wt">{s.work_type || '種別なし'}</span>
@@ -49,7 +79,81 @@ function CalendarChip({ schedule: s, onOpen }: { schedule: Schedule; onOpen: (s:
   )
 }
 
+function DetailPopover({ hover }: { hover: Hover }) {
+  const ref = useRef<HTMLDivElement>(null)
+  const [pos, setPos] = useState<{ left: number; top: number } | null>(null)
+  const s = hover.schedule
+
+  // 幅と高さを測って、右に収まらなければカードの左に出す。上下は画面内に収める
+  useLayoutEffect(() => {
+    if (!ref.current) return
+    const { width, height } = ref.current.getBoundingClientRect()
+    const r = hover.rect
+    const right = r.right + 8
+    const left = right + width <= window.innerWidth - 8 ? right : Math.max(8, r.left - 8 - width)
+    const top = Math.max(8, Math.min(r.top, window.innerHeight - height - 8))
+    setPos({ left, top })
+  }, [hover])
+
+  const badge = targetTimeBadge(s.target_time)
+  const details = DETAIL_FIELDS.map(f => ({ label: f.label, value: f.value(s) })).filter(f => f.value)
+  return (
+    <div
+      ref={ref}
+      className={`cp-pop tl-wt-${workTone(s.work_type)}`}
+      role="tooltip"
+      style={{ left: pos?.left ?? hover.rect.right + 8, top: pos?.top ?? hover.rect.top, visibility: pos ? 'visible' : 'hidden' }}
+    >
+      <div className="cp-pop-head">
+        <span className="tl-badge tl-wt-badge">{s.work_type || '種別なし'}</span>
+        {badge && <span className="cp-time cp-pop-time">{badge}</span>}
+        {s.is_transferred !== 1 && <span className="cp-pop-note">行動予定へ未移行</span>}
+      </div>
+      <div className="cp-pop-title">
+        <span className="cp-pop-prop">{s.property_name || '（物件名なし）'}</span>
+        {s.unit_number && <span className="cp-pop-unit tl-num">{s.unit_number}</span>}
+      </div>
+      {details.length > 0 && (
+        <dl className="cp-pop-list">
+          {details.map(d => (
+            <Fragment key={d.label}>
+              <dt>{d.label}</dt>
+              <dd>{d.value}</dd>
+            </Fragment>
+          ))}
+        </dl>
+      )}
+    </div>
+  )
+}
+
 export function CalendarPane({ days, rows, cells, today, transferring, onTransfer, onOpenAdd, onOpenEdit }: Props) {
+  const [hover, setHover] = useState<Hover | null>(null)
+  const timer = useRef<number | undefined>(undefined)
+
+  // カードを素通りしただけで出ないよう、少し待ってから出す
+  const onHover = (h: Hover | null) => {
+    window.clearTimeout(timer.current)
+    if (!h) {
+      setHover(null)
+      return
+    }
+    timer.current = window.setTimeout(() => setHover(h), 250)
+  }
+
+  useEffect(() => {
+    if (!hover) return
+    const close = () => setHover(null)
+    window.addEventListener('scroll', close, true)
+    window.addEventListener('resize', close)
+    return () => {
+      window.removeEventListener('scroll', close, true)
+      window.removeEventListener('resize', close)
+    }
+  }, [hover])
+
+  useEffect(() => () => window.clearTimeout(timer.current), [])
+
   const pendingByDate = useMemo(() => {
     const map = new Map<string, number>()
     for (const list of cells.values()) {
@@ -63,7 +167,7 @@ export function CalendarPane({ days, rows, cells, today, transferring, onTransfe
 
   return (
     <div className="mv-scroll">
-      <div className="mv-grid" style={{ gridTemplateColumns: `120px repeat(${days.length}, 140px)` }}>
+      <div className="mv-grid" style={{ gridTemplateColumns: `120px repeat(${days.length}, 180px)` }}>
         <div className="mv-corner mv-sticky-col mv-sticky-row" />
         {days.map(d => {
           const wd = weekdayOf(d)
@@ -103,7 +207,7 @@ export function CalendarPane({ days, rows, cells, today, transferring, onTransfe
                   }}
                 >
                   {list.map(s => (
-                    <CalendarChip key={s.id} schedule={s} onOpen={onOpenEdit} />
+                    <CalendarChip key={s.id} schedule={s} onOpen={onOpenEdit} onHover={onHover} />
                   ))}
                 </div>
               )
@@ -111,6 +215,7 @@ export function CalendarPane({ days, rows, cells, today, transferring, onTransfe
           </Fragment>
         ))}
       </div>
+      {hover && <DetailPopover hover={hover} />}
     </div>
   )
 }

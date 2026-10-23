@@ -2,6 +2,8 @@
 .app-tooltip {
   position: fixed;
   z-index: 3000;
+  /* 画面の右端で置き場の幅が縮み、1 文字ずつ縦に折り返さないよう、幅は中身で決める */
+  width: max-content;
   max-width: 320px;
   padding: 6px 10px;
   border: 1px solid var(--border-glass);

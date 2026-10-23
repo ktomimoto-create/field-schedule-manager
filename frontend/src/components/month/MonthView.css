@@ -182,11 +182,17 @@
 }
 
 .cp-wt {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   color: var(--wt);
   font-weight: 700;
 }
 
 .cp-time {
+  flex-shrink: 0;
+  white-space: nowrap;
   margin-left: auto;
   padding: 0 4px;
   border-radius: 4px;
@@ -216,6 +222,88 @@
 .cp-holiday {
   align-items: center;
   color: var(--text-muted);
+}
+
+/* カードの詳細の吹き出し */
+.cp-pop {
+  position: fixed;
+  z-index: 1000;
+  width: 440px;
+  max-width: calc(100vw - 16px);
+  box-sizing: border-box;
+  padding: 12px 14px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-glass);
+  border-top: 3px solid var(--wt);
+  background: var(--bg-secondary);
+  box-shadow: var(--shadow-lg);
+  color: var(--text-primary);
+  font-size: 13px;
+  line-height: 1.5;
+  pointer-events: none;
+}
+
+.cp-pop-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.cp-pop-time {
+  display: inline-flex;
+  align-items: center;
+  height: 28px;
+  box-sizing: border-box;
+  margin-left: 0;
+  padding: 0 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.cp-pop-note {
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.cp-pop-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 10px;
+  margin-bottom: 8px;
+}
+
+.cp-pop-prop {
+  font-size: 15px;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.cp-pop-unit {
+  color: var(--text-secondary);
+}
+
+.cp-pop-list {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr);
+  gap: 4px 10px;
+  margin: 0;
+}
+
+.cp-pop-list dt {
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.cp-pop-list dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
 }
 
 /* ヒートマップ */
