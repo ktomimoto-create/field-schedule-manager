@@ -1,5 +1,5 @@
 import type { Ref } from 'react'
-import { Check } from 'lucide-react'
+import { Check, UtensilsCrossed } from 'lucide-react'
 import type { Schedule } from '../../types'
 import { getShortName } from '../../types'
 import { minToHm } from '../../utils/timeline/dates'
@@ -46,6 +46,16 @@ export function GanttRow({ row, x, now, focused, rowRef, onOpen }: Props) {
         )}
       </div>
       <div className="dg-track">
+        {row.layout.lunch && (
+          <div
+            className="dg-lunch"
+            style={{ left: x(row.layout.lunch[0]), width: x(row.layout.lunch[1]) - x(row.layout.lunch[0]) }}
+            title={`昼休憩 ${minToHm(row.layout.lunch[0])}〜${minToHm(row.layout.lunch[1])}（移動を含めて最大 80 分）`}
+          >
+            <span className="dg-travel-line" />
+            <span className="dg-travel-label"><UtensilsCrossed size={12} /></span>
+          </div>
+        )}
         {row.layout.gaps.map(gap => (
           <TravelOverlay key={`${gap.from}-${gap.to}`} gap={gap} left={x(gap.from)} width={x(gap.to) - x(gap.from)} />
         ))}

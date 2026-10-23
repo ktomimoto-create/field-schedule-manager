@@ -104,7 +104,7 @@ describe('DayScreen', () => {
 
   it('管理側の PC はガント', () => {
     render(<DayScreen {...base} role="manager" currentStaffId={null} />)
-    expect(screen.getByText(/点線＝並び順から置いた目安/)).toBeInTheDocument()
+    expect(screen.getByText(/点線＝指定の無い訪問を空いた所へ置いた目安/)).toBeInTheDocument()
   })
 
   it('管理側の携帯は自分のカード、目のアイコンで全員', () => {

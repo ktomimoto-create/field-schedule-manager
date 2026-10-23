@@ -1,16 +1,14 @@
 import type { Schedule } from '../../types'
-import { hmToMin } from './dates'
-import { parseTimeSlot } from './parseTargetTime'
-import { estimateTravel, type Travel } from './estimateTravelTime'
+import type { DayPlan } from '../dayPlan'
+import type { LegKind, TravelMode as RouteMode } from '../route'
+import type { Travel } from './estimateTravelTime'
 import { progressOf } from './progress'
 import { isHoliday } from './workTone'
 
 export const DAY_START_MIN = 8 * 60
 export const DAY_END_MIN = 20 * 60
-export const FIRST_JOB_MIN = 9 * 60
-export const DEFAULT_WORK_MIN = 60
 
-/** actual=実績 / fixed=時刻指定 / estimated=並び順から置いた目安（画面では点線） */
+/** actual=実績 / fixed=時刻指定 / estimated=指定の無い訪問を空いた所へ置いた目安（画面では点線） */
 export type BarBasis = 'actual' | 'fixed' | 'estimated'
 
 export interface GanttBar {
@@ -34,61 +32,27 @@ export interface DayLayout {
   bars: GanttBar[]
   gaps: TravelGap[]
   laneCount: number
+  /** 昼休憩（その後に訪問が無ければ null） */
+  lunch: [number, number] | null
 }
 
-/**
- * 1 人の 1 日の予定を時間軸に並べる。予定表には終了時刻が無いので:
- * 1. 先に「動かせない帯」を置く: 開始・完了の実績（actual）と時刻指定（10:00 / 14:00〜14:30 = fixed）。
- * 2. 残り（時間なし・AM/PM・「〜迄」= estimated）を並び順に置く。開始は
- *    「並び順で 1 つ前の帯の終わり＋移動の目安」「9:00」「AM/PM の帯の始まり」の最大値。
- *    そこが置き済みの帯と重なるなら、その帯の終わり＋移動の目安まで後ろへずらす。
- *    「〜迄」は前に寄せず、終わりが締切を過ぎたら late を付ける。
- * 3. 開始順に返し、隣り合う帯に隙間があれば移動の目安（gap）を付ける。
- * 作業時間は 1 件 60 分とみなす。時刻指定どうしの重なりはデータのとおり残す。
- * items は orderInDay で並べてから渡す。
- */
-export const layoutStaffDay = (items: Schedule[]): DayLayout => {
-  const targets = items.filter(s => progressOf(s) !== 'cancelled' && !isHoliday(s))
-  const placed = new Map<Schedule, GanttBar>()
+/** 移動のアイコン: 距離からの見込みの手段。位置が分からない区間はその人の手段で出す */
+const gapMode = (kind: LegKind, mode: RouteMode): Travel['mode'] =>
+  kind === 'car' || kind === 'walk' ? kind : kind === 'train' ? 'train' : mode === 'car' ? 'car' : 'train'
 
-  // 1. 実績・時刻指定の帯を、その時刻に置く
-  for (const s of targets) {
-    const started = hmToMin(s.started_at)
-    const completed = hmToMin(s.completed_at)
-    const slot = parseTimeSlot(s.target_time)
-    if (started !== null) {
-      const to = completed !== null && completed > started ? completed : started + DEFAULT_WORK_MIN
-      placed.set(s, { schedule: s, from: started, to, basis: 'actual', lane: 0 })
-    } else if (slot && (slot.kind === 'at' || slot.kind === 'range')) {
-      const to = slot.kind === 'range' ? slot.to : slot.from + DEFAULT_WORK_MIN
-      placed.set(s, { schedule: s, from: slot.from, to, basis: 'fixed', lane: 0 })
-    }
-  }
-
-  // 2. 目安の帯を並び順に置く（置き済みの帯とは重ねない）
-  let prev: GanttBar | null = null
-  for (const s of targets) {
-    if (!placed.has(s)) {
-      const slot = parseTimeSlot(s.target_time)
-      let from = FIRST_JOB_MIN
-      if (prev) from = Math.max(from, prev.to + estimateTravel(prev.schedule, s).minutes)
-      if (slot && slot.kind === 'band') from = Math.max(from, slot.from)
-      for (;;) {
-        const end = from + DEFAULT_WORK_MIN
-        const hit = [...placed.values()].find(b => b.from < end && b.to > from)
-        if (!hit) break
-        from = hit.to + estimateTravel(hit.schedule, s).minutes
-      }
-      const to = from + DEFAULT_WORK_MIN
-      const late = slot !== null && slot.kind === 'until' && to > slot.to
-      placed.set(s, late ? { schedule: s, from, to, basis: 'estimated', late, lane: 0 } : { schedule: s, from, to, basis: 'estimated', lane: 0 })
-    }
-    prev = placed.get(s) ?? null
-  }
-
-  // 3. 開始順に並べ、隙間に移動の目安を付ける
-  const bars = [...placed.values()].sort((a, b) => a.from - b.from)
-  // 重なる帯は空いている最小の段へ
+/** 置いた訪問（utils/dayPlan の planPersonDay の結果）→ ガントの帯・段・移動。
+ * 置き方は予定表の時間軸と同じ（時間の指定を守る順・距離からの移動・昼休憩）。
+ * 時刻・時間帯の指定がある訪問は実線（fixed）、指定の無い訪問は点線（estimated）。キャンセル・休暇は置かない */
+export const layoutFromPlan = (plan: Pick<DayPlan, 'placed' | 'lunch'> & { mode: RouteMode }): DayLayout => {
+  const visits = plan.placed.filter(p => progressOf(p.schedule) !== 'cancelled' && !isHoliday(p.schedule))
+  const bars: GanttBar[] = visits
+    .map(p => {
+      const bar: GanttBar = { schedule: p.schedule, from: p.start, to: p.end, basis: p.estimated ? 'estimated' : 'fixed', lane: 0 }
+      if (p.late) bar.late = true
+      return bar
+    })
+    .sort((a, b) => a.from - b.from)
+  // 重なる帯（同じ建物でまとめて対応など）は空いている最小の段へ
   const laneEnds: number[] = []
   for (const bar of bars) {
     let lane = laneEnds.findIndex(end => end <= bar.from)
@@ -96,11 +60,9 @@ export const layoutStaffDay = (items: Schedule[]): DayLayout => {
     laneEnds[lane] = bar.to
     bar.lane = lane
   }
-  const gaps: TravelGap[] = []
-  for (let i = 1; i < bars.length; i++) {
-    const a = bars[i - 1]
-    const b = bars[i]
-    if (b.from > a.to) gaps.push({ from: a.to, to: b.from, travel: estimateTravel(a.schedule, b.schedule) })
-  }
-  return { bars, gaps, laneCount: Math.max(1, laneEnds.length) }
+  // 移動は各訪問の前（前の場所から着くまで）に置く。同じ建物は移動なし
+  const gaps: TravelGap[] = visits
+    .filter(p => p.move > 0 && p.legKind !== 'same')
+    .map(p => ({ from: p.start - p.move, to: p.start, travel: { minutes: p.move, mode: gapMode(p.legKind, plan.mode) } }))
+  return { bars, gaps, laneCount: Math.max(1, laneEnds.length), lunch: plan.lunch }
 }

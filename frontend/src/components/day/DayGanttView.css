@@ -182,7 +182,8 @@
   overflow: hidden;
 }
 
-.dg-travel {
+.dg-travel,
+.dg-lunch {
   position: absolute;
   top: 10px;
   display: flex;
@@ -235,4 +236,13 @@
   padding: 8px 12px;
   font-size: 12px;
   color: var(--text-muted);
+}
+
+/* 昼休憩: 移動と同じ線の上にフォークのアイコン（色は移動と分ける） */
+.dg-lunch .dg-travel-line {
+  height: 2px;
+  background: var(--warning, #d97706);
+}
+.dg-lunch .dg-travel-label {
+  color: var(--warning, #d97706);
 }

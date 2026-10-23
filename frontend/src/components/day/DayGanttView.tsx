@@ -2,7 +2,9 @@ import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties }
 import type { Schedule, Staff } from '../../types'
 import { hmToMin, nowHmJst, todayJst } from '../../utils/timeline/dates'
 import { groupByStaff } from '../../utils/timeline/groupByStaff'
-import { DAY_END_MIN, DAY_START_MIN, layoutStaffDay } from '../../utils/timeline/layoutDay'
+import { DAY_END_MIN, DAY_START_MIN, layoutFromPlan } from '../../utils/timeline/layoutDay'
+import { planPersonDay, useDayPlanContext } from '../../utils/dayPlan'
+import type { FeEvent } from '../../utils/feEvents'
 import { isHoliday } from '../../utils/timeline/workTone'
 import { GanttRow, type GanttRowData } from './GanttRow'
 import './DayGanttView.css'
@@ -24,17 +26,28 @@ interface Props {
   /** ヒートマップから飛んできたときの担当（その行へスクロールして色を付ける） */
   focusStaffId: number | null
   onOpen: (s: Schedule) => void
+  /** FE のボタン記録（出動の時刻・場所を、置き方に使う） */
+  feEvents?: FeEvent[]
 }
 
-export function DayGanttView({ schedules, staff, date, focusStaffId, onOpen }: Props) {
+const NO_EVENTS: FeEvent[] = []
+
+export function DayGanttView({ schedules, staff, date, focusStaffId, onOpen, feEvents = NO_EVENTS }: Props) {
+  // 置き方は予定表の時間軸と同じ（時間の指定を守る順・訪問先の位置からの移動・昼休憩・出動）
+  const planCtx = useDayPlanContext(schedules, staff, date, feEvents)
+  // 担当は名前でも名簿に当てる。協力会社・担当未定の予定は 1 人の 1 日として置けないので、ガントには出さない（予定表の時間軸と同じ）
+  const days = useMemo(() => groupByStaff(schedules, staff, { matchByName: true }), [schedules, staff])
+  const hiddenCount = days.filter(d => !d.member).reduce((n, d) => n + d.items.length, 0)
   const rows = useMemo<GanttRowData[]>(
     () =>
-      groupByStaff(schedules, staff).map(day => ({
-        ...day,
-        layout: layoutStaffDay(day.items),
-        offToday: day.items.length > 0 && day.items.every(isHoliday),
-      })),
-    [schedules, staff],
+      days
+        .filter(day => day.member)
+        .map(day => ({
+          ...day,
+          layout: layoutFromPlan(planPersonDay(day.name, day.member, day.items, planCtx)),
+          offToday: day.items.length > 0 && day.items.every(isHoliday),
+        })),
+    [days, planCtx],
   )
 
   // 画面幅いっぱいに広げる（測れない環境では最小の縮尺）
@@ -102,7 +115,7 @@ export function DayGanttView({ schedules, staff, date, focusStaffId, onOpen }: P
           )
         })}
       </div>
-      <p className="dg-legend">実線＝時刻指定・実績&emsp;点線＝並び順から置いた目安（1件60分）&emsp;赤枠＝締切に間に合わない並び&emsp;線の上＝移動の目安</p>
+      <p className="dg-legend">実線＝時刻・時間帯の指定&emsp;点線＝指定の無い訪問を空いた所へ置いた目安（1件60分）&emsp;赤枠＝指定の時刻・締切に間に合わない見込み&emsp;線の上＝移動の見込み（訪問先の距離から＋10分）&emsp;フォーク＝昼休憩{hiddenCount > 0 && `　協力会社・未割当の ${hiddenCount} 件は「カード」「表」に出しています`}</p>
     </div>
   )
 }

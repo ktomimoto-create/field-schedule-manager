@@ -14,7 +14,7 @@ export function TravelOverlay({ gap, left, width }: Props) {
   const Icon = ICON[gap.travel.mode]
   const label = `${gap.travel.minutes}分`
   return (
-    <div className="dg-travel" style={{ left, width }} title={`移動の目安 ${label}（エリア・県別から見積もり）`}>
+    <div className="dg-travel" style={{ left, width }} title={`移動の見込み ${label}（訪問先の距離から・余裕 10 分を含む）`}>
       <span className="dg-travel-line" />
       {width >= 20 && (
         <span className="dg-travel-label">

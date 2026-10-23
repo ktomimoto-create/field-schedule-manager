@@ -1,152 +1,84 @@
 import { describe, expect, it } from 'vitest'
-import { layoutStaffDay, type GanttBar } from './layoutDay'
+import { layoutFromPlan } from './layoutDay'
+import { planStaffDay } from '../dayPlan'
+import { MOVE_UNKNOWN_MIN } from '../route'
+import type { Schedule } from '../../types'
 import { makeSchedule } from '../../test/factories'
 
-describe('layoutStaffDay', () => {
-  it('時間の無い予定は 9:00 から 60 分ずつ、間に移動の目安を挟む', () => {
-    const { bars, gaps } = layoutStaffDay([
-      makeSchedule({ id: 1 }),
-      makeSchedule({ id: 2 }),
-      makeSchedule({ id: 3 }),
+// 位置が分からない（号機に住所が無い）ときの置き方。移動は 1 区間 MOVE_UNKNOWN_MIN（15 分＋余裕 10 分）
+const plan = (items: Schedule[]) => planStaffDay({ items, posOf: () => null, base: null, mode: 'transit' })
+const layout = (items: Schedule[]) => layoutFromPlan({ ...plan(items), mode: 'transit' })
+const visit = (id: number, o: Partial<Schedule> = {}) => makeSchedule({ id, property_name: `物件${id}`, ...o })
+const M = MOVE_UNKNOWN_MIN
+
+describe('planStaffDay（ガントと時間軸で共通の置き方）', () => {
+  it('時間の無い訪問は 9:00 の出動から移動して 60 分ずつ並べる', () => {
+    const { placed } = plan([visit(1), visit(2)])
+    expect(placed.map(p => [p.start, p.end, p.estimated])).toEqual([
+      [540 + M, 600 + M, true],
+      [600 + 2 * M, 660 + 2 * M, true],
     ])
-    expect(bars.map(b => [b.from, b.to, b.basis])).toEqual([
-      [540, 600, 'estimated'],
-      [615, 675, 'estimated'],
-      [690, 750, 'estimated'],
-    ])
-    expect(gaps).toHaveLength(2)
-    expect(gaps[0]).toMatchObject({ from: 600, to: 615, travel: { minutes: 15, mode: 'car' } })
   })
 
-  it('時刻指定はその時刻に置く（fixed）', () => {
-    const { bars, gaps } = layoutStaffDay([makeSchedule({ id: 1 }), makeSchedule({ id: 2, target_time: '13:00' })])
-    expect(bars[1]).toMatchObject({ from: 780, to: 840, basis: 'fixed' })
-    expect(gaps[0]).toMatchObject({ from: 600, to: 780 })
+  it('時刻指定はその時刻に置き、「16:30~」も 16:30 から', () => {
+    const { placed } = plan([visit(1, { target_time: '16:30~' }), visit(2, { target_time: '10:00' })])
+    expect(placed.find(p => p.schedule.id === 1)).toMatchObject({ start: 990, estimated: false })
+    expect(placed.find(p => p.schedule.id === 2)).toMatchObject({ start: 600, estimated: false })
   })
 
-  it('開始・完了の実績があればそれを使う（actual）', () => {
-    const { bars } = layoutStaffDay([makeSchedule({ started_at: '10:05', completed_at: '10:40' })])
-    expect(bars[0]).toMatchObject({ from: 605, to: 640, basis: 'actual' })
+  it('行の順ではなく時間の指定を守る順に置く（時刻指定の枠を避ける）', () => {
+    const { placed } = plan([visit(1), visit(2, { target_time: '10:00' })])
+    const free = placed.find(p => p.schedule.id === 1)!
+    const fixed = placed.find(p => p.schedule.id === 2)!
+    expect(fixed.start).toBe(600)
+    // 時間の無い訪問は、10:00 の訪問と重ならない
+    expect(free.end <= fixed.start - M || free.start >= fixed.end).toBe(true)
   })
 
-  it('キャンセルと休暇は置かない', () => {
-    const { bars } = layoutStaffDay([
-      makeSchedule({ id: 1, status: 'cancelled' }),
-      makeSchedule({ id: 2, work_type: '休暇' }),
-      makeSchedule({ id: 3 }),
-    ])
-    expect(bars.map(b => b.schedule.id)).toEqual([3])
+  it('PM 指定は 13:00 より前には置かない', () => {
+    const { placed } = plan([visit(1, { target_time: 'PM' })])
+    expect(placed[0].start).toBeGreaterThanOrEqual(780)
   })
 
-  it('PM は 13:00 より前に置かず、「〜迄」は前に寄せず並び順どおり置いて間に合わなければ late', () => {
-    expect(layoutStaffDay([makeSchedule({ target_time: 'PM' })]).bars[0].from).toBe(780)
-    const { bars } = layoutStaffDay([
-      makeSchedule({ id: 1 }),
-      makeSchedule({ id: 2 }),
-      makeSchedule({ id: 3, target_time: '11:00迄' }),
-    ])
-    expect(bars[2]).toMatchObject({ from: 690, basis: 'estimated', late: true })
-    expect(bars[0].late).toBeUndefined()
+  it('午後まで続く日は 12:00 以降に昼休憩を入れる', () => {
+    const { lunch, placed } = plan([visit(1), visit(2), visit(3), visit(4)])
+    expect(lunch).not.toBeNull()
+    expect(lunch![0]).toBeGreaterThanOrEqual(720)
+    // 昼休憩の間に訪問は置かない
+    expect(placed.every(p => p.end <= lunch![0] || p.start >= lunch![1])).toBe(true)
   })
 
-  it('「〜迄」に間に合うなら late を付けない', () => {
-    const { bars } = layoutStaffDay([makeSchedule({ id: 1, target_time: '17:00迄' })])
-    expect(bars[0]).toMatchObject({ from: 540, to: 600 })
-    expect(bars[0].late).toBeFalsy()
+  it('「〜迄」に間に合わない見込みは late', () => {
+    const { placed } = plan([visit(1, { target_time: '9:00迄' })])
+    expect(placed[0].late).toBe(true)
   })
 
-  it('範囲指定はその枠に置く（fixed）', () => {
-    const { bars } = layoutStaffDay([makeSchedule({ target_time: '14:00~14:30' })])
-    expect(bars[0]).toMatchObject({ from: 840, to: 870, basis: 'fixed' })
-    expect(bars[0].late).toBeUndefined()
-  })
-
-  it('開始だけで完了が無い実績は 60 分で置く', () => {
-    const { bars } = layoutStaffDay([makeSchedule({ started_at: '10:05' })])
-    expect(bars[0]).toMatchObject({ from: 605, to: 665, basis: 'actual' })
-  })
-
-  it('時刻指定が時系列でない並びでも、目安の帯は 1 つ前の帯の終わり＋移動から置く', () => {
-    const { bars, gaps } = layoutStaffDay([
-      makeSchedule({ id: 1, target_time: '13:00' }),
-      makeSchedule({ id: 2, target_time: '10:00' }),
-      makeSchedule({ id: 3 }),
-    ])
-    // 10:00 の帯（〜11:00）の後ろ＋移動 15 分。13:00 の帯とは重ならない
-    expect(bars.map(b => [b.schedule.id, b.from, b.to])).toEqual([
-      [2, 600, 660],
-      [3, 675, 735],
-      [1, 780, 840],
-    ])
-    expect(gaps.at(-1)).toMatchObject({ from: 735, to: 780 })
-  })
-
-  it('結果がキャンセルの予定は置かない', () => {
-    const { bars } = layoutStaffDay([makeSchedule({ id: 1, result: 'キャンセル' }), makeSchedule({ id: 2 })])
-    expect(bars.map(b => b.schedule.id)).toEqual([2])
+  it('同じ建物の訪問は同じ時刻に重ねる', () => {
+    const { placed } = plan([visit(1, { property_name: '同じ棟' }), visit(2, { property_name: '同じ棟' })])
+    expect(placed[0].start).toBe(placed[1].start)
   })
 })
 
-const overlaps = (a: GanttBar, b: GanttBar) => a.from < b.to && b.from < a.to
-const isAnchor = (b: GanttBar) => b.basis !== 'estimated'
-const expectNoOverlap = (bars: GanttBar[]) => {
-  for (let i = 0; i < bars.length; i++) {
-    for (let j = i + 1; j < bars.length; j++) {
-      if (isAnchor(bars[i]) && isAnchor(bars[j])) continue
-      expect(overlaps(bars[i], bars[j]), `${bars[i].schedule.id} と ${bars[j].schedule.id}`).toBe(false)
-    }
-  }
-}
-
-describe('layoutStaffDay 重なり回避', () => {
-  it('時間なし・「必ず」の後に 10:00 指定があっても重ならない', () => {
-    const { bars } = layoutStaffDay([
-      makeSchedule({ id: 1 }),
-      makeSchedule({ id: 2, target_time: '必ず' }),
-      makeSchedule({ id: 3, target_time: '10:00' }),
-    ])
-    expectNoOverlap(bars)
-    expect(bars.map(b => [b.schedule.id, b.from, b.to])).toEqual([
-      [1, 540, 600],
-      [3, 600, 660],
-      [2, 675, 735],
-    ])
+describe('layoutFromPlan（ガントの帯・段・移動）', () => {
+  it('キャンセル・休暇は帯にしない', () => {
+    const { bars } = layout([visit(1, { status: 'cancelled' }), visit(2, { work_type: '休暇' }), visit(3)])
+    expect(bars.map(b => b.schedule.id)).toEqual([3])
   })
 
-  it('「〜迄」が遅れて置かれても 15:00 指定と重ならない', () => {
-    const { bars } = layoutStaffDay([
-      makeSchedule({ id: 1 }),
-      makeSchedule({ id: 2 }),
-      makeSchedule({ id: 3 }),
-      makeSchedule({ id: 4 }),
-      makeSchedule({ id: 5 }),
-      makeSchedule({ id: 6, target_time: '11:30迄' }),
-      makeSchedule({ id: 7, target_time: '15:00' }),
-    ])
-    expectNoOverlap(bars)
-    expect(bars.find(b => b.schedule.id === 6)).toMatchObject({ basis: 'estimated', late: true })
+  it('時刻指定は実線（fixed）、指定なしは点線（estimated）', () => {
+    const { bars } = layout([visit(1), visit(2, { target_time: '13:00' })])
+    expect(bars.find(b => b.schedule.id === 2)!.basis).toBe('fixed')
+    expect(bars.find(b => b.schedule.id === 1)!.basis).toBe('estimated')
   })
 
-  it('時刻指定どうしが同時刻ならデータのまま重ねる', () => {
-    const { bars } = layoutStaffDay([
-      makeSchedule({ id: 1, target_time: '10:00' }),
-      makeSchedule({ id: 2, target_time: '10:00' }),
-    ])
-    expect(bars.map(b => b.from)).toEqual([600, 600])
+  it('各訪問の前に移動の見込みを置く', () => {
+    const { gaps } = layout([visit(1, { target_time: '10:00' }), visit(2, { target_time: '15:00' })])
+    expect(gaps).toContainEqual({ from: 900 - M, to: 900, travel: { minutes: M, mode: 'train' } })
   })
 
-  it('重なる帯は段（lane）を分ける', () => {
-    const { bars, laneCount } = layoutStaffDay([
-      makeSchedule({ id: 1, target_time: '10:00' }),
-      makeSchedule({ id: 2, target_time: '10:00' }),
-    ])
-    expect(bars.map(b => b.lane)).toEqual([0, 1])
+  it('重なる帯は段を分ける', () => {
+    const { bars, laneCount } = layout([visit(1, { property_name: '同じ棟' }), visit(2, { property_name: '同じ棟' })])
     expect(laneCount).toBe(2)
-  })
-
-  it('重ならなければ全部 lane 0', () => {
-    const { bars, laneCount } = layoutStaffDay([makeSchedule({ id: 1 }), makeSchedule({ id: 2 })])
-    expect(bars.map(b => b.lane)).toEqual([0, 0])
-    expect(laneCount).toBe(1)
+    expect(bars.map(b => b.lane).sort()).toEqual([0, 1])
   })
 })

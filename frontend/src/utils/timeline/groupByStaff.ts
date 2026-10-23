@@ -1,5 +1,5 @@
 import type { Schedule, Staff } from '../../types'
-import { compareSchedules } from '../../types'
+import { compareSchedules, findStaffByName } from '../../types'
 
 export interface StaffDay {
   key: string
@@ -21,10 +21,12 @@ const sortKey = (s: Schedule): number => (typeof s.sort_order === 'number' ? s.s
 /** 1 人の 1 日の並び: 当日行動予定表で並べ替えた順（sort_order）→ 予定表と同じ並び（compareSchedules） */
 export const orderInDay = (a: Schedule, b: Schedule): number => sortKey(a) - sortKey(b) || compareSchedules(a, b)
 
-export const groupByStaff = (schedules: Schedule[], staff: Staff[]): StaffDay[] => {
+/** matchByName: 担当の ID が無い（名簿に無い）予定も、対応者の名前が名簿の人に当たればその人に入れる（予定表の時間軸と同じ） */
+export const groupByStaff = (schedules: Schedule[], staff: Staff[], opts: { matchByName?: boolean } = {}): StaffDay[] => {
   const map = new Map<string, StaffDay>()
   for (const s of schedules) {
-    const member = s.staff_id !== null ? staff.find(st => st.id === s.staff_id) : undefined
+    const byId = s.staff_id !== null ? staff.find(st => st.id === s.staff_id) : undefined
+    const member = byId ?? (opts.matchByName ? findStaffByName(staff, s.staff_name) ?? undefined : undefined)
     const key = member ? `id-${member.id}` : 'unassigned'
     let day = map.get(key)
     if (!day) {

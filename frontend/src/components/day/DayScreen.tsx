@@ -9,6 +9,7 @@ import { isFieldJob, isHoliday } from '../../utils/timeline/workTone'
 import { ActionCardView } from '../action/ActionCardView'
 import { ReportModal } from '../ReportModal'
 import { DayGanttView } from './DayGanttView'
+import type { FeEvent } from '../../utils/feEvents'
 import './DayScreen.css'
 
 type UpdateResult = (
@@ -33,11 +34,13 @@ interface Props {
   /** 現地対応者: 予定モーダル（見るだけ） */
   onOpenDetail: (s: Schedule) => void
   onUpdateResult: UpdateResult
+  /** FE のボタン記録（ガントの出動に使う） */
+  feEvents?: FeEvent[]
 }
 
 const uniq = (list: string[]) => [...new Set(list.filter(Boolean))]
 
-export function DayScreen({ schedules, staff, role, currentStaffId, date, onDateChange, focusStaffId, onOpenEdit, onOpenDetail, onUpdateResult }: Props) {
+export function DayScreen({ schedules, staff, role, currentStaffId, date, onDateChange, focusStaffId, onOpenEdit, onOpenDetail, onUpdateResult, feEvents }: Props) {
   const { isMobile } = useViewport()
   const canManage = canManageSchedules(role)
   const [showAll, setShowAll] = useState(false)
@@ -141,7 +144,7 @@ export function DayScreen({ schedules, staff, role, currentStaffId, date, onDate
 
       <div className="ds-body">
         {useGantt ? (
-          <DayGanttView schedules={daySchedules} staff={staff} date={date} focusStaffId={focusStaffId} onOpen={onOpenEdit} />
+          <DayGanttView schedules={daySchedules} staff={staff} date={date} focusStaffId={focusStaffId} onOpen={onOpenEdit} feEvents={feEvents} />
         ) : !allMode && currentStaffId === null ? (
           <p className="ac-empty">スタッフ一覧にあなたのメールアドレスが無いため、自分の予定を出せません。開発者に登録を頼んでください。</p>
         ) : (

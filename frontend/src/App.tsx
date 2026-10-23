@@ -1837,6 +1837,7 @@ frontend/public/_sandbox/${viewDate}.json を置いてください。`);
                     onOpenEdit={handleOpenEditModal}
                     onOpenDetail={handleOpenDetailModal}
                     onUpdateResult={handleUpdateScheduleResult}
+                    feEvents={feEvents}
                   />
                 )}
                 {canManageSchedules(currentUserRole) && activeTab === 'month' && (monthView === 'calendar' || monthView === 'heatmap') && (

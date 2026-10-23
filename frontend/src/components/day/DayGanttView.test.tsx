@@ -38,31 +38,34 @@ describe('DayGanttView', () => {
     expect(onOpen).toHaveBeenCalledWith(expect.objectContaining({ id: 3 }))
   })
 
-  it('同じ人の予定の間に移動の目安を出す', () => {
+  it('各訪問の前に移動の見込みを出す（位置が分からない区間は 25 分）', () => {
     render(
       <DayGanttView
         date="2026-10-16"
         staff={staff}
         focusStaffId={null}
         onOpen={vi.fn()}
-        schedules={[makeSchedule({ id: 1, staff_id: 1, target_time: '10:00' }), makeSchedule({ id: 2, staff_id: 1, target_time: '13:00' })]}
+        schedules={[
+          makeSchedule({ id: 1, staff_id: 1, property_name: 'A棟', target_time: '10:00' }),
+          makeSchedule({ id: 2, staff_id: 1, property_name: 'B棟', target_time: '13:00' }),
+        ]}
       />,
     )
-    expect(screen.getByText('15分')).toBeInTheDocument()
+    expect(screen.getAllByTitle(/移動の見込み 25分/)).toHaveLength(2)
   })
 
-  it('狭い隙間（15 分）はアイコンだけで、分の文字は出さない', () => {
+  it('狭い隙間はアイコンだけで、分の文字は出さない', () => {
     render(
       <DayGanttView
         date="2026-10-16"
         staff={staff}
         focusStaffId={null}
         onOpen={vi.fn()}
-        schedules={[makeSchedule({ id: 1, staff_id: 1 }), makeSchedule({ id: 2, staff_id: 1 })]}
+        schedules={[makeSchedule({ id: 1, staff_id: 1, property_name: 'A棟' }), makeSchedule({ id: 2, staff_id: 1, property_name: 'B棟' })]}
       />,
     )
-    const travel = screen.getByTitle(/15分/)
-    expect(within(travel).queryByText('15分')).toBeNull()
+    const travel = screen.getAllByTitle(/移動の見込み 25分/)[0]
+    expect(within(travel).queryByText('25分')).toBeNull()
     expect(travel.querySelector('svg')).not.toBeNull()
   })
 
