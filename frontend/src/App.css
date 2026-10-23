@@ -664,6 +664,338 @@
 
 
 
+/* ログインボタン: Microsoft のロゴと文字を横並び */
+.btn-login-main {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  line-height: 1.4;
+}
+.btn-login-main .ms-logo {
+  flex-shrink: 0;
+  padding: 3px;
+  border-radius: 3px;
+  background: #fff;
+}
+
+/* FE画面のボタン（タブの右に置くアイコンだけのボタン。ゴースト） */
+.btn-fe-screen {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--border-glass);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+.btn-fe-screen:hover {
+  filter: brightness(1.12);
+  color: var(--primary);
+  border-color: rgba(79, 70, 229, 0.35);
+}
+.btn-fe-screen.active {
+  color: var(--primary);
+  border-color: rgba(79, 70, 229, 0.45);
+  background: rgba(79, 70, 229, 0.08);
+}
+
+/* 切り替えタブを画面の中央線上に置く（右側のボタン群と重ならない 1440px 以上の画面だけ） */
+.header-center {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  position: relative;
+}
+@media (min-width: 1440px) {
+  .header-center {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    gap: 0;
+  }
+  .header-center .btn-fe-screen {
+    position: absolute;
+    left: calc(100% + 8px);
+    top: 50%;
+    margin-top: -18px;
+  }
+}
+@media (max-width: 768px) {
+  .header-center {
+    width: 100%;
+  }
+  .header-center .nav-tabs {
+    flex: 1;
+    min-width: 0;
+  }
+}
+
+/* 右上のアカウント: 名前を外したので、外側の枠（pill）も外してアイコンだけにする */
+.user-profile-trigger {
+  padding: 0 !important;
+  background: transparent !important;
+  border: none !important;
+}
+.user-profile-trigger:hover {
+  background: transparent !important;
+  filter: brightness(1.12);
+}
+
+/* 切り替えタブ: アイコンだけ（文字はツールチップ）。画面ごとにアイコンの色を変えて見分けやすくする */
+.nav-tabs .tab-btn.tab-icon-only {
+  --tab-c: var(--primary);
+  justify-content: center;
+  width: 44px;
+  height: 32px;
+  padding: 0 !important;
+  gap: 0;
+  color: var(--tab-c);
+}
+.nav-tabs .tab-btn.tab-grid { --tab-c: #4f46e5; }
+.nav-tabs .tab-btn.tab-calendar { --tab-c: #ea580c; }
+.nav-tabs .tab-btn.tab-map { --tab-c: #059669; }
+.nav-tabs .tab-btn.tab-icon-only:not(.active) {
+  opacity: 0.75;
+}
+.nav-tabs .tab-btn.tab-icon-only:hover {
+  opacity: 1;
+  filter: brightness(1.12);
+}
+.nav-tabs .tab-btn.tab-icon-only.active {
+  color: var(--tab-c);
+  background: color-mix(in srgb, var(--tab-c) 12%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--tab-c) 40%, transparent);
+}
+.btn-fe-screen {
+  color: #0891b2;
+  width: 32px;
+  height: 32px;
+}
+
+/* 右上のアカウント: 他のボタンと同じ高さ（32px）にそろえる */
+.user-profile-trigger .user-avatar,
+.user-profile-trigger .user-avatar-fallback {
+  width: 32px;
+  height: 32px;
+  box-sizing: border-box;
+}
+
+/* 切り替えタブの枠を詰める（アイコンだけになったので、ボタンは正方形に近く・間は狭く） */
+.nav-tabs:has(.tab-icon-only) {
+  gap: 2px;
+  padding: 3px;
+}
+.nav-tabs .tab-btn.tab-icon-only {
+  width: 36px;
+  height: 34px;
+}
+/* FE画面のボタンは、切り替えタブの枠と同じ高さにそろえる */
+.btn-fe-screen {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-sm);
+}
+.btn-fe-screen svg {
+  width: 20px;
+  height: 20px;
+}
+@media (min-width: 1440px) {
+  .header-center .btn-fe-screen {
+    margin-top: -20px;
+  }
+}
+.nav-tabs .tab-btn.tab-icon-only {
+  min-width: 0;
+  flex: 0 0 36px;
+}
+
+
+/* 絵文字をやめた SVG アイコンを、文字と横並びにそろえる */
+.sandbox-badge,
+.btn-sandbox-toggle {
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+  line-height: 1;
+}
+
+/* アカウントのメニューの「管理画面」（東京 / 大阪）。東京＝赤、大阪＝緑 */
+.user-menu-section-title {
+  padding: 4px 12px 2px;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1.4;
+}
+.user-menu-item.branch-option {
+  --bc: #dc2626;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  line-height: 1.4;
+}
+.user-menu-item.branch-option.is-osaka {
+  --bc: #059669;
+}
+.user-menu-item.branch-option svg:first-child {
+  color: var(--bc);
+}
+.user-menu-item.branch-option.is-active {
+  color: var(--bc);
+  font-weight: 700;
+  background: color-mix(in srgb, var(--bc) 8%, transparent);
+}
+.branch-option-check {
+  margin-left: auto;
+}
+/* アカウントのアイコンの右下に、今の管理画面の印 */
+.user-profile-trigger {
+  position: relative;
+}
+.avatar-branch-badge {
+  --bc: #dc2626;
+  position: absolute;
+  right: -3px;
+  bottom: -3px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border: 1.5px solid var(--bg-secondary);
+  border-radius: 50%;
+  background: var(--bc);
+  color: #fff;
+  pointer-events: none;
+}
+.avatar-branch-badge.is-osaka {
+  --bc: #059669;
+}
+
+/* アカウントのメニュー: 設定・テーマ・操作ガイド（アイコン＋文字を横並び） */
+.user-menu-item.menu-action {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  line-height: 1.4;
+}
+.user-menu-item.menu-action.is-active {
+  color: var(--primary);
+  font-weight: 700;
+}
+.menu-kbd {
+  margin-left: auto;
+  padding: 1px 6px;
+  border: 1px solid var(--border-glass);
+  border-radius: 4px;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 0.7rem;
+  line-height: 1.4;
+}
+
+/* アカウントのメニュー: 名前の横のテーマ切り替えスイッチ（右＝ダーク） */
+.user-menu-name-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.theme-switch {
+  position: relative;
+  flex-shrink: 0;
+  width: 44px;
+  height: 24px;
+  padding: 0;
+  border: 1px solid var(--border-glass);
+  border-radius: 999px;
+  background: #fde68a;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+.theme-switch.is-dark {
+  background: #334155;
+}
+.theme-switch-knob {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #fff;
+  color: #d97706;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+  transition: left 0.15s ease;
+}
+.theme-switch.is-dark .theme-switch-knob {
+  left: 22px;
+  background: #0f172a;
+  color: #facc15;
+}
+
+/* 操作ガイドなどが使っていて未定義だった色の変数を、テーマの色に結び付ける
+   （未定義だと白に戻り、ダークモードで白地に白い文字になっていた） */
+:root,
+.dark-theme {
+  --bg-card: var(--bg-secondary);
+  --bg-header: var(--bg-column-header);
+  --border-color: var(--border-glass);
+}
+
+/* アカウントのメニューもテーマに合わせる（以前は濃紺の決め打ちで、ライトでも暗いままだった） */
+.user-menu-dropdown {
+  background: var(--bg-secondary);
+  border-color: var(--border-glass);
+  box-shadow: var(--shadow-lg);
+  color: var(--text-primary);
+  line-height: 1.4;
+}
+.user-menu-name {
+  color: var(--text-primary);
+}
+.user-menu-email {
+  color: var(--text-muted);
+}
+.user-menu-role {
+  color: var(--primary);
+}
+.user-menu-divider {
+  background: var(--border-glass);
+}
+.user-menu-item {
+  color: var(--text-secondary);
+}
+.user-menu-item:hover {
+  background: var(--bg-card-hover);
+  color: var(--text-primary);
+}
+.user-menu-item.logout-btn {
+  color: var(--danger);
+}
+.user-menu-item.logout-btn:hover {
+  background: rgba(239, 68, 68, 0.1);
+  color: var(--danger);
+}
+
+.nav-tabs .tab-btn.tab-action { --tab-c: #4f46e5; }
+.nav-tabs .tab-btn.tab-month { --tab-c: #ea580c; }
+.nav-tabs .tab-btn.tab-legacy { --tab-c: var(--text-muted); }
+
 /* 携帯幅のヘッダー: 2 段（拠点・ベル・⋯・アカウント ／ タブ）に詰める。
    題名・権限バッジ・表示倍率は出さず、ほかの操作は「⋯」（HeaderMoreMenu）にまとめる。
    幅の境目は行動予定のカード表示と同じ 767px（hooks/useViewport.ts） */
@@ -702,7 +1034,7 @@
     display: none;
   }
 
-  .nav-tabs {
+  .header-center {
     grid-area: tabs;
     width: 100%;
   }

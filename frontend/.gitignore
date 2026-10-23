@@ -22,3 +22,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# お試しモードに読み込む行動予定表の実データ（開発用。git に入れない）
+public/_sandbox/

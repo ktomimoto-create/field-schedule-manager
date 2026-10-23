@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, Check, AlertTriangle, FileText, Plus, Trash2 } from 'lucide-react';
 import { supabase } from '../supabaseClient';
+import DatePicker from './shared/DatePicker';
 import './PasteImportModal.css';
 import { resolveAddress } from '../utils/addressResolver';
 import { findStaffByName, toHalfWidth, normalizeTargetTime } from '../types';
@@ -898,12 +899,9 @@ export const PasteImportModal: React.FC<PasteImportModalProps> = ({
                   {/* インポート予定日付 */}
                   <div className="inline-date-selector">
                     <span className="label-text">インポート日付:</span>
-                    <input
-                      type="date"
-                      className="date-input-sm"
-                      value={targetDate}
-                      onChange={(e) => setTargetDate(e.target.value)}
-                    />
+                    <div style={{ width: '160px' }}>
+                      <DatePicker value={targetDate} onChange={setTargetDate} noClear aria-label="インポート日付" />
+                    </div>
                   </div>
                 </div>
 

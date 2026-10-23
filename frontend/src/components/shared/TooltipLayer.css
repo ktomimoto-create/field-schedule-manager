@@ -1,0 +1,26 @@
+/* ボタンなどの説明の吹き出し（テーマに合わせる。ブラウザ標準の title の代わり） */
+.app-tooltip {
+  position: fixed;
+  z-index: 3000;
+  max-width: 320px;
+  padding: 6px 10px;
+  border: 1px solid var(--border-glass);
+  border-radius: 8px;
+  background: var(--bg-secondary);
+  box-shadow: var(--shadow-md);
+  color: var(--text-primary);
+  font-size: 0.78rem;
+  font-weight: 600;
+  line-height: 1.5;
+  white-space: pre-line;
+  pointer-events: none;
+  transform: translateX(-50%);
+  animation: app-tooltip-in 0.12s ease-out;
+}
+.app-tooltip.is-above {
+  transform: translate(-50%, -100%);
+}
+@keyframes app-tooltip-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}

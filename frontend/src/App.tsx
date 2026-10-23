@@ -3,12 +3,19 @@ import type { Schedule, Staff, WorkType, UserRole, Branch } from './types';
 import { GridView } from './components/GridView';
 import { CalendarView } from './components/CalendarView';
 import { TimelineView } from './components/TimelineView';
+import { FeActionView } from './components/FeActionView';
+import { DynamicsMapView } from './components/DynamicsMapView';
+import { TokyoIcon, OsakaIcon } from './components/BranchIcons';
+import { loadSandboxDay, sandboxImportEnabled } from './utils/sandboxImport';
+import { listFeEvents, listLatestPositions, subscribeSandboxFeEvents, jstDate, FE_EVENT_LABELS, type FeEvent, type FePosition } from './utils/feEvents';
+import type { StatusHistoryItem } from './components/ProgressMenu';
+import type { Progress } from './utils/scheduleDisplay';
 import { MasterManagementView } from './components/MasterManagementView';
 import { AnalyticsView } from './components/AnalyticsView';
 import { ScheduleModal } from './components/ScheduleModal';
 import { PasteImportModal } from './components/PasteImportModal';
 import { HelpGuideModal } from './components/HelpGuideModal';
-import { Calendar, CalendarDays, Layers, ListChecks, History, RefreshCw, AlertCircle, List, Settings, Sun, Moon, BarChart3, HelpCircle, ZoomIn, ZoomOut, FlaskConical } from 'lucide-react';
+import { Calendar, CalendarDays, Layers, ListChecks, History, RefreshCw, AlertCircle, List, Settings, Sun, Moon, BarChart3, HelpCircle, ZoomIn, ZoomOut, Smartphone, MapPinned, Download, FlaskConical, Check } from 'lucide-react';
 import { HeaderMoreMenu, type HeaderMoreItem } from './components/shared/HeaderMoreMenu';
 import { supabase, talkScriptSupabase } from './supabaseClient';
 import { resolveAddress } from './utils/addressResolver';
@@ -27,8 +34,8 @@ import './styles/timeline.css';
 
 
 
-// action=行動予定（新）/ month=月間予定（新）/ grid・timeline・calendar=旧画面（Phase 2 で削除）
-type AppTab = 'action' | 'month' | 'grid' | 'timeline' | 'calendar' | 'master_management' | 'analytics';
+// action=行動予定（新）/ month=月間予定（新）/ map=動態マップ / fe=FE画面 / grid・timeline・calendar=旧画面（Phase 2 で削除）
+type AppTab = 'action' | 'month' | 'map' | 'fe' | 'grid' | 'timeline' | 'calendar' | 'master_management' | 'analytics';
 const LEGACY_TABS: AppTab[] = ['grid', 'timeline', 'calendar'];
 
 function App() {
@@ -75,6 +82,47 @@ function App() {
     return localStorage.getItem('field_app_sandbox_mode') === 'true';
   });
 
+  // FE のボタン記録（出発・到着・作業完了など）。直近 8 日分を持ち、本番は 20 秒ごとに取り直す（FE動態と同じ間隔）
+  const [feEvents, setFeEvents] = useState<FeEvent[]>([]);
+  const [feUnavailable, setFeUnavailable] = useState(false);
+  const [fePositions, setFePositions] = useState<FePosition[]>([]);
+
+  // 見ている日（予定表・当日行動予定表・動態マップで共通。画面を切り替えても同じ日を見続ける）。
+  // 同じタブの中だけ覚える（日付が変わった翌日に開き直したら今日に戻す）
+  const [viewDate, setViewDate] = useState<string>(() => {
+    try {
+      const saved = JSON.parse(sessionStorage.getItem('field_app_view_date') || 'null') as { date: string; savedOn: string } | null;
+      if (saved && saved.savedOn === jstDate()) return saved.date;
+    } catch { /* noop */ }
+    return jstDate();
+  });
+  useEffect(() => {
+    try { sessionStorage.setItem('field_app_view_date', JSON.stringify({ date: viewDate, savedOn: jstDate() })); } catch { /* noop */ }
+  }, [viewDate]);
+  const refreshFeEvents = useCallback(async () => {
+    const to = jstDate(new Date(Date.now() + 86400_000));
+    const from = jstDate(new Date(Date.now() - 7 * 86400_000));
+    const { events, unavailable } = await listFeEvents(from, to, isSandboxMode);
+    setFeEvents(events);
+    setFeUnavailable(unavailable);
+    setFePositions(await listLatestPositions(isSandboxMode));
+  }, [isSandboxMode]);
+  useEffect(() => {
+    const first = setTimeout(() => void refreshFeEvents(), 0);
+    if (isSandboxMode) {
+      const unsubscribe = subscribeSandboxFeEvents(() => void refreshFeEvents());
+      return () => {
+        clearTimeout(first);
+        unsubscribe();
+      };
+    }
+    const t = setInterval(() => void refreshFeEvents(), 20_000);
+    return () => {
+      clearTimeout(first);
+      clearInterval(t);
+    };
+  }, [refreshFeEvents, isSandboxMode]);
+
   // 同期保存（コピペ等）時の採番競合防止用の一時プール (キー: "YYYY-MM-DD", 値: 使用済みコースのSet)
   const tempUsedCoursesRef = useRef<Record<string, Set<number>>>({});
 
@@ -98,6 +146,38 @@ function App() {
   };
 
   // お試しデータのリセット（最新本番データで再同期）
+  // 開発用: お試しモードに、見ている日の行動予定表（スプレッドシートの実データ）を読み込む
+  const handleLoadSandboxDay = async () => {
+    const rows = await loadSandboxDay(viewDate, staff);
+    if (!rows) {
+      alert(`${viewDate} の行動予定表のデータがありません。
+frontend/public/_sandbox/${viewDate}.json を置いてください。`);
+      return;
+    }
+    setSchedules(prev => {
+      const next = [...prev.filter(s => !(s.date === viewDate && s.is_transferred === 1)), ...rows];
+      localStorage.setItem('field_app_sandbox_schedules', JSON.stringify(next));
+      return next;
+    });
+  };
+
+  // 開発用: お試しモードで、見ている日の予定表が空なら、行動予定表のデータ（あれば）を自動で読み込む（日ごとに 1 回）
+  const autoLoadedDaysRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    if (!sandboxImportEnabled || !isSandboxMode || staff.length === 0 || loading) return;
+    if (autoLoadedDaysRef.current.has(viewDate)) return;
+    if (schedules.some(s => s.date === viewDate && s.is_transferred === 1)) return;
+    autoLoadedDaysRef.current.add(viewDate);
+    void loadSandboxDay(viewDate, staff).then(rows => {
+      if (!rows) return;
+      setSchedules(prev => {
+        const next = [...prev.filter(s => !(s.date === viewDate && s.is_transferred === 1)), ...rows];
+        localStorage.setItem('field_app_sandbox_schedules', JSON.stringify(next));
+        return next;
+      });
+    });
+  }, [isSandboxMode, viewDate, staff, schedules, loading]);
+
   const handleResetSandboxData = async () => {
     const confirmReset = window.confirm(
       "現在のお試しデータを破棄し、最新の本番データ状態でリセットしますか？\n（本番データには一切影響しません）"
@@ -143,6 +223,23 @@ function App() {
 
   const [user, setUser] = useState<any>(null);
   const [showUserMenu, setShowUserMenu] = useState(false);
+  // アカウントのメニューは、外を押すか Esc で閉じる
+  const userMenuRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (!showUserMenu) return;
+    const onDown = (e: MouseEvent) => {
+      if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) setShowUserMenu(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setShowUserMenu(false);
+    };
+    document.addEventListener('mousedown', onDown);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onDown);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [showUserMenu]);
   const [currentUserRole, setCurrentUserRole] = useState<UserRole>('staff');
   const [isHelpGuideOpen, setIsHelpGuideOpen] = useState(false);
 
@@ -244,9 +341,9 @@ function App() {
   }, [user, staff]);
 
   useEffect(() => {
-    // 現地対応者は「行動予定」だけ（他のタブは出さない）
+    // 現地対応者は「行動予定」と FE画面だけ（他のタブは出さない）
     if (!canManageSchedules(currentUserRole)) {
-      if (activeTab !== 'action') setActiveTab('action');
+      if (activeTab !== 'action' && activeTab !== 'fe') setActiveTab('action');
       return;
     }
     if (
@@ -290,6 +387,9 @@ function App() {
         provider: 'azure',
         options: {
           scopes: 'openid profile email offline_access',
+          // ログイン後に今開いている場所へ戻す（ローカルの dev から本番の URL へ飛ばされないように）。
+          // Supabase Auth の Redirect URLs に無い URL のときは、Supabase が Site URL（本番）へ戻す
+          redirectTo: window.location.origin,
         }
       });
       if (error) throw error;
@@ -448,6 +548,50 @@ function App() {
       alert(err.message || 'エラーが発生しました。');
       throw err;
     }
+  };
+
+  // 対応状況を変える（管理側・カードの右クリック）。結果・開始・完了の時刻を合わせて直し、変更履歴に残す
+  const SANDBOX_STATUS_HISTORY_KEY = 'field_app_sandbox_status_history';
+  const handleSetProgress = async (s: Schedule, p: Progress) => {
+    const d = new Date();
+    const hm = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+    const label = { todo: '未着手', working: '対応中', done: '完了' }[p];
+    if (p === 'done') await handleUpdateScheduleResult(s.id, '完了', s.started_at || hm, hm);
+    else if (p === 'working') await handleUpdateScheduleResult(s.id, '作業中', s.started_at || hm, null);
+    else await handleUpdateScheduleResult(s.id, '', null, null);
+    if (isSandboxMode) {
+      try {
+        const all = JSON.parse(localStorage.getItem(SANDBOX_STATUS_HISTORY_KEY) || '{}') as Record<string, StatusHistoryItem[]>;
+        const by = user?.user_metadata?.full_name || user?.user_metadata?.name || staff.find(st => st.id === currentStaffId)?.name || '管理者';
+        all[String(s.id)] = [{ at: d.toISOString(), by, text: `対応状況を「${label}」に変更` }, ...(all[String(s.id)] || [])];
+        localStorage.setItem(SANDBOX_STATUS_HISTORY_KEY, JSON.stringify(all));
+      } catch { /* 履歴が残せなくても状況の変更は済んでいる */ }
+    }
+  };
+  // そのカードの変更履歴（結果の変更＋FE のボタン記録）。新しい順
+  const loadStatusHistory = async (s: Schedule): Promise<StatusHistoryItem[]> => {
+    const nameOf = (emailOrName: string) => staff.find(st => st.email?.toLowerCase().trim() === emailOrName.toLowerCase().trim())?.name || emailOrName;
+    const items: StatusHistoryItem[] = [];
+    if (isSandboxMode) {
+      try {
+        const all = JSON.parse(localStorage.getItem(SANDBOX_STATUS_HISTORY_KEY) || '{}') as Record<string, StatusHistoryItem[]>;
+        items.push(...(all[String(s.id)] || []));
+      } catch { /* noop */ }
+    } else if (typeof s.id === 'number') {
+      const { data } = await supabase
+        .from('audit_logs')
+        .select('timestamp, details, changed_by, action')
+        .eq('schedule_id', s.id)
+        .order('timestamp', { ascending: false })
+        .limit(30);
+      for (const row of (data || []) as { timestamp: string; details: string; changed_by: string; action: string }[]) {
+        items.push({ at: row.timestamp, by: nameOf(row.changed_by || ''), text: (row.details || row.action || '').replace('予定の結果を更新しました: ', '結果を「').replace(/^(結果を「.*)$/, '$1」に変更').replace('結果を「」に変更', '結果を空欄に変更') });
+      }
+    }
+    for (const e of feEvents.filter(x => x.schedule_id === s.id)) {
+      items.push({ at: e.occurred_at, by: `${staff.find(st => st.id === e.staff_id)?.name || 'FE'}（FE画面）`, text: FE_EVENT_LABELS[e.kind] });
+    }
+    return items.sort((a, b) => b.at.localeCompare(a.at));
   };
 
   const handleReorderSchedules = async (orders: { id: number | string; sort_order: number }[]) => {
@@ -1312,24 +1456,6 @@ function App() {
           },
         ]
       : []),
-    ...(currentUserRole === 'developer'
-      ? [
-          {
-            key: 'master',
-            icon: <Settings size={16} />,
-            label: 'マスタ管理',
-            onSelect: () => setActiveTab('master_management'),
-            active: activeTab === 'master_management',
-          },
-        ]
-      : []),
-    {
-      key: 'theme',
-      icon: theme === 'light' ? <Moon size={16} /> : <Sun size={16} />,
-      label: theme === 'light' ? 'ダークモード' : 'ライトモード',
-      onSelect: () => setTheme(theme === 'light' ? 'dark' : 'light'),
-    },
-    { key: 'help', icon: <HelpCircle size={16} />, label: '操作ガイド', onSelect: () => setIsHelpGuideOpen(true) },
   ];
 
   return (
@@ -1342,6 +1468,13 @@ function App() {
             <p className="login-subtitle">続行するにはサインインしてください</p>
             
             <button className="btn btn-primary btn-login-main" onClick={handleLogin}>
+              {/* Microsoft のロゴ（4色の四角） */}
+              <svg className="ms-logo" width="18" height="18" viewBox="0 0 21 21" aria-hidden="true">
+                <rect x="1" y="1" width="9" height="9" fill="#f25022" />
+                <rect x="11" y="1" width="9" height="9" fill="#7fba00" />
+                <rect x="1" y="11" width="9" height="9" fill="#00a4ef" />
+                <rect x="11" y="11" width="9" height="9" fill="#ffb900" />
+              </svg>
               Microsoft アカウントでログイン
             </button>
 
@@ -1360,7 +1493,8 @@ function App() {
                 一般作業者でデモログイン
               </button>
               <button className="btn btn-secondary" onClick={handleDemoOsakaLogin} style={{ borderColor: '#f97316' }}>
-                🐙 黒川（大阪支店デモ）
+                <OsakaIcon size={16} />
+                黒川（大阪支店デモ）
               </button>
             </div>
           </div>
@@ -1371,10 +1505,16 @@ function App() {
           {isSandboxMode && (
             <div className="sandbox-banner">
               <div className="sandbox-banner-content">
-                <span className="sandbox-badge">🧪 お試しモード中</span>
+                <span className="sandbox-badge"><FlaskConical size={12} /> お試しモード中</span>
                 <span>本番データには一切影響しません。予定の追加・変更・削除・ドラッグ移動など自由にお試しいただけます。</span>
               </div>
               <div className="sandbox-banner-actions">
+                {sandboxImportEnabled && (
+                  <button className="sandbox-btn-reset" onClick={handleLoadSandboxDay} title="見ている日の行動予定表（スプレッドシートの実データ）をお試しモードに読み込みます（開発用）">
+                    <Download size={13} />
+                    行動予定表を読み込む
+                  </button>
+                )}
                 <button className="sandbox-btn-reset" onClick={handleResetSandboxData} title="最新の本番データ状態でリセットします">
                   <RefreshCw size={13} />
                   お試しデータをリセット
@@ -1393,73 +1533,80 @@ function App() {
                 {currentUserRole === 'developer' ? '開発者環境' : currentUserRole === 'manager' ? '予定管理者環境' : '一般作業者環境'}
               </span>
 
-              {/* 拠点切り替えスイッチ（東京 / 大阪） */}
-              <div className="branch-switcher" role="group" aria-label="拠点切り替え">
-                <button
-                  type="button"
-                  className={`branch-btn ${currentBranch === 'tokyo' ? 'active tokyo' : ''}`}
-                  onClick={() => handleSwitchBranch('tokyo')}
-                  title="東京 (東日本) の予定・スタッフを表示"
-                >
-                  <span className="branch-icon">🏢</span>
-                  <span className="branch-label">東京</span>
-                  <span className="branch-tag">東日本</span>
-                </button>
-                <button
-                  type="button"
-                  className={`branch-btn ${currentBranch === 'osaka' ? 'active osaka' : ''}`}
-                  onClick={() => handleSwitchBranch('osaka')}
-                  title="大阪 (西日本) の予定・スタッフを表示"
-                >
-                  <span className="branch-icon">🐙</span>
-                  <span className="branch-label">大阪</span>
-                  <span className="branch-tag">西日本</span>
-                </button>
-              </div>
             </div>
 
+            {/* 切り替えタブ（広い画面では画面の中央線上に置く）と、その右の FE画面ボタン */}
+            <div className="header-center">
             <div className="nav-tabs">
               <button
-                className={`tab-btn ${activeTab === 'action' ? 'active' : ''}`}
+                className={`tab-btn tab-icon-only tab-action ${activeTab === 'action' ? 'active' : ''}`}
                 onClick={() => { setDayFocusStaffId(null); setActiveTab('action'); }}
+                title="行動予定"
+                aria-label="行動予定"
               >
-                <ListChecks size={16} />
-                行動予定
+                <ListChecks size={18} />
               </button>
               {canManageSchedules(currentUserRole) && (
                 <button
-                  className={`tab-btn ${activeTab === 'month' ? 'active' : ''}`}
+                  className={`tab-btn tab-icon-only tab-month ${activeTab === 'month' ? 'active' : ''}`}
                   onClick={() => setActiveTab('month')}
+                  title="月間予定"
+                  aria-label="月間予定"
                 >
-                  <CalendarDays size={16} />
-                  月間予定
+                  <CalendarDays size={18} />
+                </button>
+              )}
+              {canManageSchedules(currentUserRole) && (
+                <button
+                  className={`tab-btn tab-icon-only tab-map ${activeTab === 'map' ? 'active' : ''}`}
+                  onClick={() => setActiveTab('map')}
+                  title="動態マップ"
+                  aria-label="動態マップ"
+                >
+                  <MapPinned size={18} />
                 </button>
               )}
               {canManageSchedules(currentUserRole) && legacyUi && (
                 <>
                   <button
-                    className={`tab-btn ${activeTab === 'grid' ? 'active' : ''}`}
+                    className={`tab-btn tab-icon-only tab-legacy ${activeTab === 'grid' ? 'active' : ''}`}
                     onClick={() => setActiveTab('grid')}
+                    title="旧 予定表"
+                    aria-label="旧 予定表"
                   >
-                    <List size={16} />
-                    旧 予定表
+                    <List size={18} />
                   </button>
                   <button
-                    className={`tab-btn ${activeTab === 'timeline' ? 'active' : ''}`}
+                    className={`tab-btn tab-icon-only tab-legacy ${activeTab === 'timeline' ? 'active' : ''}`}
                     onClick={() => setActiveTab('timeline')}
+                    title="旧 当日行動予定表"
+                    aria-label="旧 当日行動予定表"
                   >
-                    <Layers size={16} />
-                    旧 当日行動予定表
+                    <Layers size={18} />
                   </button>
                   <button
-                    className={`tab-btn ${activeTab === 'calendar' ? 'active' : ''}`}
+                    className={`tab-btn tab-icon-only tab-legacy ${activeTab === 'calendar' ? 'active' : ''}`}
                     onClick={() => setActiveTab('calendar')}
+                    title="旧 月間予定表"
+                    aria-label="旧 月間予定表"
                   >
-                    <Calendar size={16} />
-                    旧 月間予定表
+                    <Calendar size={18} />
                   </button>
                 </>
               )}
+            </div>
+
+            {/* FE のスマホ画面（切り替えタブとは別のアイコンボタン） */}
+            <button
+              type="button"
+              className={`btn-fe-screen ${activeTab === 'fe' ? 'active' : ''}`}
+              onClick={() => setActiveTab('fe')}
+              title="FE画面（出発・到着・作業完了を押して記録）"
+              aria-label="FE画面"
+              aria-pressed={activeTab === 'fe'}
+            >
+              <Smartphone size={18} />
+            </button>
             </div>
 
             <div className="header-actions">
@@ -1475,7 +1622,7 @@ function App() {
                 onClick={() => handleToggleSandboxMode(!isSandboxMode)}
                 title={isSandboxMode ? 'お試しモードを終了して本番モードに戻る' : '本番データに影響しないお試しモードを開始する'}
               >
-                <span>🧪</span>
+                <FlaskConical size={16} />
                 <span>{isSandboxMode ? 'お試し中' : 'お試しモード'}</span>
               </button>
 
@@ -1540,36 +1687,7 @@ function App() {
                   <BarChart3 size={16} />
                 </button>
               )}
-              {currentUserRole === 'developer' && (
-                <button
-                  className={`btn header-desktop-only ${activeTab === 'master_management' ? 'btn-primary' : 'btn-secondary'}`}
-                  onClick={() => setActiveTab('master_management')}
-                  title="マスタ管理を開く"
-                >
-                  <Settings size={16} />
-                </button>
-              )}
 
-              <div className="header-divider header-desktop-only"></div>
-
-              {/* グループ3: システム・サポート・アカウント */}
-              <button 
-                className="btn btn-secondary header-desktop-only" 
-                onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')} 
-                title={theme === 'light' ? 'ダークモードに切り替え' : 'ライトモードに切り替え'}
-              >
-                {theme === 'light' ? <Moon size={16} /> : <Sun size={16} />}
-              </button>
-
-              <button 
-                className="btn btn-secondary header-help-btn header-desktop-only" 
-                onClick={() => setIsHelpGuideOpen(true)} 
-                title="操作ガイド・よくある質問（ショートカット: ?）"
-              >
-                <HelpCircle size={16} />
-                <span className="help-btn-text">操作ガイド</span>
-                <span className="help-shortcut-badge">?</span>
-              </button>
 
 
               {/* 携帯幅: 上のボタンを隠し、この「⋯」にまとめる */}
@@ -1578,7 +1696,7 @@ function App() {
               {/* アカウント表示エリア */}
               {/* Azure (Entra ID) ログインは user_metadata に写真URLを返さないため、
                   スタッフ一覧と同じく talkscript-flow profiles 由来の avatar_url にメールで突合する */}
-              <div className="user-profile-section">
+              <div className="user-profile-section" ref={userMenuRef}>
                 <div 
                   className="user-profile-trigger" 
                   onClick={() => setShowUserMenu(!showUserMenu)}
@@ -1603,14 +1721,79 @@ function App() {
                     </div>
                   );
                   })()}
-                  <span className="user-name">{user.user_metadata?.full_name || user.email}</span>
+                  <span className={`avatar-branch-badge is-${currentBranch}`} title={currentBranch === 'tokyo' ? '東京（東日本）の管理画面' : '大阪（西日本）の管理画面'}>
+                    {currentBranch === 'tokyo' ? <TokyoIcon size={10} /> : <OsakaIcon size={10} />}
+                  </span>
                   {showUserMenu && (
                     <div className="user-menu-dropdown">
                       <div className="user-menu-info">
-                        <p className="user-menu-name">{user.user_metadata?.full_name || 'ユーザー'}</p>
+                        <div className="user-menu-name-row">
+                          <p className="user-menu-name">{user.user_metadata?.full_name || 'ユーザー'}</p>
+                          <button
+                            type="button"
+                            role="switch"
+                            aria-checked={theme === 'dark'}
+                            className={`theme-switch${theme === 'dark' ? ' is-dark' : ''}`}
+                            onClick={e => {
+                              e.stopPropagation();
+                              setTheme(theme === 'light' ? 'dark' : 'light');
+                            }}
+                            title={theme === 'light' ? 'ダークモードにする' : 'ライトモードにする'}
+                            aria-label="ダークモード"
+                          >
+                            <span className="theme-switch-knob">{theme === 'dark' ? <Moon size={12} /> : <Sun size={12} />}</span>
+                          </button>
+                        </div>
                         <p className="user-menu-email">{user.email}</p>
                         <p className="user-menu-role">権限: {currentUserRole === 'developer' ? '開発者' : currentUserRole === 'manager' ? '予定管理者' : '一般作業者'}</p>
                       </div>
+                      <div className="user-menu-divider"></div>
+                      <div className="user-menu-section-title">管理画面</div>
+                      {(['tokyo', 'osaka'] as const).map(b => (
+                        <button
+                          key={b}
+                          type="button"
+                          className={`user-menu-item branch-option is-${b}${currentBranch === b ? ' is-active' : ''}`}
+                          onClick={e => {
+                            e.stopPropagation();
+                            handleSwitchBranch(b);
+                            setShowUserMenu(false);
+                          }}
+                          aria-pressed={currentBranch === b}
+                        >
+                          {b === 'tokyo' ? <TokyoIcon size={16} /> : <OsakaIcon size={16} />}
+                          <span>{b === 'tokyo' ? '東京（東日本）' : '大阪（西日本）'}</span>
+                          {currentBranch === b && <Check size={16} className="branch-option-check" />}
+                        </button>
+                      ))}
+                      <div className="user-menu-divider"></div>
+                      {currentUserRole === 'developer' && (
+                        <button
+                          type="button"
+                          className={`user-menu-item menu-action${activeTab === 'master_management' ? ' is-active' : ''}`}
+                          onClick={e => {
+                            e.stopPropagation();
+                            setActiveTab('master_management');
+                            setShowUserMenu(false);
+                          }}
+                        >
+                          <Settings size={16} />
+                          <span>設定（マスタ管理）</span>
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        className="user-menu-item menu-action"
+                        onClick={e => {
+                          e.stopPropagation();
+                          setIsHelpGuideOpen(true);
+                          setShowUserMenu(false);
+                        }}
+                      >
+                        <HelpCircle size={16} />
+                        <span>操作ガイド</span>
+                        <kbd className="menu-kbd">?</kbd>
+                      </button>
                       <div className="user-menu-divider"></div>
                       <button className="user-menu-item logout-btn" onClick={handleLogout}>
                         ログアウト
@@ -1686,6 +1869,13 @@ function App() {
                 )}
                 {activeTab === 'grid' && (
                   <GridView
+                    feEvents={feEvents}
+                    onUpdateResult={handleUpdateScheduleResult}
+                    onReorder={handleReorderSchedules}
+                    onSetProgress={handleSetProgress}
+                    loadStatusHistory={loadStatusHistory}
+                    viewDate={viewDate}
+                    onViewDateChange={setViewDate}
                     schedules={transferredSchedules}
                     staff={branchStaff}
                     workTypes={workTypes}
@@ -1712,6 +1902,36 @@ function App() {
                     onUpdateResult={handleUpdateScheduleResult}
                     onReorder={handleReorderSchedules}
                     zoomLevel={zoomLevel}
+                  />
+                )}
+                {canManageSchedules(currentUserRole) && activeTab === 'map' && (
+                  <DynamicsMapView
+                    schedules={branchSchedules}
+                    staff={branchStaff}
+                    feEvents={feEvents}
+                    fePositions={fePositions}
+                    isSandbox={isSandboxMode}
+                    date={viewDate}
+                    onDateChange={setViewDate}
+                    currentUserRole={currentUserRole}
+                    currentStaffId={currentStaffId}
+                    onOpenEditModal={handleOpenEditModal}
+                    onUpdateResult={handleUpdateScheduleResult}
+                    onReorder={handleReorderSchedules}
+                  />
+                )}
+                {activeTab === 'fe' && (
+                  <FeActionView
+                    schedules={schedules}
+                    staff={staff}
+                    currentStaffId={currentStaffId}
+                    isSandbox={isSandboxMode}
+                    isDemoLogin={typeof user?.id === 'string' && user.id.startsWith('demo-')}
+                    feEvents={feEvents}
+                    feUnavailable={feUnavailable}
+                    onRecorded={() => void refreshFeEvents()}
+                    onUpdateResult={(id, result, startedAt, completedAt) => handleUpdateScheduleResult(id, result, startedAt, completedAt)}
+                    onReorder={handleReorderSchedules}
                   />
                 )}
                 {canManageSchedules(currentUserRole) && activeTab === 'calendar' && (

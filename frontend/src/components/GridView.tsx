@@ -4,9 +4,17 @@ import type { Schedule, Staff, UserRole, WorkType } from '../types';
 import { getShortName, cleanMetadata, splitCoWorkers, canManageSchedules, normalizeTargetTime, compareSchedules, toHalfWidth, findStaffByName } from '../types';
 import { buildFcAutofillPatch } from '../utils/fcAutofill';
 
-import { Plus, ChevronLeft, ChevronRight, Calendar as CalendarIcon, Filter, CheckCircle2, Download, Eye, EyeOff, Printer, Lock, ArrowUpDown, RotateCcw, Edit2 } from 'lucide-react';
+import { Plus, ChevronLeft, ChevronRight, Calendar as CalendarIcon, Filter, CheckCircle2, Download, Printer, Lock, ArrowUpDown, RotateCcw, Edit2, LayoutList, ChartGantt, Table2, UserRound, CalendarCheck, WrapText } from 'lucide-react';
 import { PrintPreviewModal } from './PrintPreviewModal';
+import { StaffLaneBoard } from './StaffLaneBoard';
+import { StaffAvatar } from './ScheduleCards';
+import { StaffTimelineBoard } from './StaffTimelineBoard';
+import { TimelineView } from './TimelineView';
+import type { StatusHistoryItem } from './ProgressMenu';
+import type { Progress } from '../utils/scheduleDisplay';
+import { jstDate, type FeEvent } from '../utils/feEvents';
 import { Select } from './shared/Select';
+import DatePicker from './shared/DatePicker';
 import './GridView.css';
 
 const parseTSV = (text: string): string[][] => {
@@ -105,6 +113,16 @@ interface GridViewProps {
   onLockSchedule?: (id: number | string, mode?: 'modal' | 'inline') => void;
   onUnlockSchedule?: () => void;
   zoomLevel?: number;
+  feEvents?: FeEvent[];
+  /** 見ている日（画面を切り替えても同じ日を見続けるため App で持つ） */
+  viewDate?: string;
+  onViewDateChange?: (date: string) => void;
+  /** 「担当ごと」表示（旧 当日行動予定表）で使う: 結果の報告・並べ替え */
+  onUpdateResult?: (scheduleId: number | string, resultValue: string, startedAt?: string | null, completedAt?: string | null, reportNotes?: string | null) => Promise<void>;
+  onReorder?: (orders: { id: number | string; sort_order: number }[]) => Promise<void>;
+  /** 対応状況の切替（管理側・カードの右クリック）と、そのカードの変更履歴 */
+  onSetProgress?: (s: Schedule, p: Progress) => Promise<void>;
+  loadStatusHistory?: (s: Schedule) => Promise<StatusHistoryItem[]>;
 }
 
 export const GridView: React.FC<GridViewProps> = ({
@@ -119,21 +137,21 @@ export const GridView: React.FC<GridViewProps> = ({
   onLockSchedule: _onLockSchedule,
   onUnlockSchedule: _onUnlockSchedule,
   zoomLevel = 100,
+  feEvents = [],
+  viewDate,
+  onViewDateChange,
+  onUpdateResult,
+  onReorder,
+  onSetProgress,
+  loadStatusHistory,
 }) => {
-  const dateInputRef = useRef<HTMLInputElement>(null);
-  const [selectedDate, setSelectedDate] = useState<string>(
-    new Date().toISOString().split('T')[0]
-  );
-
-  const triggerDatePicker = () => {
-    if (dateInputRef.current) {
-      if (typeof dateInputRef.current.showPicker === 'function') {
-        dateInputRef.current.showPicker();
-      } else {
-        dateInputRef.current.click();
-      }
-    }
+  const [localDate, setLocalDate] = useState<string>(() => jstDate());
+  const selectedDate = viewDate ?? localDate;
+  const setSelectedDate = (d: string) => {
+    setLocalDate(d);
+    onViewDateChange?.(d);
   };
+
 
   const exportToExcel = () => {
     const headers = [
@@ -259,6 +277,27 @@ export const GridView: React.FC<GridViewProps> = ({
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [isPrintPreviewOpen, setIsPrintPreviewOpen] = useState(false);
 
+  // 表示の切替: カード一覧（既定）/ 時間軸 / 表
+  const [viewMode, setViewMode] = useState<'card' | 'timeline' | 'table'>(() => {
+    try {
+      const saved = localStorage.getItem('field_app_grid_view_mode');
+      if (saved === 'card' || saved === 'timeline' || saved === 'table') return saved;
+    } catch { /* 保存できない環境では既定のカード */ }
+    return 'card';
+  });
+  useEffect(() => {
+    try { localStorage.setItem('field_app_grid_view_mode', viewMode); } catch { /* noop */ }
+  }, [viewMode]);
+  // スマホ（幅 768px 以下）では、自分の予定を担当ごとのカードで出す
+  const [isPhone, setIsPhone] = useState(() => typeof window !== 'undefined' && window.matchMedia('(max-width: 768px)').matches);
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 768px)');
+    const onChange = () => setIsPhone(mq.matches);
+    mq.addEventListener('change', onChange);
+    return () => mq.removeEventListener('change', onChange);
+  }, []);
+  const phoneMine = isPhone && currentStaffId !== null;
+
   const changeDate = (days: number) => {
     const d = new Date(selectedDate);
     d.setDate(d.getDate() + days);
@@ -266,7 +305,7 @@ export const GridView: React.FC<GridViewProps> = ({
   };
 
   const setToday = () => {
-    setSelectedDate(new Date().toISOString().split('T')[0]);
+    setSelectedDate(jstDate());
   };
 
   const daySchedules = schedules.filter(
@@ -541,7 +580,7 @@ export const GridView: React.FC<GridViewProps> = ({
     return () => {
       wrapper.removeEventListener('scroll', handleScroll);
     };
-  }, []);
+  }, [viewMode]);
 
   useLayoutEffect(() => {
     const wrapper = tableWrapperRef.current;
@@ -865,29 +904,38 @@ export const GridView: React.FC<GridViewProps> = ({
               <button className="btn btn-secondary btn-sm-nav" onClick={() => changeDate(-1)} title="前日へ">
                 <ChevronLeft size={16} />
               </button>
-              <div className="date-picker-wrapper" onClick={triggerDatePicker} title="クリックして日付を選択" style={{ cursor: 'pointer' }}>
-                <input
-                  ref={dateInputRef}
-                  type="date"
-                  className="date-picker-input"
-                  value={selectedDate}
-                  onChange={(e) => {
-                    if (e.target.value) {
-                      setSelectedDate(e.target.value);
-                    }
-                  }}
-                />
-                <span className="current-date-display">
-                  <CalendarIcon size={16} style={{ marginRight: '6px' }} />
-                  {formatJapaneseDate(selectedDate)}
-                </span>
-              </div>
-              <button className="btn btn-secondary btn-sm-nav" onClick={setToday}>
-                今日
-              </button>
+              <DatePicker
+                value={selectedDate}
+                onChange={v => {
+                  if (v) setSelectedDate(v);
+                }}
+                noClear
+                trigger={
+                  <span className="current-date-display">
+                    <CalendarIcon size={16} style={{ marginRight: '6px' }} />
+                    {formatJapaneseDate(selectedDate)}
+                  </span>
+                }
+                triggerClassName="grid-date-trigger"
+                title="日付を選ぶ"
+                aria-label="日付を選ぶ"
+              />
               <button className="btn btn-secondary btn-sm-nav" onClick={() => changeDate(1)} title="翌日へ">
                 <ChevronRight size={16} />
               </button>
+              <button className="btn btn-secondary btn-sm-nav btn-today-icon" onClick={setToday} title="今日へ" aria-label="今日へ">
+                <CalendarCheck size={16} />
+              </button>
+              {isAdmin && (
+                <button
+                  className="btn btn-primary btn-add-schedule btn-add-inline"
+                  onClick={() => onOpenAddModal(selectedDate)}
+                  title="新規予定を追加"
+                >
+                  <Plus size={16} />
+                  予定を追加
+                </button>
+              )}
             </div>
           </div>
 
@@ -914,10 +962,12 @@ export const GridView: React.FC<GridViewProps> = ({
                 }}
                 options={[
                   { value: 'all', label: 'すべての担当者' },
+                  // その日に予定がある人だけ（選んでいる人は残す）。顔写真つき
                   ...staff
-                    .filter(st => st.is_active !== 0 || String(st.id) === filterStaff)
-                    .map(st => ({ value: String(st.id), label: getShortName(st.name) })),
+                    .filter(st => String(st.id) === filterStaff || schedules.some(sc => sc.date === selectedDate && sc.staff_id === st.id && sc.status !== 'cancelled'))
+                    .map(st => ({ value: String(st.id), label: st.name, selectedLabel: getShortName(st.name), icon: <StaffAvatar member={st} name={st.name} size={20} /> })),
                 ]}
+                maxPanelHeight={360}
                 aria-label="担当者で絞り込み"
               />
             </div>
@@ -946,15 +996,36 @@ export const GridView: React.FC<GridViewProps> = ({
                     setFilterStaff('all');
                   }
                 }}
-                title="ログインしているあなたの予定のみに一括で絞り込みます"
+                title={myScheduleOnly ? '自分の予定だけ表示中（押すと全員に戻す）' : '自分の予定だけ表示する'}
+                aria-label="自分の予定だけ表示"
+                aria-pressed={myScheduleOnly}
               >
-                自分の予定のみ表示
+                <UserRound size={16} />
               </button>
             )}
           </div>
 
           <div className="grid-actions-right">
-            {sortColumn !== 'default' && (
+            <div className="view-mode-switch" role="group" aria-label="表示の切替">
+              {([
+                { key: 'card', icon: <LayoutList size={16} />, label: 'カード一覧' },
+                { key: 'timeline', icon: <ChartGantt size={16} />, label: '時間軸' },
+                { key: 'table', icon: <Table2 size={16} />, label: '表' },
+              ] as const).map(v => (
+                <button
+                  key={v.key}
+                  type="button"
+                  className={`view-mode-btn ${viewMode === v.key ? 'active' : ''}`}
+                  onClick={() => setViewMode(v.key)}
+                  title={`${v.label}で表示`}
+                  aria-pressed={viewMode === v.key}
+                >
+                  {v.icon}
+                </button>
+              ))}
+            </div>
+
+            {viewMode === 'table' && sortColumn !== 'default' && (
               <button 
                 className="btn btn-secondary"
                 onClick={() => {
@@ -969,13 +1040,18 @@ export const GridView: React.FC<GridViewProps> = ({
               </button>
             )}
 
-            <button 
-              className={`btn btn-toggle-view ${showFullText ? 'active' : ''}`} 
+            {/* 全文表示（表のときだけ使える。ボタンの位置がずれないよう、表以外でも場所は取っておく） */}
+            <button
+              type="button"
+              className={`btn btn-toggle-view btn-icon-only ${showFullText ? 'active' : ''}${viewMode !== 'table' ? ' is-placeholder' : ''}`}
               onClick={() => setShowFullText(!showFullText)}
-              title={showFullText ? "2〜3行の標準折り返し表示に戻します" : "すべての予定の物件名・作業内容・備考のテキストを折り返して全行展開します"}
+              title={showFullText ? '全文表示中（押すと 2〜3 行の表示に戻す）' : '物件名・作業内容・備考を折り返して全文表示する'}
+              aria-label="全文表示"
+              aria-pressed={showFullText}
+              disabled={viewMode !== 'table'}
+              tabIndex={viewMode !== 'table' ? -1 : 0}
             >
-              {showFullText ? <EyeOff size={15} /> : <Eye size={15} />}
-              <span>{showFullText ? '標準表示に戻す' : '全文表示に切替'}</span>
+              <WrapText size={16} />
             </button>
 
             <button 
@@ -1008,6 +1084,57 @@ export const GridView: React.FC<GridViewProps> = ({
         </div>
       )}
 
+      {viewMode !== 'table' ? (
+        <div className="grid-table-wrapper grid-cards-wrapper">
+          {phoneMine ? (
+            <TimelineView
+              embedded
+              collapsible
+              onlyMine
+              schedules={schedules}
+              staff={staff}
+              onOpenEditModal={onOpenEditModal}
+              currentUserRole={currentUserRole}
+              currentStaffId={currentStaffId}
+              onUpdateResult={onUpdateResult ?? (async (id, result) => { await onSave({ id: Number(id), result }); })}
+              onReorder={onReorder ?? (async () => { /* 並べ替えは App から渡されたときだけ */ })}
+              zoomLevel={zoomLevel}
+              feEvents={feEvents}
+              viewDate={selectedDate}
+              onViewDateChange={setSelectedDate}
+            />
+          ) : viewMode === 'card' ? (
+            <div style={zoomLevel !== 100 ? { zoom: `${zoomLevel}%` } : undefined}>
+              <StaffLaneBoard
+                schedules={sortedSchedules}
+                staff={staff}
+                canEdit={isAdmin}
+                activeLocks={activeLocks}
+                onOpenEditModal={onOpenEditModal}
+                onReorder={onReorder}
+                feEvents={feEvents}
+                onSetProgress={isAdmin ? onSetProgress : undefined}
+                loadStatusHistory={loadStatusHistory}
+              />
+            </div>
+          ) : (
+            <div style={zoomLevel !== 100 ? { zoom: `${zoomLevel}%` } : undefined}>
+              <StaffTimelineBoard
+                schedules={sortedSchedules}
+                staff={staff}
+                date={selectedDate}
+                canEdit={isAdmin}
+                activeLocks={activeLocks}
+                onOpenEditModal={onOpenEditModal}
+                onReorder={onReorder}
+                feEvents={feEvents}
+                onSetProgress={isAdmin ? onSetProgress : undefined}
+                loadStatusHistory={loadStatusHistory}
+              />
+            </div>
+          )}
+        </div>
+      ) : (
       <div ref={tableWrapperRef} className="grid-table-wrapper">
         <div
           ref={tableContainerRef}
@@ -1386,20 +1513,10 @@ export const GridView: React.FC<GridViewProps> = ({
         </table>
         </div>
       </div>
+      )}
 
       <div className="grid-view-footer">
-        {isAdmin ? (
-          <button 
-            className="btn btn-primary btn-add-schedule"
-            onClick={() => onOpenAddModal(selectedDate)}
-            title="新規予定を追加"
-          >
-            <Plus size={16} />
-            予定を追加
-          </button>
-        ) : (
-          <div></div>
-        )}
+        <div></div>
         <span className="grid-row-count">
           表示件数: {filteredSchedules.length} 件
         </span>

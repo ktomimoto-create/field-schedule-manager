@@ -1,0 +1,375 @@
+/* 予定表の時間軸（カード表示を基にした形）。行・担当・カードの見た目は StaffLaneBoard.css を使う */
+
+.stl-board {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 1100px;
+  padding: 6px 8px 10px;
+  line-height: 1.4;
+}
+.stl-legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 16px;
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+}
+.stl-legend > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.stl-note {
+  color: var(--text-muted);
+}
+.stl-lg {
+  display: inline-block;
+  width: 20px;
+  height: 10px;
+  border-radius: 3px;
+}
+.stl-lg.is-confirmed { border-bottom: 3px solid #ef4444; background: rgba(239, 68, 68, 0.12); }
+.stl-lg.is-draft { border-bottom: 3px solid #eab308; background: rgba(234, 179, 8, 0.12); }
+.stl-lg.is-free { border-bottom: 3px solid #94a3b8; background: var(--bg-primary); }
+.stl-lg.is-est { border: 1px dashed var(--text-muted); }
+.stl-lg.is-move { height: 5px; background: #3b82f6; }
+.stl-lg.is-work { height: 5px; background: var(--success); }
+.stl-lg.is-now { width: 2px; height: 14px; background: var(--danger); }
+
+/* 時刻の目盛り（担当の列の幅だけ右にずらす） */
+.stl-head {
+  display: grid;
+  grid-template-columns: 150px minmax(0, 1fr);
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+.stl-head-person {
+  padding-left: 10px;
+}
+.stl-head-axis {
+  position: relative;
+  height: 16px;
+  margin: 0 8px;
+}
+.stl-tick {
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.stl-tick:first-child {
+  transform: none;
+}
+
+.stl-track {
+  position: relative;
+  margin: 0 8px;
+  min-width: 0;
+}
+.stl-grid {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--border-glass);
+}
+.lane-card.stl-card {
+  position: absolute;
+  height: 52px;
+  min-width: 60px;
+  overflow: hidden;
+  box-sizing: border-box;
+  z-index: 1;
+}
+.lane-card.stl-card:not(.in-stack):hover {
+  z-index: 3;
+}
+.lane-card.stl-card.is-est {
+  border-style: dashed;
+  border-bottom-style: solid;
+}
+.lane-card.stl-card.is-late {
+  box-shadow: inset 0 0 0 1px var(--danger);
+}
+.stl-property {
+  -webkit-line-clamp: 1;
+}
+.stl-actual {
+  position: absolute;
+  height: 5px;
+  border-radius: 3px;
+  z-index: 2;
+}
+.stl-actual.is-move { background: #3b82f6; }
+.stl-actual.is-work { background: var(--success); }
+.stl-actual.is-live.is-move { background: repeating-linear-gradient(45deg, #3b82f6, #3b82f6 5px, #93c5fd 5px, #93c5fd 10px); }
+.stl-actual.is-live.is-work { background: repeating-linear-gradient(45deg, var(--success), var(--success) 5px, #6ee7b7 5px, #6ee7b7 10px); }
+.stl-now {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--danger);
+  z-index: 4;
+}
+
+.lane-card.stl-card {
+  height: 86px;
+}
+.stl-lg.is-confirmed, .stl-lg.is-draft, .stl-lg.is-free { display: none; }
+/* いまの線はカードの下を通す */
+.stl-now {
+  z-index: 0;
+}
+/* 出動（勤務開始）の印。ここから 1 件目への移動が始まる */
+.stl-depart {
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  z-index: 0;
+  display: flex;
+  align-items: flex-end;
+  padding: 0 0 2px 3px;
+  border-left: 2px solid #3b82f6;
+  color: #3b82f6;
+  font-size: 0.62rem;
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+  pointer-events: auto;
+}
+.stl-depart.is-est {
+  border-left-style: dashed;
+  opacity: 0.6;
+}
+.stl-lg.is-depart {
+  width: 2px;
+  height: 12px;
+  background: #3b82f6;
+}
+/* 移動の見込み（前の場所 → この訪問）。カードの下を通る細い点線と分数 */
+.stl-move {
+  position: absolute;
+  z-index: 0;
+  height: 0;
+  border-top: 1px dashed #3b82f6;
+  pointer-events: auto;
+}
+.stl-move > span {
+  position: absolute;
+  left: 50%;
+  top: -8px;
+  transform: translateX(-50%);
+  padding: 0 3px;
+  border-radius: 3px;
+  background: var(--bg-secondary);
+  color: #3b82f6;
+  font-size: 0.6rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+/* 近い順に並べ替え（ゴーストボタン） */
+.stl-route-all,
+.stl-route-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 1px solid rgba(79, 70, 229, 0.35);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--primary);
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1.4;
+  cursor: pointer;
+}
+.stl-route-all {
+  margin-left: auto;
+  height: 28px;
+  padding: 0 10px;
+}
+.stl-route-btn {
+  flex-shrink: 0;
+  width: 30px;
+  height: 30px;
+  margin-left: auto;
+  padding: 0;
+}
+.stl-route-all:hover:not(:disabled),
+.stl-route-btn:hover:not(:disabled) {
+  background: rgba(79, 70, 229, 0.1);
+  filter: brightness(1.12);
+}
+.stl-route-all:disabled,
+.stl-route-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.stl-num {
+  font-variant-numeric: tabular-nums;
+}
+.stl-travel {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.stl-route-btn {
+  width: auto;
+  height: 20px;
+  margin-left: 0;
+  padding: 0 6px;
+  gap: 3px;
+  font-size: 0.66rem;
+}
+/* 重ねたカード（同じ時間帯）。行の高さは変えずに少しずらす。前に出すのはクリックで広げたときだけ */
+.lane-card.stl-card.is-stacked {
+  box-shadow: -2px -2px 0 rgba(0, 0, 0, 0.12);
+}
+.stl-stack-count {
+  position: absolute;
+  right: 4px;
+  bottom: 3px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--primary);
+  color: #fff;
+  font-size: 0.6rem;
+  font-weight: 700;
+  line-height: 1.5;
+  font-variant-numeric: tabular-nums;
+}
+.lane-card.stl-card {
+  position: absolute;
+}
+/* 移動の見込み: 手段ごとの色とアイコン */
+.stl-move > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+.stl-move.leg-walk { border-top-color: #0d9488; }
+.stl-move.leg-walk > span { color: #0d9488; }
+.stl-move.leg-train { border-top-color: #7c3aed; }
+.stl-move.leg-train > span { color: #7c3aed; }
+.dark-theme .stl-move.leg-train { border-top-color: #a78bfa; }
+.dark-theme .stl-move.leg-train > span { color: #a78bfa; }
+.stl-move.leg-unknown { border-top-color: var(--text-muted); }
+.stl-move.leg-unknown > span { color: var(--text-muted); }
+/* 待ち（時刻指定の前で空いている時間） */
+.stl-wait {
+  position: absolute;
+  z-index: 0;
+  height: 0;
+  border-top: 1px dotted var(--text-muted);
+}
+.stl-wait > span {
+  position: absolute;
+  left: 50%;
+  top: -8px;
+  transform: translateX(-50%);
+  padding: 0 3px;
+  border-radius: 3px;
+  background: var(--bg-secondary);
+  color: var(--text-muted);
+  font-size: 0.6rem;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+.stl-lg.is-late {
+  width: 14px;
+  height: 10px;
+  border: 1px solid var(--danger);
+  border-radius: 3px;
+}
+.stl-legend > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+/* 重なっているカードはクリックでめくれる */
+.lane-card.stl-card.in-stack {
+  cursor: pointer;
+}
+/* 出動の文字は上に（下は移動の線と実績の帯を通す） */
+.stl-depart {
+  align-items: flex-start;
+  padding: 2px 0 0 3px;
+}
+/* 横に広げた重なり: ほかの行・カードの上に浮かせて並べる（行の高さは変えない） */
+.lane-card.stl-card {
+  transition: left 0.18s ease;
+}
+.lane-card.stl-card.is-spread {
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.28), 0 0 0 1px rgba(79, 70, 229, 0.45);
+}
+/* 出動の文字は下に戻す（上は移動の線と実績の帯） */
+.stl-depart {
+  align-items: flex-end;
+  padding: 0 0 2px 3px;
+}
+
+/* 重ねたときの先頭の番号（「1〜3」） */
+.lane-card.stl-card .lane-no {
+  padding: 0 5px;
+  box-sizing: border-box;
+}
+.lane-card.stl-card.is-spread[draggable='true'] {
+  cursor: grab;
+}
+/* 昼休憩（線の段に置く） */
+.stl-lunch {
+  position: absolute;
+  z-index: 0;
+  height: 0;
+  border-top: 3px solid color-mix(in srgb, #f59e0b 45%, transparent);
+}
+.stl-lunch > span {
+  position: absolute;
+  left: 50%;
+  top: -8px;
+  transform: translateX(-50%);
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 0 3px;
+  border-radius: 3px;
+  background: var(--bg-secondary);
+  color: #d97706;
+  font-size: 0.6rem;
+  font-weight: 700;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+/* 担当の欄の数字と「分」「件」を別の行に分けない */
+.stl-row .lane-meta,
+.stl-travel,
+.stl-travel > span {
+  white-space: nowrap;
+}
+.stl-travel > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+/* 1 時間ぶんの幅では 1 行目（番号・号機・時間）が入らないことがあるので、カードは最低 120px。間隔も少し詰める */
+.lane-card.stl-card {
+  min-width: 120px;
+  padding: 6px 6px;
+}
+.lane-card.stl-card .lane-card-top {
+  gap: 4px;
+}
+.lane-card.stl-card {
+  min-width: 136px;
+}
+.lane-card.stl-card .lane-time.is-set {
+  padding: 0 3px;
+}

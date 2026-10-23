@@ -1,4 +1,4 @@
-import { useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties, type FocusEvent, type KeyboardEvent } from 'react';
+import { useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties, type FocusEvent, type KeyboardEvent, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { Check, ChevronDown } from 'lucide-react';
 import { Spinner } from './Spinner';
@@ -16,6 +16,8 @@ export interface SelectOption<V extends string = string> {
   label: string;
   /** ボタン側に出す短い表示（省略時は label） */
   selectedLabel?: string;
+  /** 一覧で文字の左に出すもの（顔写真など） */
+  icon?: ReactNode;
 }
 
 interface Props<V extends string> {
@@ -36,6 +38,8 @@ interface Props<V extends string> {
   /** ボタンからフォーカスが外れたとき（一覧の項目を押したときは外れない） */
   onBlur?: (e: FocusEvent<HTMLButtonElement>) => void;
   'aria-label'?: string;
+  /** 一覧の高さの上限（px）。長い一覧を画面いっぱいに伸ばさない */
+  maxPanelHeight?: number;
 }
 
 const PANEL_GAP = 6;
@@ -43,7 +47,7 @@ const VIEW_MARGIN = 8;
 
 export function Select<V extends string>({
   value, options, onChange, placeholder = '選択してください', disabled, loading, className = 'form-control',
-  style, id, title, autoFocus, onBlur, 'aria-label': ariaLabel,
+  style, id, title, autoFocus, onBlur, 'aria-label': ariaLabel, maxPanelHeight,
 }: Props<V>) {
   const [openState, setOpen] = useState(false);
   const [highlight, setHighlight] = useState(0);
@@ -84,13 +88,14 @@ export function Select<V extends string>({
     const width = Math.min(Math.max(r.width, 180), vw - VIEW_MARGIN * 2);
     const left = Math.min(Math.max(VIEW_MARGIN, r.left), vw - width - VIEW_MARGIN);
     const above = r.top + r.height / 2 > window.innerHeight / 2;
-    const maxHeight = Math.max(120, (above ? r.top : window.innerHeight - r.bottom) - PANEL_GAP - VIEW_MARGIN);
+    const room = Math.max(120, (above ? r.top : window.innerHeight - r.bottom) - PANEL_GAP - VIEW_MARGIN);
+    const maxHeight = maxPanelHeight ? Math.min(room, maxPanelHeight) : room;
     setPos(
       above
         ? { left, width, bottom: window.innerHeight - r.top + PANEL_GAP, maxHeight }
         : { left, width, top: r.bottom + PANEL_GAP, maxHeight },
     );
-  }, [open]);
+  }, [open, maxPanelHeight]);
 
   // 開いたら選択中の項目が見える位置まで一覧を送る
   useEffect(() => {
@@ -226,6 +231,7 @@ export function Select<V extends string>({
                     choose(o.value);
                   }}
                 >
+                  {o.icon && <span className="select-option-icon">{o.icon}</span>}
                   <span className="select-option-label">{o.label}</span>
                   {isSel && <Check size={16} aria-hidden className="select-check" />}
                 </div>

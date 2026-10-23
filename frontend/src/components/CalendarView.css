@@ -1801,3 +1801,592 @@
 
 
 
+
+/* ===== カード一覧表示（日ごとの列にカードを積む） ===== */
+.view-mode-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  flex-shrink: 0;
+}
+.view-mode-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 28px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+.view-mode-btn:hover {
+  filter: brightness(1.12);
+  color: var(--primary);
+}
+.view-mode-btn.active {
+  border-color: rgba(79, 70, 229, 0.35);
+  background: rgba(79, 70, 229, 0.08);
+  color: var(--primary);
+}
+
+.day-column-block.day-card-column {
+  flex: 0 0 300px;
+  width: 300px;
+  display: flex;
+  flex-direction: column;
+}
+.day-card-header.matrix-day-header-super {
+  position: static;
+  height: auto;
+  min-height: 42px;
+}
+.day-card-header .day-header-content-super {
+  flex-wrap: wrap;
+  gap: 6px !important;
+  padding: 2px 4px !important;
+}
+.day-card-freespace {
+  padding: 4px 6px;
+  border-bottom: 1px solid var(--border-glass);
+  background: var(--bg-column-header);
+}
+.day-card-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 11px 10px 8px; /* ホバーで右へ 3px 動くので右に余白 */
+  flex: 1;
+}
+.day-card-empty {
+  padding: 1.5rem 0;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+.day-card-free {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 6px;
+  align-items: start;
+  margin-top: 4px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--border-glass);
+  font-size: 0.75rem;
+  line-height: 1.4;
+}
+.day-card-free-label {
+  padding-top: 3px;
+  color: var(--text-muted);
+  font-weight: 700;
+}
+.day-card-free-names {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.day-card-free-chip {
+  padding: 2px 6px;
+  border: 1px solid var(--border-glass);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 0.72rem;
+  line-height: 1.4;
+  cursor: pointer;
+}
+.day-card-free-chip:hover {
+  border-color: rgba(79, 70, 229, 0.35);
+  color: var(--primary);
+}
+
+/* 埋まり具合（日付の見出しの下）: バーの塗り＝予定あり、残り＝空き */
+.day-capacity {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border-glass);
+  background: var(--bg-column-header);
+}
+.day-capacity-bar {
+  position: relative;
+  height: 6px;
+  border-radius: 999px;
+  background: color-mix(in srgb, #059669 25%, transparent);
+  overflow: hidden;
+}
+.day-capacity-bar i {
+  position: absolute;
+  inset: 0 auto 0 0;
+  border-radius: 999px;
+  background: var(--primary);
+}
+.day-capacity-text {
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  line-height: 1.4;
+}
+.day-capacity-num {
+  color: var(--primary);
+  font-variant-numeric: tabular-nums;
+  font-size: 0.85rem;
+}
+.day-capacity-num.is-free {
+  color: #059669;
+}
+.day-capacity-sep {
+  margin: 0 4px;
+  color: var(--text-muted);
+}
+
+/* 空いている人: 普段は畳み、押すと名前（押すとその人の予定を追加） */
+.day-card-free {
+  display: block;
+}
+.day-card-free-toggle {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+  padding: 6px 8px;
+  border: 1px dashed color-mix(in srgb, #059669 45%, transparent);
+  border-radius: 6px;
+  background: color-mix(in srgb, #059669 6%, transparent);
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 0.78rem;
+  line-height: 1.4;
+  cursor: pointer;
+}
+.day-card-free-toggle:hover {
+  filter: brightness(1.12);
+}
+.day-card-free-chevron {
+  margin-left: auto;
+  transition: transform 0.15s ease;
+}
+.day-card-free.is-open .day-card-free-chevron {
+  transform: rotate(180deg);
+}
+.day-card-free .day-card-free-names {
+  margin-top: 6px;
+}
+
+/* カード表示: 7 日分の列を画面の幅いっぱいに広げる（狭い画面では 1 列 240px を下限に横スクロール） */
+.calendar-zoom-inner.is-card .week-table-block {
+  width: auto;
+}
+.calendar-zoom-inner.is-card .week-days-container {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(240px, 1fr));
+  width: auto;
+}
+.calendar-zoom-inner.is-card .day-column-block.day-card-column {
+  width: auto;
+  min-width: 0;
+}
+
+/* 月間予定表の見出しの操作: 月の移動は ‹ 2026年10月 ›、日付指定・今日・全文表示・貼り付けはアイコンだけ（すべて 32px） */
+.month-nav {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.month-nav-label {
+  min-width: 7.5em;
+  text-align: center;
+  color: var(--text-primary);
+  font-size: 0.95rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.4;
+}
+.cal-icon-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 1px solid var(--border-glass);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+.cal-icon-btn:hover {
+  filter: brightness(1.12);
+  color: var(--primary);
+  border-color: rgba(79, 70, 229, 0.35);
+}
+.cal-icon-btn.active {
+  color: var(--primary);
+  border-color: rgba(79, 70, 229, 0.45);
+  background: rgba(79, 70, 229, 0.1);
+}
+.date-picker-wrapper.cal-icon-btn .date-picker-input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* 検索窓をテーマに合わせる（ダークではダークの窓） */
+.calendar-search-input {
+  height: 32px;
+  border-color: var(--border-glass);
+  background: var(--bg-input);
+  color: var(--text-primary);
+  line-height: 1.4;
+}
+.calendar-search-input::placeholder {
+  color: var(--text-muted);
+}
+/* 見出しの行のボタンの高さを 32px にそろえる（既存の 30px 指定より優先） */
+.matrix-controls .cal-icon-btn,
+.matrix-controls .view-mode-btn,
+.matrix-controls .btn-sm-nav {
+  height: 32px !important;
+}
+.matrix-controls .cal-icon-btn {
+  width: 32px !important;
+  padding: 0 !important;
+}
+
+/* 表示の切替（カード / 表 など）は切り替えタブの見た目: 薄い面の中で、選んでいる方だけ色付き */
+.view-mode-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  border: none !important;
+  border-radius: var(--radius-sm);
+  background: var(--bg-tertiary) !important;
+}
+.view-mode-switch .view-mode-btn {
+  height: 30px !important;
+  border: none !important;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-muted);
+}
+.view-mode-switch .view-mode-btn.active {
+  background: var(--bg-secondary) !important;
+  color: var(--primary);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+}
+
+/* 検索窓は最初から 220px（フォーカスで広げない） */
+.calendar-search-input,
+.calendar-search-input:focus {
+  width: 220px !important;
+}
+
+/* 月の移動（‹ 2026年10月 ›）と、日付指定・今日の間を少しあける */
+.month-nav {
+  margin-right: 12px;
+}
+
+/* ===== 月カレンダー（カード表示）: 左に 1 か月のマス目、右に選んだ日の詳細 ===== */
+.weeks-plain {
+  display: contents;
+}
+.month-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 400px;
+  gap: 12px;
+  align-items: start;
+  padding: 0;
+}
+.month-weeks {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+.month-weekday-head {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 6px;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1.4;
+  text-align: center;
+}
+.month-weekday-head .is-sat { color: #2563eb; }
+.month-weekday-head .is-sun { color: #dc2626; }
+/* 週の入れ物は飾りを外して、マスを並べるだけにする */
+.calendar-zoom-inner.is-card .week-table-block {
+  margin-bottom: 0 !important;
+  padding: 0;
+  border: none;
+  background: none;
+  box-shadow: none;
+}
+.calendar-zoom-inner.is-card .week-title-badge {
+  display: none;
+}
+.calendar-zoom-inner.is-card .week-days-container {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 6px;
+  padding: 0;
+  width: auto;
+}
+
+/* 1 日のマス */
+.month-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  min-height: 92px;
+  padding: 6px 8px;
+  border: 1px solid var(--border-glass);
+  border-top: 3px solid var(--border-column-block);
+  border-radius: var(--radius-sm);
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  font: inherit;
+  line-height: 1.4;
+  text-align: left;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.month-cell.saturday-column { border-top-color: #2563eb; }
+.month-cell.sunday-column { border-top-color: #dc2626; }
+.month-cell.is-today { border-top-color: var(--primary); }
+.month-cell:hover {
+  transform: translateX(3px);
+  box-shadow: 0 0 0 1px rgba(79, 70, 229, 0.25), 0 4px 12px rgba(79, 70, 229, 0.12);
+}
+.month-cell.is-selected {
+  box-shadow: 0 0 0 2px var(--primary);
+  background: color-mix(in srgb, var(--primary) 6%, var(--bg-secondary));
+}
+.month-cell.is-other-month { opacity: 0.45; }
+.month-cell.is-dim { opacity: 0.35; }
+.month-cell-top {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.month-cell-date {
+  font-size: 1.1rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.month-cell.sunday-column .month-cell-date { color: #dc2626; }
+.month-cell.saturday-column .month-cell-date { color: #2563eb; }
+.dark-theme .month-cell.sunday-column .month-cell-date { color: #f87171; }
+.dark-theme .month-cell.saturday-column .month-cell-date { color: #60a5fa; }
+.month-cell.is-today .month-cell-date {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 26px;
+  height: 26px;
+  border-radius: 999px;
+  background: var(--primary);
+  color: #fff;
+}
+.month-cell-holiday {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #dc2626;
+  font-size: 0.68rem;
+}
+.month-cell-flag {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: auto;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.month-cell-flag.is-done { color: #16a34a; background: rgba(22, 163, 74, 0.15); }
+.month-cell-flag.is-pending { color: #ea580c; background: rgba(234, 88, 12, 0.15); }
+.month-cell-count {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+.month-cell-count b {
+  color: var(--text-primary);
+  font-size: 1rem;
+  font-variant-numeric: tabular-nums;
+}
+.month-cell-none { color: var(--text-muted); }
+.month-cell-match {
+  padding: 0 6px;
+  border-radius: 4px;
+  background: #fef08a;
+  color: #713f12;
+  font-size: 0.68rem;
+  font-weight: 700;
+}
+.month-cell-bar {
+  position: relative;
+  height: 5px;
+  border-radius: 999px;
+  background: color-mix(in srgb, #059669 25%, transparent);
+  overflow: hidden;
+}
+.month-cell-bar i {
+  position: absolute;
+  inset: 0 auto 0 0;
+  border-radius: 999px;
+  background: var(--primary);
+}
+.month-cell-off {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-secondary);
+  font-size: 0.7rem;
+}
+
+/* 右の詳細（選んだ日） */
+.month-day-panel {
+  position: sticky;
+  top: 0;
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100vh - 220px);
+  min-height: 300px;
+  border: 1px solid var(--border-glass);
+  border-radius: var(--radius-md);
+  background: var(--bg-secondary);
+  box-shadow: var(--shadow-md);
+  overflow: hidden;
+}
+.month-panel-inner {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 1;
+}
+.month-panel-head {
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border-glass);
+  border-top: 4px solid var(--border-column-block);
+  background: var(--bg-column-header);
+}
+.month-panel-inner.saturday-column .month-panel-head { border-top-color: #2563eb; }
+.month-panel-inner.sunday-column .month-panel-head { border-top-color: #dc2626; }
+.month-panel-add {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin: 8px 10px 0;
+  height: 34px;
+  border: 1px solid rgba(79, 70, 229, 0.35);
+  border-radius: var(--radius-sm);
+  background: rgba(79, 70, 229, 0.06);
+  color: var(--primary);
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 700;
+  line-height: 1.4;
+  cursor: pointer;
+}
+.month-panel-add:hover { filter: brightness(1.12); }
+.month-panel-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 13px 12px 10px; /* ホバーで右へ 3px 動くので右に余白 */
+  overflow-y: auto;
+  min-height: 0;
+  flex: 1;
+}
+.month-staff-row {
+  display: grid;
+  grid-template-columns: 26px minmax(0, 1fr) 56px 48px 16px;
+  align-items: center;
+  column-gap: 8px;
+  width: 100%;
+  padding: 6px 8px;
+  border: 1px solid var(--border-glass);
+  border-radius: var(--radius-sm);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font: inherit;
+  line-height: 1.4;
+  text-align: left;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.month-staff-row:hover,
+.month-staff.is-open .month-staff-row {
+  transform: translateX(3px);
+  box-shadow: 0 0 0 1px rgba(79, 70, 229, 0.25), 0 4px 12px rgba(79, 70, 229, 0.12);
+}
+.month-staff-name {
+  min-width: 0;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+.month-staff-first {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+.month-staff-count {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  text-align: right;
+}
+.month-staff-count b {
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  font-variant-numeric: tabular-nums;
+}
+.month-staff-chevron {
+  color: var(--text-muted);
+  transition: transform 0.15s ease;
+}
+.month-staff.is-open .month-staff-chevron { transform: rotate(180deg); }
+.month-staff-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 6px 0 6px 12px;
+}
+@media (max-width: 1100px) {
+  .month-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .month-day-panel {
+    position: static;
+    max-height: none;
+  }
+}
+.cal-icon-btn.is-placeholder {
+  visibility: hidden;
+}

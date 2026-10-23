@@ -2,8 +2,10 @@ import React, { useState, useRef, useEffect, useLayoutEffect } from 'react';
 import type { Schedule, Staff, UserRole } from '../types';
 import { getShortName, canManageSchedules } from '../types';
 
-import { Calendar, Clock, MapPin, ChevronLeft, ChevronRight, GripVertical, ChevronUp, ChevronDown, Check } from 'lucide-react';
+import { Calendar, Clock, MapPin, ChevronLeft, ChevronRight, GripVertical, ChevronUp, ChevronDown, Check, Columns3, ChartGantt } from 'lucide-react';
 import { ReportModal } from './ReportModal';
+import { ScheduleTimeAxis } from './ScheduleTimeAxis';
+import { jstDate, type FeEvent } from '../utils/feEvents';
 import { Select } from './shared/Select';
 import './TimelineView.css';
 
@@ -22,6 +24,27 @@ interface TimelineViewProps {
   ) => Promise<void>;
   onReorder: (orders: { id: number | string; sort_order: number }[]) => Promise<void>;
   zoomLevel?: number;
+  /** FE のボタン記録（時間軸の実績に出す） */
+  feEvents?: FeEvent[];
+  /** 見ている日（画面を切り替えても同じ日を見続けるため App で持つ） */
+  viewDate?: string;
+  onViewDateChange?: (date: string) => void;
+  /** 予定表の「担当ごと」表示として埋め込む（見出し・日付・切替は予定表側が持つ） */
+  embedded?: boolean;
+  /** 埋め込み時: 自分の予定だけ（予定表の「自分の予定のみ表示」） */
+  onlyMine?: boolean;
+  /** 担当ごとに縦に積み、見出しを押すとたためる（動態管理・スマホ） */
+  collapsible?: boolean;
+  /** たたんでいる担当（親が持つとき。持たなければ中で持つ） */
+  collapsedIds?: Set<number>;
+  onToggleCollapse?: (staffId: number) => void;
+  /** 見出しの右に足す表示（動態管理の状態など） */
+  renderHeaderExtra?: (member: Staff) => React.ReactNode;
+  /** 見出しを押したとき（地図をその人に寄せるなど） */
+  onSelectStaff?: (staffId: number) => void;
+  selectedStaffId?: number | null;
+  /** 表示する担当を絞る（動態管理の状態の絞り込み） */
+  staffFilter?: (member: Staff) => boolean;
 }
 
 export const TimelineView: React.FC<TimelineViewProps> = ({
@@ -33,13 +56,51 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
   onUpdateResult,
   onReorder,
   zoomLevel = 100,
+  feEvents = [],
+  viewDate,
+  onViewDateChange,
+  embedded = false,
+  onlyMine,
+  collapsible = false,
+  collapsedIds,
+  onToggleCollapse,
+  renderHeaderExtra,
+  onSelectStaff,
+  selectedStaffId,
+  staffFilter,
 }) => {
-  const [targetDateStr, setTargetDateStr] = useState(
-    new Date().toISOString().split('T')[0]
-  );
-  const [showOnlyMySchedule, setShowOnlyMySchedule] = useState(() => {
+  const [localCollapsed, setLocalCollapsed] = useState<Set<number>>(() => new Set());
+  const collapsed = collapsedIds ?? localCollapsed;
+  const toggleCollapse = (id: number) => {
+    if (onToggleCollapse) return onToggleCollapse(id);
+    setLocalCollapsed(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+  // 表示の切替: 担当ごとのカード（既定）/ 時間軸
+  const [viewMode, setViewMode] = useState<'board' | 'timeline'>(() => {
+    try {
+      return localStorage.getItem('field_app_timeline_view_mode') === 'timeline' ? 'timeline' : 'board';
+    } catch {
+      return 'board';
+    }
+  });
+  useEffect(() => {
+    try { localStorage.setItem('field_app_timeline_view_mode', viewMode); } catch { /* noop */ }
+  }, [viewMode]);
+  const [localDate, setLocalDate] = useState<string>(() => jstDate());
+  const targetDateStr = viewDate ?? localDate;
+  const setTargetDateStr = (d: string) => {
+    setLocalDate(d);
+    onViewDateChange?.(d);
+  };
+  const [localOnlyMine, setShowOnlyMySchedule] = useState(() => {
     return currentUserRole === 'staff';
   });
+  const showOnlyMySchedule = embedded ? !!onlyMine : localOnlyMine;
   const [draggedItem, setDraggedItem] = useState<Schedule | null>(null);
   const [reportSchedule, setReportSchedule] = useState<Schedule | null>(null);
 
@@ -72,7 +133,7 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
     return () => {
       wrapper.removeEventListener('scroll', handleScroll);
     };
-  }, []);
+  }, [viewMode]);
 
   useLayoutEffect(() => {
     const wrapper = tableWrapperRef.current;
@@ -133,7 +194,7 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
   };
 
   const setToday = () => {
-    setTargetDateStr(new Date().toISOString().split('T')[0]);
+    setTargetDateStr(jstDate());
   };
 
   // 当日の対象全予定（通常・確定・仮）
@@ -160,6 +221,7 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
       if (holidayStaffIds.has(member.id)) {
         return false;
       }
+      if (staffFilter && !staffFilter(member)) return false;
       if (showOnlyMySchedule && currentStaffId !== null) {
         return member.id === currentStaffId;
       }
@@ -260,7 +322,8 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
   };
 
   return (
-    <div className="timeline-container card">
+    <div className={`timeline-container ${embedded ? 'is-embedded' : 'card'}${collapsible ? ' is-stacked' : ''}`}>
+      {!embedded && (
       <div className="timeline-header">
         <div className="timeline-date-nav">
           <Calendar className="icon-purple" size={20} />
@@ -289,6 +352,14 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
         </div>
 
         <div className="timeline-stats">
+          <div className="view-mode-switch" role="group" aria-label="表示の切替">
+            <button type="button" className={`view-mode-btn ${viewMode === 'board' ? 'active' : ''}`} onClick={() => setViewMode('board')} title="担当ごとのカードで表示" aria-pressed={viewMode === 'board'}>
+              <Columns3 size={16} />
+            </button>
+            <button type="button" className={`view-mode-btn ${viewMode === 'timeline' ? 'active' : ''}`} onClick={() => setViewMode('timeline')} title="時間軸で表示" aria-pressed={viewMode === 'timeline'}>
+              <ChartGantt size={16} />
+            </button>
+          </div>
           <div className="stat-badge">
             <span className="stat-label">本日予定数</span>
             <span className="stat-val confirmed-val">
@@ -302,8 +373,9 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
           </div>
         </div>
       </div>
+      )}
 
-      {holidayStaffNames.length > 0 && (
+      {!embedded && holidayStaffNames.length > 0 && (
         <div className="holiday-summary-bar">
           <span className="holiday-label">本日の公休：</span>
           {holidayStaffNames.map(name => (
@@ -312,6 +384,26 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
         </div>
       )}
 
+      {!embedded && viewMode === 'timeline' ? (
+        <div className="card-board-wrapper timeline-axis-wrapper">
+          <div style={zoomLevel !== 100 ? { zoom: `${zoomLevel}%` } : undefined}>
+            <ScheduleTimeAxis
+              schedules={todaySchedules.filter(s =>
+                s.work_type !== '休暇' &&
+                !(s.staff_id !== null && holidayStaffIds.has(s.staff_id)) &&
+                (!(showOnlyMySchedule && currentStaffId !== null) || s.staff_id === currentStaffId)
+              )}
+              staff={staff}
+              date={targetDateStr}
+              canEdit={canManageSchedules(currentUserRole)}
+              activeLocks={{}}
+              onOpenEditModal={onOpenEditModal}
+              onToggleComplete={s => void onUpdateResult(s.id, s.result === '完了' ? '' : '完了')}
+              feEvents={feEvents}
+            />
+          </div>
+        </div>
+      ) : (
       <div ref={tableWrapperRef} className="card-board-wrapper">
         <div
           className="card-board-zoom-inner"
@@ -336,8 +428,27 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
             .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
 
           return (
-            <div key={member.id} className="staff-board-column">
-              <div className="board-column-header">
+            <div key={member.id} className={`staff-board-column${collapsible && collapsed.has(member.id) ? ' is-collapsed' : ''}${selectedStaffId === member.id ? ' is-selected' : ''}`}>
+              <div
+                className="board-column-header"
+                {...(collapsible ? {
+                  role: 'button',
+                  tabIndex: 0,
+                  'aria-expanded': !collapsed.has(member.id),
+                  onClick: () => {
+                    toggleCollapse(member.id);
+                    onSelectStaff?.(member.id);
+                  },
+                  onKeyDown: (e: React.KeyboardEvent) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      toggleCollapse(member.id);
+                      onSelectStaff?.(member.id);
+                    }
+                  },
+                  title: collapsed.has(member.id) ? '開く' : 'たたむ',
+                } : {})}
+              >
                 {member.avatar_url ? (
                   <img 
                     src={member.avatar_url} 
@@ -351,9 +462,11 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
                   </div>
                 )}
                 <span className="board-staff-name">{getShortName(member.name)}</span>
-                <span className="board-schedule-count">{memberSchedules.length}件の対応</span>
+                {renderHeaderExtra ? renderHeaderExtra(member) : <span className="board-schedule-count">{memberSchedules.length}件の対応</span>}
+                {collapsible && <ChevronDown size={16} className="board-collapse-icon" />}
               </div>
 
+              {!(collapsible && collapsed.has(member.id)) && (
               <div className="board-cards-list">
                 {memberSchedules.length === 0 ? (
                   <div className="empty-board-slot">予定はありません</div>
@@ -483,11 +596,13 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
                   })
                 )}
               </div>
+              )}
             </div>
           );
         })}
         </div>
       </div>
+      )}
 
       {reportSchedule && (
         <ReportModal
