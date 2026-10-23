@@ -300,6 +300,9 @@ export const GridView: React.FC<GridViewProps> = ({
   useEffect(() => {
     try { localStorage.setItem('field_app_card_time_axis', cardTimeAxis ? '1' : '0'); } catch { /* noop */ }
   }, [cardTimeAxis]);
+  // 時間軸は予定管理者だけ。作業者には出さない（時刻の位置に置かれると縛られているように感じるため）
+  const canTimeAxis = canManageSchedules(currentUserRole);
+  const showTimeAxis = canTimeAxis && cardTimeAxis;
 
   // 切り替えは流れるように: 同じ予定のカードを、前の位置・幅から新しい位置・幅へ滑らせる（FLIP）。
   // 行・見出し・カードの大きさは両方の表示でそろえてあるので、動くのはカードの位置だけになる
@@ -1060,7 +1063,7 @@ export const GridView: React.FC<GridViewProps> = ({
               </button>
             )}
 
-            {viewMode === 'card' && !phoneMine && (
+            {viewMode === 'card' && !phoneMine && canTimeAxis && (
               <button
                 type="button"
                 className={`btn btn-my-schedule ${cardTimeAxis ? 'active' : ''}`}
@@ -1174,7 +1177,7 @@ export const GridView: React.FC<GridViewProps> = ({
               viewDate={selectedDate}
               onViewDateChange={setSelectedDate}
             />
-          ) : viewMode === 'card' && !cardTimeAxis ? (
+          ) : viewMode === 'card' && !showTimeAxis ? (
             <div style={zoomLevel !== 100 ? { zoom: `${zoomLevel}%` } : undefined}>
               <StaffLaneBoard
                 schedules={sortedSchedules}
