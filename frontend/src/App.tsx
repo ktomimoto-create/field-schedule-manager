@@ -2,23 +2,61 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import type { Schedule, Staff, WorkType, UserRole, Branch } from './types';
 import { GridView } from './components/GridView';
 import { CalendarView } from './components/CalendarView';
-import { TimelineView } from './components/TimelineView';
+import { FeActionView } from './components/FeActionView';
+import { DynamicsMapView } from './components/DynamicsMapView';
+import { TokyoIcon, OsakaIcon } from './components/BranchIcons';
+import { loadSandboxDay, sandboxImportEnabled } from './utils/sandboxImport';
+import { listFeEvents, listLatestPositions, subscribeSandboxFeEvents, jstDate, FE_EVENT_LABELS, type FeEvent, type FePosition } from './utils/feEvents';
+import type { StatusHistoryItem } from './components/ProgressMenu';
+import type { Progress } from './utils/scheduleDisplay';
 import { MasterManagementView } from './components/MasterManagementView';
 import { AnalyticsView } from './components/AnalyticsView';
 import { ScheduleModal } from './components/ScheduleModal';
 import { PasteImportModal } from './components/PasteImportModal';
 import { HelpGuideModal } from './components/HelpGuideModal';
-import { Calendar, Layers, RefreshCw, AlertCircle, List, Settings, Sun, Moon, BarChart3, HelpCircle, ZoomIn, ZoomOut } from 'lucide-react';
+import { Calendar, CalendarDays, ListChecks, RefreshCw, AlertCircle, Settings, Sun, Moon, BarChart3, HelpCircle, ZoomIn, ZoomOut, Smartphone, LayoutList, Table2, Grid3x3, MapPinned, Download, FlaskConical, Check } from 'lucide-react';
+import { HeaderMoreMenu, type HeaderMoreItem } from './components/shared/HeaderMoreMenu';
+import { ViewTabs, type ViewTabItem } from './components/shared/ViewTabs';
+import { useViewport } from './hooks/useViewport';
 import { supabase, talkScriptSupabase } from './supabaseClient';
 import { resolveAddress } from './utils/addressResolver';
 import { findStaffByName, canManageSchedules, normalizeRole, BRANCH_NAMES, resolveScheduleBranch, resolveStaffBranch } from './types';
 import './App.css';
 import { Spinner, SpinnerBlock } from './components/shared/Spinner';
+import { fetchAllRows } from './utils/fetchAllRows';
+import { DayScreen } from './components/day/DayScreen';
+import { MonthView } from './components/month/MonthView';
+import { NotificationToast } from './components/shared/NotificationToast';
+import { withTimeout } from './utils/withTimeout';
+import { NotificationBadge } from './components/shared/NotificationBadge';
+import { useRealtimeNotifications } from './hooks/useRealtimeNotifications';
+import './styles/timeline.css';
 
 
+
+// 上のアイコン: action=行動予定 / month=月間予定 / map=動態マップ（＋ fe=FE画面）
+type AppTab = 'action' | 'month' | 'map' | 'fe' | 'master_management' | 'analytics';
+// 行動予定・月間予定の中の表示は、アイコンの下のタブで切り替える
+// gantt=DayScreen（PC はガント・携帯はカード）、card / timeline / table=予定表（GridView）
+type DayViewKey = 'gantt' | 'card' | 'table';
+// calendar / heatmap=MonthView、card / table=月間予定表（CalendarView）
+type MonthViewKey = 'calendar' | 'heatmap' | 'card' | 'table';
+
+const readStored = <K extends string>(key: string, allowed: readonly K[], fallback: K): K => {
+  try {
+    const v = localStorage.getItem(key);
+    if (v && (allowed as readonly string[]).includes(v)) return v as K;
+  } catch { /* 保存できない環境では既定 */ }
+  return fallback;
+};
 
 function App() {
-  const [activeTab, setActiveTab] = useState<'grid' | 'timeline' | 'calendar' | 'master_management' | 'analytics'>('grid');
+  const [activeTab, setActiveTab] = useState<AppTab>('action');
+  // FE 画面の「予定の詳細」から表を開いたとき（最初は自分の予定だけにする）。ほかの画面へ移ったら戻す
+  const [openedFromFe, setOpenedFromFe] = useState(false);
+  useEffect(() => {
+    if (activeTab !== 'action') setOpenedFromFe(false);
+  }, [activeTab]);
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
     return (localStorage.getItem('theme') as 'light' | 'dark') || 'light';
   });
@@ -42,6 +80,8 @@ function App() {
     return staff.filter(st => resolveStaffBranch(st) === currentBranch);
   }, [staff, currentBranch]);
 
+  const transferredSchedules = useMemo(() => branchSchedules.filter(s => s.is_transferred === 1), [branchSchedules]);
+
   const handleSwitchBranch = (branch: Branch) => {
     setCurrentBranch(branch);
     localStorage.setItem('field_app_current_branch', branch);
@@ -58,6 +98,47 @@ function App() {
   const [isSandboxMode, setIsSandboxMode] = useState<boolean>(() => {
     return localStorage.getItem('field_app_sandbox_mode') === 'true';
   });
+
+  // FE のボタン記録（出発・到着・作業完了など）。直近 8 日分を持ち、本番は 20 秒ごとに取り直す（FE動態と同じ間隔）
+  const [feEvents, setFeEvents] = useState<FeEvent[]>([]);
+  const [feUnavailable, setFeUnavailable] = useState(false);
+  const [fePositions, setFePositions] = useState<FePosition[]>([]);
+
+  // 見ている日（予定表・当日行動予定表・動態マップで共通。画面を切り替えても同じ日を見続ける）。
+  // 同じタブの中だけ覚える（日付が変わった翌日に開き直したら今日に戻す）
+  const [viewDate, setViewDate] = useState<string>(() => {
+    try {
+      const saved = JSON.parse(sessionStorage.getItem('field_app_view_date') || 'null') as { date: string; savedOn: string } | null;
+      if (saved && saved.savedOn === jstDate()) return saved.date;
+    } catch { /* noop */ }
+    return jstDate();
+  });
+  useEffect(() => {
+    try { sessionStorage.setItem('field_app_view_date', JSON.stringify({ date: viewDate, savedOn: jstDate() })); } catch { /* noop */ }
+  }, [viewDate]);
+  const refreshFeEvents = useCallback(async () => {
+    const to = jstDate(new Date(Date.now() + 86400_000));
+    const from = jstDate(new Date(Date.now() - 7 * 86400_000));
+    const { events, unavailable } = await listFeEvents(from, to, isSandboxMode);
+    setFeEvents(events);
+    setFeUnavailable(unavailable);
+    setFePositions(await listLatestPositions(isSandboxMode));
+  }, [isSandboxMode]);
+  useEffect(() => {
+    const first = setTimeout(() => void refreshFeEvents(), 0);
+    if (isSandboxMode) {
+      const unsubscribe = subscribeSandboxFeEvents(() => void refreshFeEvents());
+      return () => {
+        clearTimeout(first);
+        unsubscribe();
+      };
+    }
+    const t = setInterval(() => void refreshFeEvents(), 20_000);
+    return () => {
+      clearTimeout(first);
+      clearInterval(t);
+    };
+  }, [refreshFeEvents, isSandboxMode]);
 
   // 同期保存（コピペ等）時の採番競合防止用の一時プール (キー: "YYYY-MM-DD", 値: 使用済みコースのSet)
   const tempUsedCoursesRef = useRef<Record<string, Set<number>>>({});
@@ -82,6 +163,38 @@ function App() {
   };
 
   // お試しデータのリセット（最新本番データで再同期）
+  // 開発用: お試しモードに、見ている日の行動予定表（スプレッドシートの実データ）を読み込む
+  const handleLoadSandboxDay = async () => {
+    const rows = await loadSandboxDay(viewDate, staff);
+    if (!rows) {
+      alert(`${viewDate} の行動予定表のデータがありません。
+frontend/public/_sandbox/${viewDate}.json を置いてください。`);
+      return;
+    }
+    setSchedules(prev => {
+      const next = [...prev.filter(s => !(s.date === viewDate && s.is_transferred === 1)), ...rows];
+      localStorage.setItem('field_app_sandbox_schedules', JSON.stringify(next));
+      return next;
+    });
+  };
+
+  // 開発用: お試しモードで、見ている日の予定表が空なら、行動予定表のデータ（あれば）を自動で読み込む（日ごとに 1 回）
+  const autoLoadedDaysRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    if (!sandboxImportEnabled || !isSandboxMode || staff.length === 0 || loading) return;
+    if (autoLoadedDaysRef.current.has(viewDate)) return;
+    if (schedules.some(s => s.date === viewDate && s.is_transferred === 1)) return;
+    autoLoadedDaysRef.current.add(viewDate);
+    void loadSandboxDay(viewDate, staff).then(rows => {
+      if (!rows) return;
+      setSchedules(prev => {
+        const next = [...prev.filter(s => !(s.date === viewDate && s.is_transferred === 1)), ...rows];
+        localStorage.setItem('field_app_sandbox_schedules', JSON.stringify(next));
+        return next;
+      });
+    });
+  }, [isSandboxMode, viewDate, staff, schedules, loading]);
+
   const handleResetSandboxData = async () => {
     const confirmReset = window.confirm(
       "現在のお試しデータを破棄し、最新の本番データ状態でリセットしますか？\n（本番データには一切影響しません）"
@@ -90,7 +203,9 @@ function App() {
 
     try {
       setLoading(true);
-      const { data: latestSchedules, error: schedError } = await supabase.from('schedules').select('*');
+      const { data: latestSchedules, error: schedError } = await fetchAllRows((from, to) =>
+        supabase.from('schedules').select('*').order('id').range(from, to)
+      );
       if (schedError) throw schedError;
       const mapped: Schedule[] = (latestSchedules || []).map((s: any) => ({
         ...s,
@@ -124,7 +239,28 @@ function App() {
   }, [theme]);
 
   const [user, setUser] = useState<any>(null);
+  // ログアウト・ログインし直したら、FE 画面から開いた印は戻す（次の人の表が「自分の予定だけ」で始まらないように）
+  useEffect(() => {
+    setOpenedFromFe(false);
+  }, [user?.id]);
   const [showUserMenu, setShowUserMenu] = useState(false);
+  // アカウントのメニューは、外を押すか Esc で閉じる
+  const userMenuRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (!showUserMenu) return;
+    const onDown = (e: MouseEvent) => {
+      if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) setShowUserMenu(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setShowUserMenu(false);
+    };
+    document.addEventListener('mousedown', onDown);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onDown);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [showUserMenu]);
   const [currentUserRole, setCurrentUserRole] = useState<UserRole>('staff');
   const [isHelpGuideOpen, setIsHelpGuideOpen] = useState(false);
 
@@ -148,6 +284,28 @@ function App() {
     return () => window.removeEventListener('keydown', handleGlobalKeyDown);
   }, []);
   const [currentStaffId, setCurrentStaffId] = useState<number | null>(null);
+
+
+  // 行動予定タブの日付と、ヒートマップから飛んできたときの担当
+  const { isMobile } = useViewport();
+  const [dayView, setDayView] = useState<DayViewKey>(() => {
+    // 「時間軸」はタブから「カード」の中の切り替えへ移した。前に時間軸を開いていた人は、カードを時間軸で開く
+    try {
+      if (localStorage.getItem('field_app_day_view') === 'timeline') {
+        localStorage.setItem('field_app_card_time_axis', '1');
+        return 'card';
+      }
+    } catch { /* 保存できない環境では既定 */ }
+    return readStored('field_app_day_view', ['gantt', 'card', 'table'] as const, 'gantt');
+  });
+  const [monthView, setMonthView] = useState<MonthViewKey>(() => readStored('field_app_month_view', ['calendar', 'heatmap', 'card', 'table'] as const, 'calendar'));
+  useEffect(() => {
+    try { localStorage.setItem('field_app_day_view', dayView); } catch { /* noop */ }
+  }, [dayView]);
+  useEffect(() => {
+    try { localStorage.setItem('field_app_month_view', monthView); } catch { /* noop */ }
+  }, [monthView]);
+  const [dayFocusStaffId, setDayFocusStaffId] = useState<number | null>(null);
 
   // ユーザーとスタッフマスタの突合でロール・IDを自動決定
   useEffect(() => {
@@ -193,6 +351,8 @@ function App() {
       if (matched) {
         setCurrentUserRole(normalizeRole(matched.role));
         setCurrentStaffId(matched.id);
+        // 作業者は自分の所属拠点に固定（東京／大阪は選べない）
+        if (!canManageSchedules(normalizeRole(matched.role))) setCurrentBranch(resolveStaffBranch(matched));
       } else {
         setCurrentUserRole('staff');
         setCurrentStaffId(null);
@@ -204,11 +364,13 @@ function App() {
   }, [user, staff]);
 
   useEffect(() => {
-    if (
-      (currentUserRole !== 'developer' && activeTab === 'master_management') ||
-      (!canManageSchedules(currentUserRole) && (activeTab === 'calendar' || activeTab === 'analytics'))
-    ) {
-      setActiveTab('grid');
+    // 現地対応者は「行動予定」と FE画面だけ（他のタブは出さない）
+    if (!canManageSchedules(currentUserRole)) {
+      if (activeTab !== 'action' && activeTab !== 'fe') setActiveTab('action');
+      return;
+    }
+    if (currentUserRole !== 'developer' && activeTab === 'master_management') {
+      setActiveTab('action');
     }
   }, [currentUserRole, activeTab]);
 
@@ -245,6 +407,9 @@ function App() {
         provider: 'azure',
         options: {
           scopes: 'openid profile email offline_access',
+          // ログイン後に今開いている場所へ戻す（ローカルの dev から本番の URL へ飛ばされないように）。
+          // Supabase Auth の Redirect URLs に無い URL のときは、Supabase が Site URL（本番）へ戻す
+          redirectTo: window.location.origin,
         }
       });
       if (error) throw error;
@@ -378,7 +543,11 @@ function App() {
       if (completedAt !== undefined) payload.completed_at = completedAt;
       if (reportNotes !== undefined) payload.report_notes = reportNotes;
 
-      const { error: patchError } = await supabase.from('schedules').update(payload).eq('id', idVal);
+      const { error: patchError } = await withTimeout(
+        supabase.from('schedules').update(payload).eq('id', idVal),
+        15_000,
+        '結果の更新'
+      );
 
       if (patchError) {
         throw new Error('結果の更新に失敗しました。');
@@ -386,18 +555,63 @@ function App() {
 
       // 履歴ログの保存
       const targetSched = schedules.find(s => s.id === idVal);
-      await saveAuditLog(
+      // 書き込みが済んだら待たない（履歴と再取得は遅くても現地の操作を止めない。Realtime も再取得する）
+      void saveAuditLog(
         idVal,
         'update_result',
         targetSched ? targetSched.property_name : '',
         `予定の結果を更新しました: ${resultValue}`
       );
 
-      await fetchData(true); // サイレント更新
+      void fetchData(true); // サイレント更新
     } catch (err: any) {
       alert(err.message || 'エラーが発生しました。');
       throw err;
     }
+  };
+
+  // 対応状況を変える（管理側・カードの右クリック）。結果・開始・完了の時刻を合わせて直し、変更履歴に残す
+  const SANDBOX_STATUS_HISTORY_KEY = 'field_app_sandbox_status_history';
+  const handleSetProgress = async (s: Schedule, p: Progress) => {
+    const d = new Date();
+    const hm = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+    const label = { todo: '未着手', working: '対応中', done: '完了' }[p];
+    if (p === 'done') await handleUpdateScheduleResult(s.id, '完了', s.started_at || hm, hm);
+    else if (p === 'working') await handleUpdateScheduleResult(s.id, '作業中', s.started_at || hm, null);
+    else await handleUpdateScheduleResult(s.id, '', null, null);
+    if (isSandboxMode) {
+      try {
+        const all = JSON.parse(localStorage.getItem(SANDBOX_STATUS_HISTORY_KEY) || '{}') as Record<string, StatusHistoryItem[]>;
+        const by = user?.user_metadata?.full_name || user?.user_metadata?.name || staff.find(st => st.id === currentStaffId)?.name || '管理者';
+        all[String(s.id)] = [{ at: d.toISOString(), by, text: `対応状況を「${label}」に変更` }, ...(all[String(s.id)] || [])];
+        localStorage.setItem(SANDBOX_STATUS_HISTORY_KEY, JSON.stringify(all));
+      } catch { /* 履歴が残せなくても状況の変更は済んでいる */ }
+    }
+  };
+  // そのカードの変更履歴（結果の変更＋FE のボタン記録）。新しい順
+  const loadStatusHistory = async (s: Schedule): Promise<StatusHistoryItem[]> => {
+    const nameOf = (emailOrName: string) => staff.find(st => st.email?.toLowerCase().trim() === emailOrName.toLowerCase().trim())?.name || emailOrName;
+    const items: StatusHistoryItem[] = [];
+    if (isSandboxMode) {
+      try {
+        const all = JSON.parse(localStorage.getItem(SANDBOX_STATUS_HISTORY_KEY) || '{}') as Record<string, StatusHistoryItem[]>;
+        items.push(...(all[String(s.id)] || []));
+      } catch { /* noop */ }
+    } else if (typeof s.id === 'number') {
+      const { data } = await supabase
+        .from('audit_logs')
+        .select('timestamp, details, changed_by, action')
+        .eq('schedule_id', s.id)
+        .order('timestamp', { ascending: false })
+        .limit(30);
+      for (const row of (data || []) as { timestamp: string; details: string; changed_by: string; action: string }[]) {
+        items.push({ at: row.timestamp, by: nameOf(row.changed_by || ''), text: (row.details || row.action || '').replace('予定の結果を更新しました: ', '結果を「').replace(/^(結果を「.*)$/, '$1」に変更').replace('結果を「」に変更', '結果を空欄に変更') });
+      }
+    }
+    for (const e of feEvents.filter(x => x.schedule_id === s.id)) {
+      items.push({ at: e.occurred_at, by: `${staff.find(st => st.id === e.staff_id)?.name || 'FE'}（FE画面）`, text: FE_EVENT_LABELS[e.kind] });
+    }
+    return items.sort((a, b) => b.at.localeCompare(a.at));
   };
 
   const handleReorderSchedules = async (orders: { id: number | string; sort_order: number }[]) => {
@@ -489,6 +703,8 @@ function App() {
   const [isImportOpen, setIsImportOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [selectedSchedule, setSelectedSchedule] = useState<Schedule | null>(null);
+  // 現地対応者がカードから開いたときは見るだけ
+  const [modalReadOnly, setModalReadOnly] = useState(false);
 
   // 画面表示サイズ（ズーム倍率: 80%, 90%, 100%, 110%, 125%）
   const [zoomLevel, setZoomLevel] = useState<number>(() => {
@@ -627,12 +843,13 @@ function App() {
 
   // モーダル開閉に合わせて編集ロックをブロードキャスト / 解除
   useEffect(() => {
-    if (isModalOpen && selectedSchedule && typeof selectedSchedule.id === 'number') {
+    // 見るだけで開いたときは編集中の印を送らない（管理側の編集を止めないため）
+    if (isModalOpen && !modalReadOnly && selectedSchedule && typeof selectedSchedule.id === 'number') {
       handleLockSchedule(selectedSchedule.id, 'modal');
-    } else if (!isModalOpen && currentLockedRef.current?.mode === 'modal') {
+    } else if ((!isModalOpen || modalReadOnly) && currentLockedRef.current?.mode === 'modal') {
       handleUnlockSchedule();
     }
-  }, [isModalOpen, selectedSchedule, handleLockSchedule, handleUnlockSchedule]);
+  }, [isModalOpen, modalReadOnly, selectedSchedule, handleLockSchedule, handleUnlockSchedule]);
 
   const fetchData = async (silent = false) => {
     if (!silent) {
@@ -641,7 +858,7 @@ function App() {
     setError(null);
     try {
       const [schedulesRes, staffRes, workTypesRes, profilesRes] = await Promise.all([
-        supabase.from('schedules').select('*'),
+        fetchAllRows((from, to) => supabase.from('schedules').select('*').order('id').range(from, to)),
         supabase.from('staff').select('*'),
         supabase.from('work_types').select('*').order('sort_order', { ascending: true }),
         talkScriptSupabase
@@ -779,13 +996,43 @@ function App() {
   const handleOpenAddModal = (dateStr: string) => {
     setSelectedSchedule(null);
     setSelectedDate(dateStr);
+    setModalReadOnly(false);
     setIsModalOpen(true);
   };
 
   const handleOpenEditModal = (schedule: Schedule) => {
     setSelectedSchedule(schedule);
     setSelectedDate(schedule.date);
+    setModalReadOnly(false);
     setIsModalOpen(true);
+  };
+
+  const handleOpenDetailModal = (schedule: Schedule) => {
+    setSelectedSchedule(schedule);
+    setSelectedDate(schedule.date);
+    setModalReadOnly(true);
+    setIsModalOpen(true);
+  };
+
+  // 現地の開始・完了の通知（管理側・本番モードのときだけ）。自分の名前は updated_by に入る名前と同じ決め方にする
+  const selfEditorName = user
+    ? user.user_metadata?.full_name ||
+      user.user_metadata?.name ||
+      staff.find(st => st.email?.toLowerCase().trim() === (user.email || '').toLowerCase().trim())?.name ||
+      user.email ||
+      'system'
+    : '';
+  const notifications = useRealtimeNotifications({
+    enabled: Boolean(user) && !isSandboxMode && canManageSchedules(currentUserRole),
+    branch: currentBranch,
+    schedules,
+    staff,
+    selfName: selfEditorName,
+  });
+  const handleOpenNotice = (scheduleId: number) => {
+    if (isModalOpen && !modalReadOnly && !window.confirm('編集中の予定を閉じて、通知の予定を開きますか？')) return;
+    const target = schedules.find(s => Number(s.id) === scheduleId);
+    if (target) handleOpenEditModal(target);
   };
 
   const handleSaveSchedule = async (scheduleData: Partial<Schedule>) => {
@@ -1201,6 +1448,49 @@ function App() {
     }
   };
 
+  // 行動予定・月間予定の表示の切り替えタブ
+  // 作業者は「表」だけ（切り替えは出さない。自分の予定は FE 画面で進める）。
+  // 予定管理者の PC はガントを出さず「カード／表」のスイッチ（全員の 1 日はカードの時間軸で見る）。前にガントを開いていた人はカードで開く。
+  // 予定管理者の携帯は「自分の予定」（同じ gantt の枠で出す DayScreen のカード）も残す
+  const canManageDay = canManageSchedules(currentUserRole);
+  const hideGantt = canManageDay && !isMobile;
+  const shownDayView: DayViewKey = !canManageDay ? 'table' : hideGantt && dayView === 'gantt' ? 'card' : dayView;
+  const dayViewItems: ViewTabItem<DayViewKey>[] = [
+    ...(hideGantt
+      ? []
+      : [{ key: 'gantt' as const, icon: <ListChecks size={16} />, label: '自分の予定', title: '自分の予定を進む順にカードで見る（開始・完了を押せる）' }]),
+    { key: 'card', icon: <LayoutList size={16} />, label: 'カード', title: '担当ごとに訪問を横に並べる（中のボタンで時間軸に切り替え）' },
+    { key: 'table', icon: <Table2 size={16} />, label: '表', title: '表で見る・編集する' },
+  ];
+  const monthViewItems: ViewTabItem<MonthViewKey>[] = [
+    { key: 'calendar', icon: <CalendarDays size={16} />, label: 'カレンダー', title: '担当×日で予定の中身を見る' },
+    { key: 'heatmap', icon: <Grid3x3 size={16} />, label: 'ヒートマップ', title: '人ごとの混み具合を見る' },
+    { key: 'card', icon: <Calendar size={16} />, label: '月のマス目', title: '1 か月のマス目と、選んだ日の詳細' },
+    { key: 'table', icon: <Table2 size={16} />, label: '表', title: '表で見る・編集する' },
+  ];
+
+  // 携帯幅のヘッダーで「⋯」に入れる操作（PC 幅ではヘッダーに並ぶボタンと同じもの）
+  const headerMoreItems: HeaderMoreItem[] = [
+    { key: 'refresh', icon: <RefreshCw size={16} />, label: 'データを更新', onSelect: () => fetchData(false) },
+    {
+      key: 'sandbox',
+      icon: <FlaskConical size={16} />,
+      label: isSandboxMode ? 'お試しモードを終了' : 'お試しモード',
+      onSelect: () => handleToggleSandboxMode(!isSandboxMode),
+      active: isSandboxMode,
+    },
+    ...(canManageSchedules(currentUserRole)
+      ? [
+          {
+            key: 'analytics',
+            icon: <BarChart3 size={16} />,
+            label: '集計分析',
+            onSelect: () => setActiveTab('analytics'),
+            active: activeTab === 'analytics',
+          },
+        ]
+      : []),
+  ];
 
   return (
     <div className="app-container">
@@ -1212,6 +1502,13 @@ function App() {
             <p className="login-subtitle">続行するにはサインインしてください</p>
             
             <button className="btn btn-primary btn-login-main" onClick={handleLogin}>
+              {/* Microsoft のロゴ（4色の四角） */}
+              <svg className="ms-logo" width="18" height="18" viewBox="0 0 21 21" aria-hidden="true">
+                <rect x="1" y="1" width="9" height="9" fill="#f25022" />
+                <rect x="11" y="1" width="9" height="9" fill="#7fba00" />
+                <rect x="1" y="11" width="9" height="9" fill="#00a4ef" />
+                <rect x="11" y="11" width="9" height="9" fill="#ffb900" />
+              </svg>
               Microsoft アカウントでログイン
             </button>
 
@@ -1230,7 +1527,8 @@ function App() {
                 一般作業者でデモログイン
               </button>
               <button className="btn btn-secondary" onClick={handleDemoOsakaLogin} style={{ borderColor: '#f97316' }}>
-                🐙 黒川（大阪支店デモ）
+                <OsakaIcon size={16} />
+                黒川（大阪支店デモ）
               </button>
             </div>
           </div>
@@ -1241,10 +1539,16 @@ function App() {
           {isSandboxMode && (
             <div className="sandbox-banner">
               <div className="sandbox-banner-content">
-                <span className="sandbox-badge">🧪 お試しモード中</span>
+                <span className="sandbox-badge"><FlaskConical size={12} /> お試しモード中</span>
                 <span>本番データには一切影響しません。予定の追加・変更・削除・ドラッグ移動など自由にお試しいただけます。</span>
               </div>
               <div className="sandbox-banner-actions">
+                {sandboxImportEnabled && (
+                  <button className="sandbox-btn-reset" onClick={handleLoadSandboxDay} title="見ている日の行動予定表（スプレッドシートの実データ）をお試しモードに読み込みます（開発用）">
+                    <Download size={13} />
+                    行動予定表を読み込む
+                  </button>
+                )}
                 <button className="sandbox-btn-reset" onClick={handleResetSandboxData} title="最新の本番データ状態でリセットします">
                   <RefreshCw size={13} />
                   お試しデータをリセット
@@ -1263,76 +1567,91 @@ function App() {
                 {currentUserRole === 'developer' ? '開発者環境' : currentUserRole === 'manager' ? '予定管理者環境' : '一般作業者環境'}
               </span>
 
-              {/* 拠点切り替えスイッチ（東京 / 大阪） */}
-              <div className="branch-switcher" role="group" aria-label="拠点切り替え">
-                <button
-                  type="button"
-                  className={`branch-btn ${currentBranch === 'tokyo' ? 'active tokyo' : ''}`}
-                  onClick={() => handleSwitchBranch('tokyo')}
-                  title="東京 (東日本) の予定・スタッフを表示"
-                >
-                  <span className="branch-icon">🏢</span>
-                  <span className="branch-label">東京</span>
-                  <span className="branch-tag">東日本</span>
-                </button>
-                <button
-                  type="button"
-                  className={`branch-btn ${currentBranch === 'osaka' ? 'active osaka' : ''}`}
-                  onClick={() => handleSwitchBranch('osaka')}
-                  title="大阪 (西日本) の予定・スタッフを表示"
-                >
-                  <span className="branch-icon">🐙</span>
-                  <span className="branch-label">大阪</span>
-                  <span className="branch-tag">西日本</span>
-                </button>
-              </div>
             </div>
 
+            {/* 切り替えタブ（広い画面では画面の中央線上に置く）と、その右の FE画面ボタン。
+                作業者は FE画面と行動予定（表）だけなので、2 つをアイコンのスイッチで切り替える */}
+            <div className="header-center">
+            {!canManageSchedules(currentUserRole) ? (
+              <div className="header-switch">
+                <ViewTabs
+                  ariaLabel="画面の切り替え"
+                  iconOnly
+                  value={activeTab === 'fe' ? 'fe' : 'action'}
+                  onChange={key => { setDayFocusStaffId(null); setActiveTab(key); }}
+                  items={[
+                    { key: 'fe' as const, icon: <Smartphone size={18} />, label: 'FE画面', title: '出発・到着・作業完了を押して記録' },
+                    { key: 'action' as const, icon: <Table2 size={18} />, label: '行動予定', title: '今日の予定を表で見る（最初は自分の予定だけ）' },
+                  ]}
+                />
+              </div>
+            ) : (
+            <>
             <div className="nav-tabs">
               <button
-                className={`tab-btn ${activeTab === 'grid' ? 'active' : ''}`}
-                onClick={() => setActiveTab('grid')}
+                className={`tab-btn tab-icon-only tab-action ${activeTab === 'action' ? 'active' : ''}`}
+                onClick={() => { setDayFocusStaffId(null); setActiveTab('action'); }}
+                title="行動予定"
+                aria-label="行動予定"
               >
-                <List size={16} />
-                予定表 (グリッド)
-              </button>
-              <button
-                className={`tab-btn ${activeTab === 'timeline' ? 'active' : ''}`}
-                onClick={() => setActiveTab('timeline')}
-              >
-                <Layers size={16} />
-                当日行動予定表
+                <ListChecks size={18} />
               </button>
               {canManageSchedules(currentUserRole) && (
                 <button
-                  className={`tab-btn ${activeTab === 'calendar' ? 'active' : ''}`}
-                  onClick={() => setActiveTab('calendar')}
+                  className={`tab-btn tab-icon-only tab-month ${activeTab === 'month' ? 'active' : ''}`}
+                  onClick={() => setActiveTab('month')}
+                  title="月間予定"
+                  aria-label="月間予定"
                 >
-                  <Calendar size={16} />
-                  月間予定表
+                  <CalendarDays size={18} />
+                </button>
+              )}
+              {canManageSchedules(currentUserRole) && (
+                <button
+                  className={`tab-btn tab-icon-only tab-map ${activeTab === 'map' ? 'active' : ''}`}
+                  onClick={() => setActiveTab('map')}
+                  title="動態マップ"
+                  aria-label="動態マップ"
+                >
+                  <MapPinned size={18} />
                 </button>
               )}
             </div>
 
+            {/* FE のスマホ画面（切り替えタブとは別のアイコンボタン） */}
+            <button
+              type="button"
+              className={`btn-fe-screen ${activeTab === 'fe' ? 'active' : ''}`}
+              onClick={() => setActiveTab('fe')}
+              title="FE画面（出発・到着・作業完了を押して記録）"
+              aria-label="FE画面"
+              aria-pressed={activeTab === 'fe'}
+            >
+              <Smartphone size={18} />
+            </button>
+            </>
+            )}
+            </div>
+
             <div className="header-actions">
               {/* グループ1: 作業・表示操作 */}
-              <button className="btn btn-secondary" onClick={() => fetchData(false)} title="データを更新">
+              <button className="btn btn-secondary header-desktop-only" onClick={() => fetchData(false)} title="データを更新">
                 <RefreshCw size={16} />
               </button>
 
               {/* お試しモード切り替えトグルボタン */}
               <button
                 type="button"
-                className={`btn-sandbox-toggle ${isSandboxMode ? 'active' : ''}`}
+                className={`btn-sandbox-toggle header-desktop-only ${isSandboxMode ? 'active' : ''}`}
                 onClick={() => handleToggleSandboxMode(!isSandboxMode)}
                 title={isSandboxMode ? 'お試しモードを終了して本番モードに戻る' : '本番データに影響しないお試しモードを開始する'}
               >
-                <span>🧪</span>
+                <FlaskConical size={16} />
                 <span>{isSandboxMode ? 'お試し中' : 'お試しモード'}</span>
               </button>
 
               {/* 画面表示サイズ（ズーム）コントロール */}
-              <div className="zoom-controller" title="画面表示サイズ変更（文字・表全体の拡大縮小）">
+              <div className="zoom-controller header-desktop-only" title="画面表示サイズ変更（文字・表全体の拡大縮小）">
                 <button
                   type="button"
                   className="btn-zoom"
@@ -1361,58 +1680,41 @@ function App() {
                 </button>
               </div>
 
-              <div className="header-divider"></div>
+              <div className="header-divider header-desktop-only"></div>
 
               {/* グループ2: 業務・マスタ管理 */}
+              {canManageSchedules(currentUserRole) && !isSandboxMode && (
+                <NotificationBadge
+                  items={notifications.items}
+                  unread={notifications.unread}
+                  onOpen={handleOpenNotice}
+                  onMarkAllRead={notifications.markAllRead}
+                />
+              )}
               {canManageSchedules(currentUserRole) && (
                 <button
-                  className={`btn ${activeTab === 'analytics' ? 'btn-primary' : 'btn-secondary'}`}
+                  className={`btn header-desktop-only ${activeTab === 'analytics' ? 'btn-primary' : 'btn-secondary'}`}
                   onClick={() => setActiveTab('analytics')}
                   title="集計分析を開く"
                 >
                   <BarChart3 size={16} />
                 </button>
               )}
-              {currentUserRole === 'developer' && (
-                <button
-                  className={`btn ${activeTab === 'master_management' ? 'btn-primary' : 'btn-secondary'}`}
-                  onClick={() => setActiveTab('master_management')}
-                  title="マスタ管理を開く"
-                >
-                  <Settings size={16} />
-                </button>
-              )}
 
-              <div className="header-divider"></div>
 
-              {/* グループ3: システム・サポート・アカウント */}
-              <button 
-                className="btn btn-secondary" 
-                onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')} 
-                title={theme === 'light' ? 'ダークモードに切り替え' : 'ライトモードに切り替え'}
-              >
-                {theme === 'light' ? <Moon size={16} /> : <Sun size={16} />}
-              </button>
 
-              <button 
-                className="btn btn-secondary header-help-btn" 
-                onClick={() => setIsHelpGuideOpen(true)} 
-                title="操作ガイド・よくある質問（ショートカット: ?）"
-              >
-                <HelpCircle size={16} />
-                <span className="help-btn-text">操作ガイド</span>
-                <span className="help-shortcut-badge">?</span>
-              </button>
-
+              {/* 携帯幅: 上のボタンを隠し、この「⋯」にまとめる */}
+              <HeaderMoreMenu items={headerMoreItems} />
 
               {/* アカウント表示エリア */}
               {/* Azure (Entra ID) ログインは user_metadata に写真URLを返さないため、
                   スタッフ一覧と同じく talkscript-flow profiles 由来の avatar_url にメールで突合する */}
-              <div className="user-profile-section">
+              <div className="user-profile-section" ref={userMenuRef}>
                 <div 
                   className="user-profile-trigger" 
                   onClick={() => setShowUserMenu(!showUserMenu)}
                   title={`アカウント: ${user.user_metadata?.full_name || user.email}`}
+                  aria-expanded={showUserMenu}
                 >
                   {(() => {
                     const loginEmail = (user.email || '').toLowerCase().trim();
@@ -1433,14 +1735,84 @@ function App() {
                     </div>
                   );
                   })()}
-                  <span className="user-name">{user.user_metadata?.full_name || user.email}</span>
+                  <span className={`avatar-branch-badge is-${currentBranch}`} title={currentBranch === 'tokyo' ? '東京（東日本）の管理画面' : '大阪（西日本）の管理画面'}>
+                    {currentBranch === 'tokyo' ? <TokyoIcon size={10} /> : <OsakaIcon size={10} />}
+                  </span>
                   {showUserMenu && (
                     <div className="user-menu-dropdown">
                       <div className="user-menu-info">
-                        <p className="user-menu-name">{user.user_metadata?.full_name || 'ユーザー'}</p>
+                        <div className="user-menu-name-row">
+                          <p className="user-menu-name">{user.user_metadata?.full_name || 'ユーザー'}</p>
+                          <button
+                            type="button"
+                            role="switch"
+                            aria-checked={theme === 'dark'}
+                            className={`theme-switch${theme === 'dark' ? ' is-dark' : ''}`}
+                            onClick={e => {
+                              e.stopPropagation();
+                              setTheme(theme === 'light' ? 'dark' : 'light');
+                            }}
+                            title={theme === 'light' ? 'ダークモードにする' : 'ライトモードにする'}
+                            aria-label="ダークモード"
+                          >
+                            <span className="theme-switch-knob">{theme === 'dark' ? <Moon size={12} /> : <Sun size={12} />}</span>
+                          </button>
+                        </div>
                         <p className="user-menu-email">{user.email}</p>
                         <p className="user-menu-role">権限: {currentUserRole === 'developer' ? '開発者' : currentUserRole === 'manager' ? '予定管理者' : '一般作業者'}</p>
                       </div>
+                      {/* 東京／大阪の切り替えは予定管理者だけ。作業者は所属拠点に固定 */}
+                      {canManageSchedules(currentUserRole) && (
+                      <>
+                      <div className="user-menu-divider"></div>
+                      <div className="user-menu-section-title">管理画面</div>
+                      {(['tokyo', 'osaka'] as const).map(b => (
+                        <button
+                          key={b}
+                          type="button"
+                          className={`user-menu-item branch-option is-${b}${currentBranch === b ? ' is-active' : ''}`}
+                          onClick={e => {
+                            e.stopPropagation();
+                            handleSwitchBranch(b);
+                            setShowUserMenu(false);
+                          }}
+                          aria-pressed={currentBranch === b}
+                        >
+                          {b === 'tokyo' ? <TokyoIcon size={16} /> : <OsakaIcon size={16} />}
+                          <span>{b === 'tokyo' ? '東京（東日本）' : '大阪（西日本）'}</span>
+                          {currentBranch === b && <Check size={16} className="branch-option-check" />}
+                        </button>
+                      ))}
+                      </>
+                      )}
+                      <div className="user-menu-divider"></div>
+                      {currentUserRole === 'developer' && (
+                        <button
+                          type="button"
+                          className={`user-menu-item menu-action${activeTab === 'master_management' ? ' is-active' : ''}`}
+                          onClick={e => {
+                            e.stopPropagation();
+                            setActiveTab('master_management');
+                            setShowUserMenu(false);
+                          }}
+                        >
+                          <Settings size={16} />
+                          <span>設定（マスタ管理）</span>
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        className="user-menu-item menu-action"
+                        onClick={e => {
+                          e.stopPropagation();
+                          setIsHelpGuideOpen(true);
+                          setShowUserMenu(false);
+                        }}
+                      >
+                        <HelpCircle size={16} />
+                        <span>操作ガイド</span>
+                        <kbd className="menu-kbd">?</kbd>
+                      </button>
                       <div className="user-menu-divider"></div>
                       <button className="user-menu-item logout-btn" onClick={handleLogout}>
                         ログアウト
@@ -1482,9 +1854,70 @@ function App() {
                     <Spinner size={32} />
                   </div>
                 )}
-                {activeTab === 'grid' && (
+                {activeTab === 'action' && canManageDay && (
+                  <ViewTabs
+                    ariaLabel="行動予定の表示"
+                    items={dayViewItems}
+                    value={shownDayView}
+                    onChange={setDayView}
+                    iconOnly
+                  />
+                )}
+                {activeTab === 'month' && canManageSchedules(currentUserRole) && (
+                  <ViewTabs
+                    ariaLabel="月間予定の表示"
+                    items={monthViewItems}
+                    value={monthView}
+                    onChange={setMonthView}
+                  />
+                )}
+                {activeTab === 'action' && shownDayView === 'gantt' && (
+                  <DayScreen
+                    schedules={transferredSchedules}
+                    staff={branchStaff}
+                    role={currentUserRole}
+                    currentStaffId={currentStaffId}
+                    date={viewDate}
+                    onDateChange={(d) => {
+                      setViewDate(d);
+                      setDayFocusStaffId(null);
+                    }}
+                    focusStaffId={dayFocusStaffId}
+                    onOpenEdit={handleOpenEditModal}
+                    onOpenDetail={handleOpenDetailModal}
+                    onUpdateResult={handleUpdateScheduleResult}
+                    feEvents={feEvents}
+                  />
+                )}
+                {canManageSchedules(currentUserRole) && activeTab === 'month' && (monthView === 'calendar' || monthView === 'heatmap') && (
+                  <MonthView
+                    mode={monthView}
+                    schedules={branchSchedules}
+                    staff={branchStaff}
+                    onOpenAdd={handleOpenAddModal}
+                    onOpenEdit={handleOpenEditModal}
+                    onTransfer={handleTransferSchedules}
+                    onOpenPasteImport={() => setIsImportOpen(true)}
+                    onJumpToDay={(d, staffId) => {
+                      setViewDate(d);
+                      setDayFocusStaffId(staffId);
+                      setDayView('gantt');
+                      setActiveTab('action');
+                    }}
+                  />
+                )}
+                {activeTab === 'action' && shownDayView !== 'gantt' && (
                   <GridView
-                    schedules={branchSchedules.filter(s => s.is_transferred === 1)}
+                    viewMode={shownDayView}
+                    initialMyScheduleOnly={!canManageDay || openedFromFe}
+                    feEvents={feEvents}
+                    onUpdateResult={handleUpdateScheduleResult}
+                    onReorder={handleReorderSchedules}
+                    onSetProgress={handleSetProgress}
+                    loadStatusHistory={loadStatusHistory}
+                    viewDate={viewDate}
+                    onViewDateChange={setViewDate}
+                    schedules={transferredSchedules}
                     staff={branchStaff}
                     workTypes={workTypes}
                     onOpenAddModal={handleOpenAddModal}
@@ -1500,20 +1933,45 @@ function App() {
                     zoomLevel={zoomLevel}
                   />
                 )}
-                {activeTab === 'timeline' && (
-                  <TimelineView
-                    schedules={branchSchedules.filter(s => s.is_transferred === 1)}
+                {canManageSchedules(currentUserRole) && activeTab === 'map' && (
+                  <DynamicsMapView
+                    schedules={branchSchedules}
                     staff={branchStaff}
-                    onOpenEditModal={handleOpenEditModal}
+                    feEvents={feEvents}
+                    fePositions={fePositions}
+                    isSandbox={isSandboxMode}
+                    date={viewDate}
+                    onDateChange={setViewDate}
                     currentUserRole={currentUserRole}
                     currentStaffId={currentStaffId}
+                    onOpenEditModal={handleOpenEditModal}
                     onUpdateResult={handleUpdateScheduleResult}
                     onReorder={handleReorderSchedules}
-                    zoomLevel={zoomLevel}
                   />
                 )}
-                {canManageSchedules(currentUserRole) && activeTab === 'calendar' && (
+                {activeTab === 'fe' && (
+                  <FeActionView
+                    schedules={schedules}
+                    staff={staff}
+                    currentStaffId={currentStaffId}
+                    isSandbox={isSandboxMode}
+                    isDemoLogin={typeof user?.id === 'string' && user.id.startsWith('demo-')}
+                    feEvents={feEvents}
+                    feUnavailable={feUnavailable}
+                    onRecorded={() => void refreshFeEvents()}
+                    onUpdateResult={(id, result, startedAt, completedAt) => handleUpdateScheduleResult(id, result, startedAt, completedAt)}
+                    onReorder={handleReorderSchedules}
+                    onOpenSchedules={() => {
+                      // 今日の予定を表で開く（最初は自分の予定だけ）
+                      setOpenedFromFe(true);
+                      if (canManageDay) setDayView('table');
+                      setActiveTab('action');
+                    }}
+                  />
+                )}
+                {canManageSchedules(currentUserRole) && activeTab === 'month' && (monthView === 'card' || monthView === 'table') && (
                   <CalendarView
+                    viewMode={monthView}
                     schedules={branchSchedules}
                     staff={branchStaff}
                     onOpenAddModal={handleOpenAddModal}
@@ -1563,8 +2021,9 @@ function App() {
             workTypes={workTypes}
             currentUserEmail={user?.email || 'system'}
             currentUserName={user?.user_metadata?.full_name || user?.user_metadata?.name || staff.find(s => s.email && s.email.toLowerCase() === (user?.email || '').toLowerCase())?.name || ''}
-            defaultTransferred={activeTab === 'calendar' ? 0 : 1}
+            defaultTransferred={activeTab === 'month' ? 0 : 1}
             lockedBy={selectedSchedule && typeof selectedSchedule.id === 'number' ? activeLocks[selectedSchedule.id] : null}
+            readOnly={modalReadOnly}
             currentUserRole={currentUserRole}
           />
 
@@ -1578,6 +2037,13 @@ function App() {
             existingSchedules={branchSchedules}
             onSandboxImport={handleSandboxImport}
             currentBranch={currentBranch}
+          />
+
+          <NotificationToast
+            key={notifications.latest?.id ?? 'none'}
+            notice={isModalOpen || isImportOpen || isHelpGuideOpen ? null : notifications.latest}
+            onOpen={handleOpenNotice}
+            onClose={notifications.dismissLatest}
           />
 
           <HelpGuideModal

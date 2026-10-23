@@ -5,6 +5,7 @@ import { Select } from './shared/Select';
 import { resolveAddress } from '../utils/addressResolver';
 import { supabase } from '../supabaseClient';
 import { findStaffByName, getShortName, toHalfWidth, normalizeTargetTime, splitCoWorkers, canManageSchedules } from '../types';
+import DatePicker from './shared/DatePicker';
 
 interface ScheduleModalProps {
   isOpen: boolean;
@@ -21,6 +22,8 @@ interface ScheduleModalProps {
   defaultTransferred?: number;
   lockedBy?: { userName: string; userEmail: string; startedAt: number } | null;
   currentUserRole?: UserRole;
+  /** 見るだけ（現地対応者が行動予定のカードから開いたとき）。入力・保存・削除をさせない */
+  readOnly?: boolean;
 }
 
 export const ScheduleModal: React.FC<ScheduleModalProps> = ({
@@ -37,6 +40,7 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
   defaultTransferred,
   lockedBy,
   currentUserRole,
+  readOnly = false,
 }) => {
   // 現場作業用の種別リスト（不要な「保守」「依頼有/非認可」を除外し、フリーを含める）
   const fieldWorkTypeList = useMemo(() => {
@@ -96,7 +100,7 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
   }, [isOpen]);
 
   const isEffectiveLocked = Boolean(lockedBy) && !forceUnlocked;
-  const isInputDisabled = isSubmitting || isEffectiveLocked;
+  const isInputDisabled = isSubmitting || isEffectiveLocked || readOnly;
 
   // 物件マスタ自動補完用の状態
   const [propertySuggestions, setPropertySuggestions] = useState<any[]>([]);
@@ -213,6 +217,7 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
   };
 
   const handleUnitNumberBlur = async () => {
+    if (readOnly) return;
     // サジェストを非表示（200msの遅延を設けることでリスト項目のクリックを可能にする）
     setTimeout(() => setShowSuggestions(false), 200);
 
@@ -223,6 +228,7 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
 
   /** 依頼番号→FC同期テーブル(fc_requests)→号機→マスタ補完 */
   const handleRequestNumberBlur = async () => {
+    if (readOnly) return;
     setRequestNumberHint('');
     const val = toHalfWidth(requestNumber).trim();
     if (val === '') return;
@@ -252,6 +258,7 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
   };
 
   const handleSelectProperty = (prop: any) => {
+    if (readOnly) return;
     setUnitNumber(prop.unit_number || '');
     setPropertyName(prop.property_name || '');
     setBox(prop.box_count ? String(prop.box_count) : '');
@@ -274,6 +281,7 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
   };
 
   const handleToggleCoWorker = (name: string) => {
+    if (readOnly) return;
     const trimmedName = name.trim();
     const shortName = getShortName(trimmedName);
     // 同行者リストを分解
@@ -484,10 +492,33 @@ ${description || ''}
     }
   };
 
+  // 外側のクリック・Esc でも閉じる（うしろの画面は触れるように、外側は透明でクリックを通している）
+  //   プルダウン・日付の選択欄は画面の別の所に出るので、その中のクリック・Esc では閉じない
+  useEffect(() => {
+    if (!isOpen) return;
+    const POPUPS = '.schedule-sidebar-content, .select-panel, .dp-popup';
+    const onDown = (e: MouseEvent) => {
+      if (isSubmitting || (e.target as HTMLElement).closest?.(POPUPS)) return;
+      onClose();
+    };
+    const onKey = (e: KeyboardEvent) => {
+      // プルダウン・日付の選択欄は先に Esc を受けて preventDefault する（そのときは選択欄だけ閉じる）
+      if (e.key !== 'Escape' || e.defaultPrevented || isSubmitting || document.querySelector('.select-panel, .dp-popup')) return;
+      onClose();
+    };
+    document.addEventListener('mousedown', onDown);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onDown);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [isOpen, isSubmitting, onClose]);
+
   if (!isOpen) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (readOnly) return;
     if (isEffectiveLocked) {
       alert(`現在、${lockedBy?.userName} さんがこの予定を編集中です。同時編集による競合を防ぐため保存できません。`);
       return;
@@ -541,6 +572,8 @@ ${description || ''}
 
       if (isEdit && selectedSchedule) {
         payload.id = selectedSchedule.id;
+        // 現地が押した開始・完了を、開いた時点の古い値で戻さないよう、結果は送らない（結果の変更は報告モーダルから）
+        delete payload.result;
       }
 
       await onSave(payload);
@@ -610,7 +643,7 @@ ${description || ''}
                   </span>
                 </div>
               </div>
-              {canManageSchedules(currentUserRole) && (
+              {canManageSchedules(currentUserRole) && !readOnly && (
                 <button
                   type="button"
                   className="btn btn-secondary"
@@ -636,28 +669,28 @@ ${description || ''}
           )}
 
           {/* ステータストグル */}
-          <div className="status-toggle" style={{ marginBottom: '1.5rem', opacity: isEffectiveLocked ? 0.6 : 1, pointerEvents: isEffectiveLocked ? 'none' : 'auto' }}>
+          <div className="status-toggle" style={{ marginBottom: '1.5rem', opacity: (isEffectiveLocked || readOnly) ? 0.6 : 1, pointerEvents: (isEffectiveLocked || readOnly) ? 'none' : 'auto' }}>
             <div 
               className={`status-toggle-btn free ${status === 'free' ? 'active' : ''}`}
-              onClick={() => !isEffectiveLocked && setStatus('free')}
+              onClick={() => !(isEffectiveLocked || readOnly) && setStatus('free')}
             >
               通常 (フリー)
             </div>
             <div 
               className={`status-toggle-btn draft ${status === 'draft' ? 'active' : ''}`}
-              onClick={() => !isEffectiveLocked && setStatus('draft')}
+              onClick={() => !(isEffectiveLocked || readOnly) && setStatus('draft')}
             >
               仮予定
             </div>
             <div 
               className={`status-toggle-btn confirmed ${status === 'confirmed' ? 'active' : ''}`}
-              onClick={() => !isEffectiveLocked && setStatus('confirmed')}
+              onClick={() => !(isEffectiveLocked || readOnly) && setStatus('confirmed')}
             >
               確定予定
             </div>
             <div 
               className={`status-toggle-btn cancelled ${status === 'cancelled' ? 'active' : ''}`}
-              onClick={() => !isEffectiveLocked && setStatus('cancelled')}
+              onClick={() => !(isEffectiveLocked || readOnly) && setStatus('cancelled')}
               style={{ color: status === 'cancelled' ? 'var(--danger)' : 'var(--text-secondary)', backgroundColor: status === 'cancelled' ? 'rgba(239, 68, 68, 0.15)' : 'transparent', border: status === 'cancelled' ? '1px solid rgba(239, 68, 68, 0.3)' : 'none' }}
             >
               キャンセル
@@ -731,7 +764,7 @@ ${description || ''}
                     {propertySuggestions.map((prop) => (
                       <li
                         key={prop.id}
-                        onClick={() => handleSelectProperty(prop)}
+                        onClick={() => { if (!isInputDisabled) handleSelectProperty(prop); }}
                         onMouseEnter={() => setActiveHoverId(prop.id)}
                         onMouseLeave={() => setActiveHoverId(null)}
                         style={{
@@ -836,15 +869,7 @@ ${description || ''}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.85rem', marginBottom: '0.85rem' }}>
               <div className="form-group" style={{ marginBottom: 0 }}>
                 <label htmlFor="date">対応予定日 *</label>
-                <input
-                  type="date"
-                  id="date"
-                  className="form-control"
-                  value={date}
-                  onChange={(e) => setDate(e.target.value)}
-                  required
-                  disabled={isInputDisabled}
-                />
+                <DatePicker id="date" value={date} onChange={setDate} disabled={isInputDisabled} noClear aria-label="対応予定日" />
               </div>
               <div className="form-group" style={{ marginBottom: 0 }}>
                 <label htmlFor="target_time">時間（指定時間）</label>
@@ -999,6 +1024,7 @@ ${description || ''}
                           key={st.id}
                           type="button"
                           onClick={() => handleToggleCoWorker(st.name)}
+                          disabled={isInputDisabled}
                           style={{
                             padding: '3px 8px',
                             fontSize: '0.72rem',
@@ -1006,7 +1032,7 @@ ${description || ''}
                             border: isSelected ? '1px solid var(--primary, #4f46e5)' : '1px solid transparent',
                             background: isSelected ? 'rgba(99, 102, 241, 0.15)' : 'var(--bg-empty, #f1f5f9)',
                             color: isSelected ? 'var(--primary, #4f46e5)' : 'var(--text-secondary, #475569)',
-                            cursor: 'pointer',
+                            cursor: isInputDisabled ? 'default' : 'pointer',
                             fontWeight: isSelected ? '600' : 'normal',
                             transition: 'all 0.12s ease'
                           }}
@@ -1238,7 +1264,7 @@ ${description || ''}
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid var(--border-glass)', paddingTop: '1.25rem', flexWrap: 'wrap', gap: '1rem' }}>
             <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
-              {isEditMode ? (
+              {isEditMode && !readOnly ? (
                 <button
                   type="button"
                   className="btn btn-danger"
@@ -1251,7 +1277,7 @@ ${description || ''}
                 <div></div>
               )}
 
-              {targetStaffEmail && (
+              {targetStaffEmail && !readOnly && (
                 <button
                   type="button"
                   className="btn"
@@ -1282,16 +1308,18 @@ ${description || ''}
                 onClick={onClose}
                 disabled={isSubmitting}
               >
-                キャンセル
+                {readOnly ? '閉じる' : 'キャンセル'}
               </button>
-              <button
-                type="submit"
-                className="btn btn-primary"
-                disabled={isInputDisabled}
-                title={isEffectiveLocked ? `${lockedBy?.userName} さんが編集中です` : undefined}
-              >
-                {isEffectiveLocked ? `🔒 編集中 (${lockedBy?.userName})` : (isSubmitting ? '保存中...' : '予定を保存')}
-              </button>
+              {!readOnly && (
+                <button
+                  type="submit"
+                  className="btn btn-primary"
+                  disabled={isInputDisabled}
+                  title={isEffectiveLocked ? `${lockedBy?.userName} さんが編集中です` : undefined}
+                >
+                  {isEffectiveLocked ? `🔒 編集中 (${lockedBy?.userName})` : (isSubmitting ? '保存中...' : '予定を保存')}
+                </button>
+              )}
             </div>
           </div>
         </form>

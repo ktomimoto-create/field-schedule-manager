@@ -390,22 +390,23 @@
   font-size: 0.95rem;
 }
 
-/* 完了行の消し込みスタイル */
+/* 対応状況で行に色を付ける（文字は薄くしない）。完了＝緑、対応中＝黄。結果欄の「完了」と同じ色の付け方で、左端に同じ色の線 */
 .row-completed {
-  opacity: 0.5;
-  background: rgba(16, 185, 129, 0.02) !important;
+  background: rgba(16, 185, 129, 0.1) !important;
+  box-shadow: inset 3px 0 0 var(--success);
 }
 
-.row-completed td:not(:first-child) {
-  color: var(--text-muted) !important;
+.row-working {
+  background: rgba(245, 158, 11, 0.1) !important;
+  box-shadow: inset 3px 0 0 var(--warning);
 }
 
-.row-completed .bold-cell {
-  color: var(--text-muted) !important;
+.dark-theme .row-completed {
+  background: rgba(16, 185, 129, 0.14) !important;
 }
 
-.row-completed .staff-indicator-tag {
-  opacity: 0.5;
+.dark-theme .row-working {
+  background: rgba(245, 158, 11, 0.14) !important;
 }
 
 /* 物件名、作業内容、備考の常時折り返し（最大2〜3行）スタイル */
@@ -966,3 +967,172 @@ tr:hover .cell-edit-modal-btn {
 }
 
 
+
+/* 表示の切替（カード一覧 / 時間軸 / 表）: アイコンのみ＋ツールチップ */
+.view-mode-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+}
+.view-mode-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 30px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+.view-mode-btn:hover {
+  filter: brightness(1.12);
+  color: var(--primary);
+}
+.view-mode-btn.active {
+  border-color: rgba(79, 70, 229, 0.35);
+  background: rgba(79, 70, 229, 0.08);
+  color: var(--primary);
+}
+.grid-cards-wrapper {
+  background: var(--bg-primary);
+}
+
+/* 日付の操作（前日・今日・翌日）を、他のボタンと同じ高さ 32px・小さめの文字にそろえる */
+.date-nav-controls .btn-sm-nav {
+  box-sizing: border-box;
+  height: 32px;
+  min-width: 32px;
+  padding: 0 10px !important;
+  font-size: 0.8rem;
+  line-height: 1.4;
+}
+.date-nav-controls .current-date-display {
+  font-size: 1rem;
+}
+
+/* 絞り込みの行: 枠を 34px にそろえて大きくする */
+.grid-filters-left .filter-select.select-trigger {
+  box-sizing: border-box;
+  height: 34px;
+  min-width: 140px;
+  font-size: 0.85rem;
+  line-height: 1.4;
+}
+.grid-actions-right .btn-action-excel,
+.grid-actions-right .btn-action-print {
+  box-sizing: border-box;
+  height: 34px;
+}
+/* 自分の予定だけ: 人のアイコンだけの切り替え（押している間は色付き） */
+.btn.btn-my-schedule {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: 34px;
+  height: 34px;
+  padding: 0 !important;
+  border: 1px solid var(--border-glass);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-secondary);
+}
+.btn.btn-my-schedule:hover {
+  filter: brightness(1.12);
+  color: var(--primary);
+}
+.btn.btn-my-schedule.active {
+  border-color: rgba(79, 70, 229, 0.45);
+  background: rgba(79, 70, 229, 0.1);
+  color: var(--primary);
+}
+.grid-header-bottom-row .grid-filters-left .select-trigger.filter-select {
+  font-size: 0.85rem !important;
+  padding: 0 0.75rem !important;
+}
+
+/* 今日へはアイコンだけ・予定を追加は日付の操作の右（下から移した） */
+.date-nav-controls {
+  gap: 6px;
+}
+.date-nav-controls .btn-today-icon {
+  width: 32px;
+  padding: 0 !important;
+}
+.date-nav-controls .btn-add-inline {
+  box-sizing: border-box;
+  height: 32px;
+  margin-left: 6px;
+  padding: 0 12px !important;
+  font-size: 0.8rem;
+  line-height: 1.4;
+}
+/* Excel で開く・印刷プレビューを同じ大きさ（34px・同じ余白と文字）にそろえる */
+.grid-actions-right .btn-action-excel,
+.grid-actions-right .btn-action-print {
+  box-sizing: border-box;
+  height: 34px !important;
+  padding: 0 12px !important;
+  font-size: 0.8rem !important;
+  line-height: 1.4;
+  border-width: 1px !important;
+}
+
+/* 表示の切替（カード / 表 など）は切り替えタブの見た目: 薄い面の中で、選んでいる方だけ色付き */
+.view-mode-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  border: none !important;
+  border-radius: var(--radius-sm);
+  background: var(--bg-tertiary) !important;
+}
+.view-mode-switch .view-mode-btn {
+  height: 30px !important;
+  border: none !important;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-muted);
+}
+.view-mode-switch .view-mode-btn.active {
+  background: var(--bg-secondary) !important;
+  color: var(--primary);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+}
+
+/* 日付の文字を押すと共有の DatePicker が開く */
+.grid-date-trigger {
+  display: inline-flex;
+  align-items: center;
+  height: 32px;
+  padding: 0 6px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-primary);
+  font: inherit;
+  line-height: 1.4;
+  cursor: pointer;
+}
+.grid-date-trigger:hover {
+  background: var(--bg-card-hover);
+}
+
+/* 全文表示はアイコンだけ。表以外では場所だけ取って見せない（ボタンの位置をずらさない） */
+.grid-actions-right .btn-toggle-view.btn-icon-only {
+  box-sizing: border-box;
+  width: 34px;
+  height: 34px !important;
+  padding: 0 !important;
+  justify-content: center;
+}
+.btn-toggle-view.is-placeholder {
+  visibility: hidden;
+}

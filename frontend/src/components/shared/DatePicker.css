@@ -1,0 +1,136 @@
+/* DatePicker（原本: construction-chart → fe-dotai）。色はこのアプリのテーマの変数 */
+
+.dp-wrap {
+  position: relative;
+  display: flex;
+  min-width: 0;
+}
+.dp-wrap:not(.has-trigger) {
+  width: 100%;
+}
+.dp-input {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  width: 100%;
+  min-width: 0;
+  height: 34px;
+  padding: 0 10px;
+  border: 1px solid var(--border-glass);
+  border-radius: var(--radius-sm);
+  background: var(--bg-input);
+  color: var(--text-primary);
+  font: inherit;
+  line-height: 1.4;
+  text-align: left;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.dp-input:hover { border-color: var(--primary); }
+.dp-input:focus-visible {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.2);
+}
+.dp-disabled { opacity: 0.5; cursor: not-allowed; pointer-events: none; }
+.dp-value { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.dp-placeholder { color: var(--text-muted); }
+.dp-icon { flex-shrink: 0; color: var(--text-muted); }
+.dp-num { font-variant-numeric: tabular-nums; }
+
+.dp-popup {
+  width: 248px;
+  padding: 12px;
+  border: 1px solid var(--border-glass);
+  border-radius: 12px;
+  background: var(--bg-secondary);
+  box-shadow: var(--shadow-lg);
+  color: var(--text-primary);
+  line-height: 1.4;
+}
+.dp-header {
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr) 32px;
+  align-items: center;
+  margin-bottom: 8px;
+}
+.dp-title {
+  grid-column: 2;
+  text-align: center;
+  font-weight: 700;
+}
+.dp-nav {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 1px solid var(--border-glass);
+  border-radius: var(--radius-sm);
+  background: var(--bg-primary);
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+.dp-nav:hover { filter: brightness(1.12); color: var(--primary); }
+.dp-nav-prev { grid-column: 1; }
+.dp-nav-next { grid-column: 3; }
+.dp-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 2px;
+}
+.dp-weekday {
+  padding: 4px 0;
+  text-align: center;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+.dp-cell {
+  height: 30px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+.dp-cell:hover { background: var(--bg-card-hover); }
+.dp-empty { cursor: default; }
+.dp-sun { color: #dc2626; }
+.dp-sat { color: #2563eb; }
+.dark-theme .dp-sun { color: #f87171; }
+.dark-theme .dp-sat { color: #60a5fa; }
+.dp-today { border-color: rgba(79, 70, 229, 0.5); }
+.dp-selected,
+.dp-selected:hover {
+  background: var(--primary);
+  color: #fff;
+  font-weight: 700;
+}
+.dp-footer {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 10px;
+}
+.dp-btn {
+  padding: 4px 12px;
+  border: 1px solid rgba(79, 70, 229, 0.35);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--primary);
+  font: inherit;
+  font-size: 0.8rem;
+  line-height: 1.4;
+  cursor: pointer;
+}
+.dp-btn:hover { filter: brightness(1.12); background: rgba(79, 70, 229, 0.08); }
+.dp-btn-ghost {
+  border-color: var(--border-glass);
+  color: var(--text-secondary);
+}

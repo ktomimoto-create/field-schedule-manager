@@ -62,6 +62,7 @@
   display: flex;
   align-items: center;
   gap: 12px;
+  min-width: 0;
 }
 
 .help-ai-avatar {
@@ -97,12 +98,16 @@
   margin: 2px 0 0 0;
   font-size: 0.76rem;
   color: var(--text-secondary, #64748b);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .help-header-actions {
   display: flex;
   align-items: center;
   gap: 12px;
+  flex-shrink: 0;
 }
 
 /* モード切替タブ（AIチャット vs マニュアル一覧） */
@@ -126,6 +131,7 @@
   display: flex;
   align-items: center;
   gap: 6px;
+  white-space: nowrap;
   transition: all 0.15s ease;
 }
 
@@ -151,6 +157,7 @@
   border: 1px solid rgba(79, 70, 229, 0.2);
   border-radius: 6px;
   text-decoration: none;
+  white-space: nowrap;
   transition: all 0.15s ease;
 }
 
@@ -816,4 +823,90 @@
   padding: 1px 5px;
   border-radius: 4px;
   font-family: monospace;
+}
+
+/* 携帯幅: 見出しを 2 段（題名・資料・閉じる ／ チャットとマニュアルの切替）にし、画面いっぱいに開く。
+   以前は見出しの横並びに収まらず、題名や切替ボタンが 1 文字ずつ縦に折り返していた */
+@media (max-width: 767px) {
+  .help-modal-content {
+    width: calc(100vw - 16px);
+    max-width: none;
+    height: calc(100dvh - 16px);
+    max-height: none;
+    border-radius: 12px;
+  }
+
+  .help-modal-header {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    grid-template-areas:
+      'title doc close'
+      'toggle toggle toggle';
+    align-items: center;
+    gap: 8px;
+    padding: 10px 12px;
+  }
+
+  .help-header-actions {
+    display: contents;
+  }
+
+  .help-header-title {
+    grid-area: title;
+    min-width: 0;
+    gap: 8px;
+  }
+
+  .help-ai-avatar {
+    width: 32px;
+    height: 32px;
+    flex-shrink: 0;
+  }
+
+  .help-header-title h3 {
+    font-size: 1rem;
+    line-height: 1.4;
+  }
+
+  .help-header-sub {
+    display: none;
+  }
+
+  .help-release-doc-btn {
+    grid-area: doc;
+    width: 32px;
+    height: 32px;
+    box-sizing: border-box;
+    justify-content: center;
+    padding: 0;
+  }
+
+  .help-release-doc-btn span {
+    display: none;
+  }
+
+  .help-modal-close-btn {
+    grid-area: close;
+  }
+
+  .help-mode-toggle {
+    grid-area: toggle;
+  }
+
+  .help-mode-btn {
+    flex: 1;
+    justify-content: center;
+    white-space: nowrap;
+    line-height: 1.4;
+  }
+
+  .help-badge-category,
+  .help-badge-screen {
+    white-space: nowrap;
+  }
+
+  /* キーボードの案内は携帯では使わず、閉じるは見出しの × で足りる */
+  .help-modal-footer {
+    display: none;
+  }
 }

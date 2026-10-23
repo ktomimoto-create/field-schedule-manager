@@ -1,0 +1,273 @@
+.dg-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-glass);
+  background: var(--bg-secondary);
+}
+
+.dg-grid {
+  display: grid;
+  grid-template-columns: 120px var(--dg-width);
+  width: max-content;
+}
+
+.dg-corner,
+.dg-name {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  background: var(--bg-secondary);
+  border-right: 1px solid var(--border-cell);
+}
+
+.dg-corner {
+  top: 0;
+  z-index: 4;
+  background: linear-gradient(var(--bg-column-header), var(--bg-column-header)), var(--bg-secondary);
+  border-bottom: 1px solid var(--border-cell);
+}
+
+.dg-hours {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  height: 32px;
+  background: linear-gradient(var(--bg-column-header), var(--bg-column-header)), var(--bg-secondary);
+  border-bottom: 1px solid var(--border-cell);
+}
+
+.dg-hour {
+  position: absolute;
+  top: 8px;
+  transform: translateX(-50%);
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+/* 端のラベルは枠からはみ出さないよう寄せる */
+.dg-hour.is-first {
+  transform: translateX(0);
+}
+
+.dg-hour.is-last {
+  transform: translateX(-100%);
+}
+
+.dg-row {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: 120px var(--dg-width);
+  min-height: 56px;
+  border-bottom: 1px solid var(--border-cell);
+}
+
+.dg-row.is-focused .dg-name,
+.dg-row.is-focused .dg-track {
+  background: color-mix(in srgb, var(--primary) 8%, var(--bg-secondary));
+}
+
+.dg-row.is-off .dg-name,
+.dg-row.is-off .dg-bar {
+  opacity: 0.55;
+}
+
+.dg-name {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 0 10px;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.dg-name-text {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.dg-count {
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--text-secondary);
+}
+
+.dg-off-badge {
+  color: var(--text-muted);
+  background: var(--bg-tertiary);
+}
+
+.dg-track {
+  position: relative;
+  isolation: isolate;
+  background-image: repeating-linear-gradient(to right, var(--border-cell) 0 1px, transparent 1px var(--dg-hour, 96px));
+}
+
+.dg-bar {
+  position: absolute;
+  top: 10px;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 36px;
+  box-sizing: border-box;
+  padding: 0 8px;
+  overflow: hidden;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--wt);
+  background: color-mix(in srgb, var(--wt) 16%, var(--bg-secondary));
+  color: var(--text-primary);
+  font-size: 12px;
+  line-height: 1.3;
+  text-align: left;
+  cursor: pointer;
+  transition: transform var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.dg-bar:hover {
+  z-index: 2;
+  transform: translateX(3px);
+  box-shadow: 0 0 12px color-mix(in srgb, var(--wt) 40%, transparent);
+}
+
+.dg-bar.dg-late {
+  box-shadow: 0 0 0 2px var(--tl-urgent);
+}
+
+.dg-bar.dg-late:hover {
+  box-shadow: 0 0 0 2px var(--tl-urgent), 0 0 12px color-mix(in srgb, var(--wt) 40%, transparent);
+}
+
+.dg-bar.dg-estimated {
+  border-style: dashed;
+  background: color-mix(in srgb, var(--wt) 8%, var(--bg-secondary));
+}
+
+.dg-bar.dg-p-done {
+  border-left: 4px solid var(--pg-done);
+}
+
+.dg-bar.dg-p-active {
+  border-left: 4px solid var(--pg-active);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--pg-active) 35%, transparent);
+}
+
+.dg-bar.dg-p-active:hover {
+  box-shadow: 0 0 10px color-mix(in srgb, var(--pg-active) 35%, transparent), 0 0 12px color-mix(in srgb, var(--wt) 40%, transparent);
+}
+
+.dg-bar.dg-p-active.dg-late {
+  box-shadow: 0 0 0 2px var(--tl-urgent), 0 0 10px color-mix(in srgb, var(--pg-active) 35%, transparent);
+}
+
+.dg-bar.dg-p-active.dg-late:hover {
+  box-shadow: 0 0 0 2px var(--tl-urgent), 0 0 10px color-mix(in srgb, var(--pg-active) 35%, transparent), 0 0 12px color-mix(in srgb, var(--wt) 40%, transparent);
+}
+
+.dg-bar svg {
+  width: 12px;
+  height: 12px;
+  flex-shrink: 0;
+  color: var(--pg-done);
+}
+
+/* 帯の幅は時間で決まるので 2 行まで。全文は title（ホバー）と、押して開くモーダルで見る */
+.dg-bar-text {
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.dg-travel,
+.dg-lunch {
+  position: absolute;
+  top: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 36px;
+}
+
+/* 待ち（前が終わってから移動を始めるまで）。移動の線と見分けるため薄い点線 */
+.dg-wait {
+  position: absolute;
+  top: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 36px;
+}
+
+.dg-wait-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  border-top: 1px dotted var(--text-muted);
+}
+
+.dg-wait-label {
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.dg-travel-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 1px;
+  background: var(--text-muted);
+  opacity: 0.6;
+}
+
+.dg-travel-label {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 6px;
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1;
+}
+
+.dg-travel-label svg {
+  width: 12px;
+  height: 12px;
+}
+
+/* いまの線: 移動・昼の線やラベルより上、帯（z-index 1・後ろに置く）より下。行の境目（1px）もまたいで途切れさせない */
+.dg-now {
+  position: absolute;
+  top: 0;
+  bottom: -1px;
+  z-index: 1;
+  width: 2px;
+  background: var(--danger);
+  pointer-events: none;
+}
+
+.dg-legend {
+  position: sticky;
+  left: 0;
+  margin: 0;
+  padding: 8px 12px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+/* 昼休憩: 移動と同じ線の上にフォークのアイコン（色は移動と分ける） */
+.dg-lunch .dg-travel-line {
+  height: 2px;
+  background: var(--warning, #d97706);
+}
+.dg-lunch .dg-travel-label {
+  color: var(--warning, #d97706);
+}

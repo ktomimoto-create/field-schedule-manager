@@ -3,8 +3,10 @@ import type { Schedule, Staff, WorkType, UserRole } from '../types';
 import { getShortName, findStaffByName, toHalfWidth, normalizeTargetTime, splitCoWorkers, compareSchedules, cleanMetadata } from '../types';
 import { buildFcAutofillPatch } from '../utils/fcAutofill';
 
-import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Edit2, Plus, Search, Lock, Eye, EyeOff } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Edit2, Plus, Search, Lock, LayoutList, Table2, ChevronDown, CalendarSearch, CalendarCheck, WrapText, ClipboardPaste, Check } from 'lucide-react';
+import { CompactScheduleCard, StaffAvatar } from './ScheduleCards';
 import { Select } from './shared/Select';
+import DatePicker from './shared/DatePicker';
 import './CalendarView.css';
 
 // ローカルタイムゾーン基準で YYYY-MM-DD 形式の日付文字列を生成する
@@ -251,6 +253,8 @@ const InlineInput: React.FC<InlineInputProps> = ({
 };
 
 interface CalendarViewProps {
+  /** 表示（カード一覧 / 表）。渡したときは画面の中の切替ボタンを出さない */
+  viewMode?: 'card' | 'table';
   schedules: Schedule[];
   staff: Staff[];
   onOpenAddModal: (date: string) => void;
@@ -269,6 +273,7 @@ interface CalendarViewProps {
 }
 
 export const CalendarView: React.FC<CalendarViewProps> = ({
+  viewMode: viewModeProp,
   schedules,
   staff,
   onOpenAddModal,
@@ -284,7 +289,6 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
   zoomLevel = 100,
 }) => {
   const [currentDate, setCurrentDate] = useState(new Date());
-  const dateInputRef = useRef<HTMLInputElement>(null);
 
   // 全文表示モード状態管理（物件名・作業内容・備考などのテキストを折り返して全表示）
   const [showFullText, setShowFullText] = useState<boolean>(() => {
@@ -295,15 +299,39 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
     localStorage.setItem('field_app_calendar_full_text', String(showFullText));
   }, [showFullText]);
 
-  const triggerDatePicker = () => {
-    if (dateInputRef.current) {
-      if (typeof dateInputRef.current.showPicker === 'function') {
-        dateInputRef.current.showPicker();
-      } else {
-        dateInputRef.current.click();
-      }
+  // カード表示で「空き」の名前を開いている日
+  const [openFreeDays, setOpenFreeDays] = useState<Set<string>>(() => new Set());
+  // 月カレンダー: 右の詳細に出している日と、詳細で開いている担当
+  const [cardDay, setCardDay] = useState<string>(() => getLocalDateString(new Date()));
+  const [openStaffKeys, setOpenStaffKeys] = useState<Set<string>>(() => new Set());
+  const toggleStaffKey = (key: string) =>
+    setOpenStaffKeys(prev => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  const toggleFreeDay = (dateStr: string) =>
+    setOpenFreeDays(prev => {
+      const next = new Set(prev);
+      if (next.has(dateStr)) next.delete(dateStr);
+      else next.add(dateStr);
+      return next;
+    });
+
+  // 表示の切替: カード一覧（既定）/ 表
+  const [ownViewMode, setViewMode] = useState<'card' | 'table'>(() => {
+    try {
+      return localStorage.getItem('field_app_calendar_view_mode') === 'table' ? 'table' : 'card';
+    } catch {
+      return 'card';
     }
-  };
+  });
+  React.useEffect(() => {
+    try { localStorage.setItem('field_app_calendar_view_mode', ownViewMode); } catch { /* noop */ }
+  }, [ownViewMode]);
+  const viewMode = viewModeProp ?? ownViewMode;
+
 
   // クイック追加用の状態変数
   const [activeAddFormDate, setActiveAddFormDate] = useState<string | null>(null);
@@ -2575,61 +2603,73 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
     return `${d.getMonth() + 1}月`;
   };
 
+  // 月カレンダーの右の詳細（週の描画の中で、選んだ日のときに組み立てる）
+  let cardPanel: React.ReactNode = null;
+
   return (
     <div className="matrix-board-container card">
       <div className="matrix-header">
         <div className="matrix-title-nav">
           <h2>日付並列カレンダーグリッド</h2>
-          <span className="matrix-date-range">{formatJapaneseMonth()}</span>
         </div>
         <div className="matrix-controls">
           <div className="matrix-nav-buttons date-group">
-            <button className="btn btn-secondary btn-sm-nav" onClick={handlePrevMonth} title={`${getPrevMonthName()}へ移動`}>
-              <ChevronLeft size={16} /> {getPrevMonthName()}
-            </button>
-            <button className="btn btn-secondary btn-sm-nav" onClick={handleNextMonth} title={`${getNextMonthName()}へ移動`}>
-              {getNextMonthName()} <ChevronRight size={16} />
-            </button>
-            <div className="date-picker-wrapper" onClick={triggerDatePicker} title="クリックして日付を選択" style={{ cursor: 'pointer' }}>
-              <input
-                ref={dateInputRef}
-                type="date"
-                className="date-picker-input"
-                value={currentDate.toISOString().split('T')[0]}
-                onChange={(e) => {
-                  if (e.target.value) {
-                    setCurrentDate(new Date(e.target.value));
-                  }
-                }}
-              />
-              <span className="current-date-display" style={{ display: 'inline-flex', alignItems: 'center', padding: '0 12px', height: '32px', borderRadius: '6px', border: '1px solid var(--border-color, #e2e8f0)', background: 'var(--card-bg, #ffffff)', fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-main, #1e293b)' }}>
-                <CalendarIcon size={14} style={{ marginRight: '6px' }} />
-                日付指定
-              </span>
+            <div className="month-nav" role="group" aria-label="月の移動">
+              <button type="button" className="cal-icon-btn" onClick={handlePrevMonth} title={`${getPrevMonthName()}へ`} aria-label={`${getPrevMonthName()}へ`}>
+                <ChevronLeft size={16} />
+              </button>
+              <span className="month-nav-label">{formatJapaneseMonth()}</span>
+              <button type="button" className="cal-icon-btn" onClick={handleNextMonth} title={`${getNextMonthName()}へ`} aria-label={`${getNextMonthName()}へ`}>
+                <ChevronRight size={16} />
+              </button>
             </div>
-            <button className="btn btn-secondary btn-sm-nav" onClick={handleToday}>
-              本日
+            <DatePicker
+              value={getLocalDateString(currentDate)}
+              onChange={v => {
+                if (v) setCurrentDate(new Date(`${v}T00:00:00`));
+              }}
+              noClear
+              trigger={<CalendarSearch size={16} />}
+              triggerClassName="cal-icon-btn"
+              title="日付を指定して移動"
+              aria-label="日付を指定して移動"
+            />
+            <button type="button" className="cal-icon-btn" onClick={handleToday} title="今日へ" aria-label="今日へ">
+              <CalendarCheck size={16} />
             </button>
           </div>
           <div className="matrix-nav-buttons action-group">
-            <button 
+            {!viewModeProp && (
+            <div className="view-mode-switch" role="group" aria-label="表示の切替">
+              <button type="button" className={`view-mode-btn ${viewMode === 'card' ? 'active' : ''}`} onClick={() => setViewMode('card')} title="カード一覧で表示" aria-pressed={viewMode === 'card'}>
+                <LayoutList size={16} />
+              </button>
+              <button type="button" className={`view-mode-btn ${viewMode === 'table' ? 'active' : ''}`} onClick={() => setViewMode('table')} title="表で表示" aria-pressed={viewMode === 'table'}>
+                <Table2 size={16} />
+              </button>
+            </div>
+            )}
+            {/* 全文表示（表のときだけ。位置がずれないよう、カードでも場所は取っておく） */}
+            <button
               type="button"
-              className={`btn btn-secondary btn-sm-nav ${showFullText ? 'active' : ''}`} 
-              onClick={() => setShowFullText(!showFullText)} 
-              title={showFullText ? "2〜3行の標準折り返し表示に戻します" : "すべての予定の物件名・作業内容・備考等のテキストを折り返して全行展開します"}
-              style={showFullText ? { backgroundColor: 'var(--primary)', color: '#fff', borderColor: 'var(--primary)' } : undefined}
+              className={`cal-icon-btn ${showFullText ? 'active' : ''}${viewMode !== 'table' ? ' is-placeholder' : ''}`}
+              disabled={viewMode !== 'table'}
+              tabIndex={viewMode !== 'table' ? -1 : 0}
+              onClick={() => setShowFullText(!showFullText)}
+              title={showFullText ? '全文表示中（押すと 2〜3 行の表示に戻す）' : '物件名・作業内容・備考を折り返して全文表示する'}
+              aria-label="全文表示"
+              aria-pressed={showFullText}
             >
-              {showFullText ? <EyeOff size={14} style={{ marginRight: '4px' }} /> : <Eye size={14} style={{ marginRight: '4px' }} />}
-              <span className="btn-text-full">{showFullText ? '標準表示に戻す' : '全文表示に切替'}</span>
-              <span className="btn-text-short">{showFullText ? '標準表示' : '全文表示'}</span>
+              <WrapText size={16} />
             </button>
-            <button 
-              className="btn btn-secondary btn-sm-nav" 
-              onClick={onOpenPasteImportModal} 
-              title="Excelやスプレッドシートからコピーしたデータを貼り付け"
+            <button
+              type="button"
+              className="cal-icon-btn"
+              onClick={onOpenPasteImportModal}
+              title="Excel やスプレッドシートからコピーした予定を貼り付け"
+              aria-label="スプレッドシートから貼り付け"
             >
-              <span className="btn-text-full">スプレッドシートから貼り付け</span>
-              <span className="btn-text-short">シート貼付</span>
+              <ClipboardPaste size={16} />
             </button>
             <button 
               className="btn btn-primary btn-sm-nav" 
@@ -2668,15 +2708,15 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
       <div ref={tableWrapperRef} className="matrix-table-wrapper">
         <div
           ref={calendarContainerRef}
-          className="matrix-table-zoom-inner calendar-zoom-inner"
+          className={`matrix-table-zoom-inner calendar-zoom-inner${viewMode === 'card' ? ' is-card' : ''}`}
           style={zoomLevel !== 100 ? {
             zoom: `${zoomLevel}%`,
             minHeight: `calc(100% / ${zoomLevel / 100})`,
-            width: 'max-content',
+            width: viewMode === 'card' ? '100%' : 'max-content',
             display: 'flex',
             flexDirection: 'column',
           } : {
-            width: 'max-content',
+            width: viewMode === 'card' ? '100%' : 'max-content',
             minHeight: '100%',
             display: 'flex',
             flexDirection: 'column',
@@ -2698,6 +2738,15 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
             className="calendar-copy-overlay"
           />
 
+        <div className={viewMode === 'card' ? 'month-layout' : 'weeks-plain'}>
+        <div className={viewMode === 'card' ? 'month-weeks' : 'weeks-plain'}>
+        {viewMode === 'card' && (
+          <div className="month-weekday-head">
+            {['月', '火', '水', '木', '金', '土', '日'].map((w, i) => (
+              <span key={w} className={i === 5 ? 'is-sat' : i === 6 ? 'is-sun' : ''}>{w}</span>
+            ))}
+          </div>
+        )}
         {weeks.map((weekDays, weekIndex) => {
           // 各曜日のスケジュール配列と休みスケジュールの配列を取得
           const parsedDaysData = weekDays.map(day => {
@@ -2803,38 +2852,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                   if (dayOfWeekNum === 6) dayClass = 'saturday-column';
                   if (dayOfWeekNum === 0 || isDayHoliday) dayClass = 'sunday-column';
 
-                  return (
-                    <div 
-                      key={day.dateStr} 
-                      id={`day-block-${day.dateStr}`}
-                      className={`day-column-block ${isToday ? 'today-column' : ''} ${dayClass}`}
-                    >
-                      <table className={`day-calendar-table ${showFullText ? 'show-full-text' : ''}`}>
-                        <colgroup>
-                          <col style={{ width: '100px' }} /> {/* 依頼番号 (一番左へ配置) */}
-                          <col style={{ width: '65px' }} /> {/* タイプ (見切れ防止のため幅を確保) */}
-                          <col style={{ width: '45px' }} /> {/* BOX */}
-                          <col style={{ width: '65px' }} /> {/* 号機 */}
-                          <col style={{ width: '200px' }} /> {/* 物件名 (2行折り返し時に収まりやすいよう拡張) */}
-                          <col style={{ width: '105px' }} /> {/* 種別 (「依頼者承認済」が見切れないよう拡張) */}
-                          <col style={{ width: '250px' }} /> {/* 作業内容 (3行折り返し時にしっかり読めるよう拡張) */}
-                          <col style={{ width: '75px' }} /> {/* 時間 */}
-                          <col style={{ width: '115px' }} /> {/* 対応者 (FE/SF/FR等委託スタッフの見切れ防止のため拡張) */}
-                          <col style={{ width: '75px' }} /> {/* エリア */}
-                          <col style={{ width: '65px' }} /> {/* 県別 */}
-                          <col style={{ width: '65px' }} /> {/* 移動 */}
-                          <col style={{ width: '85px' }} /> {/* 同行者 */}
-                          <col style={{ width: '45px' }} /> {/* TIME */}
-                          <col style={{ width: '45px' }} /> {/* コース */}
-                          <col style={{ width: '150px' }} /> {/* 備考 */}
-                        </colgroup>
-                        <thead>
-                          {/* 1段目ヘッダー: 各曜日の大結合ヘッダー */}
-                          <tr>
-                            <th 
-                              colSpan={16} 
-                              className={`matrix-day-header-super ${isToday ? 'today-header' : ''}`}
-                            >
+                  const dayHeaderContent = (
                               <div className="day-header-content-super" style={{ 
                                 display: 'flex', 
                                 alignItems: 'center', 
@@ -2846,10 +2864,10 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                                 boxSizing: 'border-box'
                               }}>
                                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}>
-                                  <span className="day-name-super" style={{ color: '#000000', fontWeight: 'bold' }}>
+                                  <span className="day-date-super" style={{ fontSize: '1.05rem', color: 'var(--text-primary)', fontWeight: 'bold', fontVariantNumeric: 'tabular-nums', lineHeight: 1.2 }}>{day.date.getMonth() + 1}/{day.date.getDate()}</span>
+                                  <span className="day-name-super" style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', fontWeight: 600, lineHeight: 1.3 }}>
                                     {day.dayName}曜日{holidayName ? `・${holidayName}` : ''}
                                   </span>
-                                  <span className="day-date-super" style={{ fontSize: '0.75rem', color: '#000000', fontWeight: 'bold', opacity: 0.9 }}>({day.date.getMonth() + 1}/{day.date.getDate()})</span>
                                 </div>
                                 <div className="transfer-action-area" style={{
                                   display: 'inline-flex',
@@ -2888,11 +2906,8 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                                   )}
                                 </div>
                               </div>
-                            </th>
-                          </tr>
-                          {/* 1.5段目ヘッダー: フリースペース (常に表示) */}
-                          <tr>
-                            <th colSpan={16} className="matrix-freespace-header">
+                  );
+                  const freeSpaceContent = (
                               <div className="freespace-content-wrapper">
                                 {freeSpaceSchedules.map((group: GroupedSchedule) => {
                                   const isHoliday = group.work_type === '休暇';
@@ -3144,6 +3159,218 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                                   </button>
                                 )}
                               </div>
+                  );
+
+                  if (viewMode === 'card') {
+                    const realSchedules = daySchedules.filter(s => !isTempSchedule(s));
+                    const liveSchedules = realSchedules.filter(s => s.status !== 'cancelled');
+                    const freeStaffSchedules = daySchedules.filter(s => isTempSchedule(s) && !String(s.id).startsWith('temp-unassigned-'));
+                    const q = searchQuery.toLowerCase();
+                    const busyCount = new Set(
+                      liveSchedules.filter(s => s.staff_id || s.staff_name).map(s => (s.staff_id ? `id-${s.staff_id}` : `n-${s.staff_name}`))
+                    ).size;
+                    const freeCount = freeStaffSchedules.length;
+                    const capTotal = busyCount + freeCount;
+                    const holidayNames = freeSpaceSchedules
+                      .filter((g: GroupedSchedule) => g.work_type === '休暇')
+                      .flatMap((g: GroupedSchedule) => g.staff_names.map(n => getShortName(n)));
+                    const isOtherMonth = day.date.getMonth() !== currentDate.getMonth();
+                    const isSelectedDay = cardDay === day.dateStr;
+                    const matchCount = q ? realSchedules.filter(s => [s.property_name, s.staff_name, s.unit_number].some(v => v && v.toLowerCase().includes(q))).length : 0;
+
+                    if (isSelectedDay) {
+                      // 担当ごとにまとめる（並びは予定の並びのまま）
+                      const groups: { key: string; name: string; member?: Staff; items: Schedule[] }[] = [];
+                      for (const sch of realSchedules) {
+                        const member = staff.find(st => st.id === sch.staff_id);
+                        const key = member ? `id-${member.id}` : `n-${sch.staff_name || '未設定'}`;
+                        let g = groups.find(x => x.key === key);
+                        if (!g) {
+                          g = { key, name: member ? member.name : sch.staff_name || '未設定', member, items: [] };
+                          groups.push(g);
+                        }
+                        g.items.push(sch);
+                      }
+                      const isFreeOpen = openFreeDays.has(day.dateStr);
+                      cardPanel = (
+                        <div className={`month-panel-inner ${dayClass}`}>
+                          <div className="month-panel-head">
+                            {dayHeaderContent}
+                          </div>
+                          <div className="day-capacity" title={`予定あり ${busyCount}人 / 空き ${freeCount}人`}>
+                            <span className="day-capacity-bar">
+                              <i style={{ width: `${capTotal ? (busyCount / capTotal) * 100 : 0}%` }} />
+                            </span>
+                            <span className="day-capacity-text">
+                              予定あり <b className="day-capacity-num">{busyCount}</b>人
+                              <span className="day-capacity-sep">／</span>
+                              空き <b className="day-capacity-num is-free">{freeCount}</b>人
+                              <span className="day-capacity-sep">／</span>
+                              <b className="day-capacity-num">{liveSchedules.length}</b>件
+                            </span>
+                          </div>
+                          <div className="matrix-freespace-header day-card-freespace">{freeSpaceContent}</div>
+                          <button type="button" className="month-panel-add" onClick={() => onOpenAddModal(day.dateStr)}>
+                            <Plus size={16} />
+                            この日に予定を追加
+                          </button>
+                          <div className="month-panel-list">
+                            {groups.length === 0 && <div className="day-card-empty">予定なし</div>}
+                            {groups.map(g => {
+                              const openKey = `${day.dateStr}|${g.key}`;
+                              const isOpen = openStaffKeys.has(openKey);
+                              const live = g.items.filter(x => x.status !== 'cancelled').length;
+                              const firstTime = g.items.map(x => normalizeTargetTime(x.target_time)).find(Boolean);
+                              return (
+                                <div key={g.key} className={`month-staff${isOpen ? ' is-open' : ''}`}>
+                                  <button type="button" className="month-staff-row" onClick={() => toggleStaffKey(openKey)} aria-expanded={isOpen}>
+                                    <StaffAvatar member={g.member} name={g.name} size={26} />
+                                    <span className="month-staff-name">{g.member ? getShortName(g.name) : g.name}</span>
+                                    <span className="month-staff-first">{firstTime || ''}</span>
+                                    <span className="month-staff-count"><b>{live}</b>件</span>
+                                    <ChevronDown size={16} className="month-staff-chevron" />
+                                  </button>
+                                  {isOpen && (
+                                    <div className="month-staff-cards">
+                                      {g.items.map(schedule => {
+                                        const isMatch = q ? [schedule.property_name, schedule.staff_name, schedule.unit_number].some(v => v && v.toLowerCase().includes(q)) : false;
+                                        return (
+                                          <CompactScheduleCard
+                                            key={schedule.id}
+                                            schedule={schedule}
+                                            staff={staff}
+                                            selected={typeof schedule.id === 'number' && (selectedScheduleIds.includes(schedule.id) || selectedScheduleId === schedule.id)}
+                                            searchState={q ? (isMatch ? 'match' : 'no-match') : ''}
+                                            lock={typeof schedule.id === 'number' ? activeLocks[schedule.id] : undefined}
+                                            onClick={(e) => {
+                                              if (e.ctrlKey || e.shiftKey || e.metaKey) {
+                                                handleSelectRow(e, schedule);
+                                              } else {
+                                                setSelectedScheduleIds([]);
+                                                setSelectedScheduleId(schedule.id);
+                                                lastSelectedScheduleIdRef.current = typeof schedule.id === 'number' ? schedule.id : null;
+                                              }
+                                            }}
+                                            onEdit={() => onOpenEditModal(schedule)}
+                                            onContextMenu={(e) => {
+                                              e.preventDefault();
+                                              const menuWidth = 240;
+                                              const menuHeight = 360;
+                                              const x = e.clientX + menuWidth > window.innerWidth ? Math.max(0, window.innerWidth - menuWidth - 10) : e.clientX;
+                                              const y = e.clientY + menuHeight > window.innerHeight ? Math.max(0, window.innerHeight - menuHeight - 10) : e.clientY;
+                                              let currentSelectedIds: number[] = [];
+                                              if (selectedScheduleIds.length > 1 && typeof schedule.id === 'number' && selectedScheduleIds.includes(schedule.id)) {
+                                                currentSelectedIds = selectedScheduleIds;
+                                              } else {
+                                                currentSelectedIds = typeof schedule.id === 'number' ? [schedule.id] : [];
+                                                setSelectedScheduleIds([]);
+                                                setSelectedScheduleId(schedule.id);
+                                                lastSelectedScheduleIdRef.current = typeof schedule.id === 'number' ? schedule.id : null;
+                                              }
+                                              setContextMenu({ x, y, schedule, selectedIds: currentSelectedIds });
+                                            }}
+                                          />
+                                        );
+                                      })}
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
+                            {freeStaffSchedules.length > 0 && (
+                              <div className={`day-card-free${isFreeOpen ? ' is-open' : ''}`}>
+                                <button type="button" className="day-card-free-toggle" onClick={() => toggleFreeDay(day.dateStr)} aria-expanded={isFreeOpen} title={isFreeOpen ? '空いている人を閉じる' : '空いている人を見る（押すとその人の予定を追加）'}>
+                                  <span>空いている人</span>
+                                  <b className="day-capacity-num is-free">{freeCount}</b>
+                                  <span>人</span>
+                                  <ChevronDown size={16} className="day-card-free-chevron" />
+                                </button>
+                                {isFreeOpen && (
+                                  <span className="day-card-free-names">
+                                    {freeStaffSchedules.map(s => (
+                                      <button key={s.id} type="button" className="day-card-free-chip" title={`${s.staff_name} さんの予定を追加`} onClick={() => onOpenAddModal(day.dateStr)}>
+                                        {getShortName(s.staff_name || '')}
+                                      </button>
+                                    ))}
+                                  </span>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    }
+
+                    return (
+                      <button
+                        type="button"
+                        key={day.dateStr}
+                        id={`day-block-${day.dateStr}`}
+                        className={`month-cell ${dayClass}${isToday ? ' is-today' : ''}${isSelectedDay ? ' is-selected' : ''}${isOtherMonth ? ' is-other-month' : ''}${q && matchCount === 0 ? ' is-dim' : ''}`}
+                        onClick={() => setCardDay(day.dateStr)}
+                        aria-pressed={isSelectedDay}
+                        title={`${day.date.getMonth() + 1}/${day.date.getDate()} の予定を右に表示`}
+                      >
+                        <span className="month-cell-top">
+                          <span className="month-cell-date">{day.date.getDate()}</span>
+                          {holidayName && <span className="month-cell-holiday">{holidayName}</span>}
+                          {isAllTransferred && <span className="month-cell-flag is-done" title="行動予定表へ移行済み"><Check size={12} /></span>}
+                          {hasUnprocessedTransfer && <span className="month-cell-flag is-pending" title={`未移行 ${unprocessedCount}件`}>{unprocessedCount}</span>}
+                        </span>
+                        <span className="month-cell-count">
+                          {liveSchedules.length > 0 ? <><b>{liveSchedules.length}</b>件</> : <span className="month-cell-none">予定なし</span>}
+                          {q && matchCount > 0 && <span className="month-cell-match">該当 {matchCount}</span>}
+                        </span>
+                        <span className="month-cell-bar" title={`予定あり ${busyCount}人 / 空き ${freeCount}人`}>
+                          <i style={{ width: `${capTotal ? (busyCount / capTotal) * 100 : 0}%` }} />
+                        </span>
+                        {holidayNames.length > 0 && (
+                          <span className="month-cell-off" title={`休暇: ${holidayNames.join('・')}`}>
+                            休 {holidayNames.slice(0, 3).join('・')}{holidayNames.length > 3 ? ` 他${holidayNames.length - 3}` : ''}
+                          </span>
+                        )}
+                      </button>
+                    );
+                  }
+                  return (
+                    <div
+                      key={day.dateStr}
+                      id={`day-block-${day.dateStr}`}
+                      className={`day-column-block ${isToday ? 'today-column' : ''} ${dayClass}`}
+                    >
+                      <table className={`day-calendar-table ${showFullText ? 'show-full-text' : ''}`}>
+                        <colgroup>
+                          <col style={{ width: '100px' }} /> {/* 依頼番号 (一番左へ配置) */}
+                          <col style={{ width: '65px' }} /> {/* タイプ (見切れ防止のため幅を確保) */}
+                          <col style={{ width: '45px' }} /> {/* BOX */}
+                          <col style={{ width: '65px' }} /> {/* 号機 */}
+                          <col style={{ width: '200px' }} /> {/* 物件名 (2行折り返し時に収まりやすいよう拡張) */}
+                          <col style={{ width: '105px' }} /> {/* 種別 (「依頼者承認済」が見切れないよう拡張) */}
+                          <col style={{ width: '250px' }} /> {/* 作業内容 (3行折り返し時にしっかり読めるよう拡張) */}
+                          <col style={{ width: '75px' }} /> {/* 時間 */}
+                          <col style={{ width: '115px' }} /> {/* 対応者 (FE/SF/FR等委託スタッフの見切れ防止のため拡張) */}
+                          <col style={{ width: '75px' }} /> {/* エリア */}
+                          <col style={{ width: '65px' }} /> {/* 県別 */}
+                          <col style={{ width: '65px' }} /> {/* 移動 */}
+                          <col style={{ width: '85px' }} /> {/* 同行者 */}
+                          <col style={{ width: '45px' }} /> {/* TIME */}
+                          <col style={{ width: '45px' }} /> {/* コース */}
+                          <col style={{ width: '150px' }} /> {/* 備考 */}
+                        </colgroup>
+                        <thead>
+                          {/* 1段目ヘッダー: 各曜日の大結合ヘッダー */}
+                          <tr>
+                            <th 
+                              colSpan={16} 
+                              className={`matrix-day-header-super ${isToday ? 'today-header' : ''}`}
+                            >
+                                {dayHeaderContent}
+                            </th>
+                          </tr>
+                          {/* 1.5段目ヘッダー: フリースペース (常に表示) */}
+                          <tr>
+                            <th colSpan={16} className="matrix-freespace-header">
+                                {freeSpaceContent}
                             </th>
                           </tr>
                           {/* 2段目ヘッダー: 各項目ヘッダー */}
@@ -3432,6 +3659,9 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
 
         })}
         </div>
+        {viewMode === 'card' && <aside className="month-day-panel">{cardPanel}</aside>}
+        </div>
+        </div>
       </div>
 
       {/* 簡易コンテキストメニュー */}
@@ -3455,7 +3685,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                 }}
                 style={{ color: '#ef4444', fontWeight: 600 }}
               >
-                選択した予定を【確定】に変更
+                まとめて【確定】に変更
               </button>
               <button 
                 type="button" 
@@ -3466,7 +3696,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                 }}
                 style={{ color: '#eab308', fontWeight: 600 }}
               >
-                選択した予定を【仮】に変更
+                まとめて【仮】に変更
               </button>
               <button 
                 type="button" 
@@ -3477,7 +3707,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                 }}
                 style={{ color: '#94a3b8' }}
               >
-                選択した予定を【キャンセル】に変更
+                まとめて【キャンセル】に変更
               </button>
               <button 
                 type="button" 
@@ -3499,7 +3729,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                   handleBulkDelete(ids);
                 }}
               >
-                選択した予定を一括削除
+                まとめて削除
               </button>
             </>
           ) : contextMenu.schedule && !isTempSchedule(contextMenu.schedule) ? (
@@ -3521,7 +3751,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                   copyToastTimerRef.current = setTimeout(() => setCopyToast(null), 2000);
                 }}
               >
-                予定をコピー
+                コピー
               </button>
               <button 
                 type="button" 
@@ -3530,7 +3760,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                   setContextMenu(null);
                 }}
               >
-                ✏️ 予定を編集
+                編集
               </button>
               <button 
                 type="button" 
@@ -3555,7 +3785,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                     });
                   }}
                 >
-                  予定を【フリー】に変更
+                  【フリー】に変更
                 </button>
               )}
               {contextMenu.schedule.status !== 'confirmed' && (
@@ -3570,7 +3800,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                   }}
                   style={{ color: '#ef4444', fontWeight: 600 }}
                 >
-                  予定を【確定】に変更
+                  【確定】に変更
                 </button>
               )}
               {contextMenu.schedule.status !== 'draft' && (
@@ -3585,7 +3815,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                   }}
                   style={{ color: '#eab308', fontWeight: 600 }}
                 >
-                  予定を【仮】に変更
+                  【仮】に変更
                 </button>
               )}
               {contextMenu.schedule.status !== 'cancelled' && (
@@ -3604,7 +3834,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                   }}
                   style={{ color: '#94a3b8' }}
                 >
-                  予定を【キャンセル】に変更
+                  【キャンセル】に変更
                 </button>
               )}
               <button 
@@ -3619,7 +3849,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                   setContextMenu(null);
                 }}
               >
-                予定を削除
+                削除
               </button>
             </>
           ) : (
@@ -3776,13 +4006,12 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                 <label className="form-label" style={{ fontWeight: 'bold' }}>
                   移動先の日付 <span style={{ color: 'var(--danger)' }}>*</span>
                 </label>
-                <input
-                  type="date"
-                  className="form-control"
+                <DatePicker
                   value={destinationDate}
-                  onChange={(e) => setDestinationDate(e.target.value)}
+                  onChange={setDestinationDate}
                   disabled={isMoving}
-                  required
+                  noClear
+                  aria-label="移動先の日付"
                 />
               </div>
 

@@ -1,0 +1,506 @@
+/* 動態マップ（左に担当の一覧、右に地図） */
+
+.dm-view {
+  display: grid;
+  grid-template-columns: 340px minmax(0, 1fr);
+  gap: 12px;
+  flex: 1;
+  min-height: 0;
+  padding: 8px 12px 12px;
+  line-height: 1.5;
+}
+.dm-num {
+  font-variant-numeric: tabular-nums;
+}
+.dm-muted {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+}
+
+.dm-side {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 0;
+}
+.dm-note {
+  padding: 6px 10px;
+  border-radius: var(--radius-sm);
+  background: rgba(79, 70, 229, 0.06);
+  color: var(--primary);
+  font-size: 0.78rem;
+}
+
+/* 状態ごとの人数（押すと絞り込み） */
+.dm-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.dm-chip {
+  --c: var(--primary);
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+  box-sizing: border-box;
+  height: 28px;
+  padding: 0 10px;
+  border: 1px solid var(--border-glass);
+  border-radius: 999px;
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1;
+  cursor: pointer;
+}
+.dm-chip b {
+  color: var(--text-primary);
+}
+.dm-chip.is-zero {
+  opacity: 0.45;
+}
+.dm-chip.is-active {
+  border-color: color-mix(in srgb, var(--c) 50%, transparent);
+  background: color-mix(in srgb, var(--c) 10%, transparent);
+  color: var(--c);
+}
+.dm-chip:hover {
+  filter: brightness(1.12);
+}
+.dm-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--c);
+}
+
+/* 担当の一覧（固定の列で揃える） */
+.dm-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 2px 6px 6px 2px; /* ホバーで右へ 3px 動くので右に余白 */
+}
+.dm-row {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr) 84px 44px 20px;
+  align-items: center;
+  column-gap: 8px;
+  width: 100%;
+  padding: 6px 10px;
+  border: 1px solid var(--border-glass);
+  border-radius: var(--radius-sm);
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  font: inherit;
+  line-height: 1.4;
+  text-align: left;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.dm-row:hover,
+.dm-row.is-selected {
+  transform: translateX(3px);
+  box-shadow: 0 0 0 1px rgba(79, 70, 229, 0.25), 0 4px 12px rgba(79, 70, 229, 0.12);
+}
+.dm-name {
+  min-width: 0;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+.dm-status {
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  box-sizing: border-box;
+  height: 24px;
+  border: 1px solid color-mix(in srgb, var(--c) 40%, transparent);
+  border-radius: 999px;
+  color: var(--c);
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+}
+.dm-done {
+  text-align: right;
+  font-weight: 700;
+}
+.dm-pos {
+  display: inline-flex;
+  justify-content: center;
+  color: var(--primary);
+}
+.dm-empty {
+  padding: 24px 0;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+/* 選んだ人の訪問（読み取り専用） */
+.dm-visits {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0 0 6px 18px;
+  padding: 6px 0 0;
+  list-style: none;
+}
+.dm-visit {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr);
+  column-gap: 8px;
+  padding: 4px 6px;
+  border-radius: 6px;
+  font-size: 0.8rem;
+}
+.dm-visit.stage-done {
+  opacity: 0.6;
+}
+.dm-visit-no {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--c);
+  color: #fff;
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+.dm-visit-body {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.dm-visit-top {
+  display: flex;
+  gap: 8px;
+  color: var(--text-secondary);
+}
+.dm-visit-name {
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+.dm-visit-times {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 10px;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+}
+.dm-visit-times span {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+/* 地図 */
+.dm-map-wrap {
+  position: relative;
+  min-height: 360px;
+  border: 1px solid var(--border-glass);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+.dm-map {
+  position: absolute;
+  inset: 0;
+}
+.dm-map-badge {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--bg-secondary);
+  box-shadow: var(--shadow-sm);
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  line-height: 1.4;
+}
+
+/* ピン（Leaflet の divIcon の中身） */
+.dm-pin-host {
+  background: none;
+  border: none;
+}
+.dm-site-dot {
+  width: 10px;
+  height: 10px;
+  margin: -5px 0 0 -5px;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  background: var(--c);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.2);
+}
+.dm-site {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  margin: -11px 0 0 -11px;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  background: var(--c);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+@media (max-width: 900px) {
+  .dm-view {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(360px, 1fr);
+  }
+  .dm-list {
+    max-height: 40vh;
+  }
+}
+
+.dm-map .map-canvas {
+  position: absolute;
+  inset: 0;
+}
+.dm-map .map-pin-host {
+  background: none;
+  border: none;
+}
+.dm-map-note {
+  position: absolute;
+  left: 10px;
+  bottom: 10px;
+  z-index: 500;
+  max-width: calc(100% - 80px);
+  padding: 4px 10px;
+  border-radius: 6px;
+  background: var(--bg-secondary);
+  box-shadow: var(--shadow-sm);
+  color: var(--warning);
+  font-size: 0.75rem;
+  line-height: 1.4;
+}
+
+/* FE のピン: 名札（顔＋苗字）の下に下向きの矢印（矢印の先が地点）。枠と矢印の色が状態 */
+.dm-fe {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: max-content;
+  transform: translate(-50%, -100%);
+  pointer-events: auto;
+}
+.dm-fe-tag {
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+  box-sizing: border-box;
+  height: 30px;
+  padding: 0 10px 0 3px;
+  border: 2px solid var(--c);
+  border-radius: 999px;
+  background: #fff;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+  white-space: nowrap;
+}
+.dm-fe-face {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  overflow: hidden;
+  background: var(--c);
+}
+.dm-fe-face img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.dm-fe-face span {
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+}
+.dm-fe-name {
+  color: #0f172a;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+}
+.dm-fe.is-selected .dm-fe-tag {
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.35), 0 2px 6px rgba(0, 0, 0, 0.25);
+}
+
+/* 日付の切り替え */
+.dm-date {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.dm-date-btn,
+.dm-date-today {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 30px;
+  border: 1px solid var(--border-glass);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-secondary);
+  font: inherit;
+  line-height: 1.4;
+  cursor: pointer;
+}
+.dm-date-btn {
+  width: 30px;
+}
+.dm-date-today {
+  padding: 0 10px;
+  font-size: 0.8rem;
+  color: var(--primary);
+}
+.dm-date-btn:hover,
+.dm-date-today:hover {
+  filter: brightness(1.12);
+  border-color: rgba(79, 70, 229, 0.35);
+}
+.dm-date-label {
+  min-width: 8.5em;
+  text-align: center;
+  font-weight: 700;
+}
+
+/* 名札から地点を指す下向きの矢印（白いふちで地図から浮かせる） */
+.dm-fe-arrow {
+  position: relative;
+  width: 0;
+  height: 0;
+  margin-top: -1px;
+  border-left: 9px solid transparent;
+  border-right: 9px solid transparent;
+  border-top: 14px solid var(--c);
+  filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.25));
+}
+
+/* カーソルを乗せた（選んだ）人のカード: 地図の右上に浮かせる */
+.dm-card {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 600;
+  width: 300px;
+  max-width: calc(100% - 24px);
+  padding: 12px 14px;
+  border: 1px solid var(--border-glass);
+  border-top: 4px solid var(--c);
+  border-radius: var(--radius-md);
+  background: var(--bg-secondary);
+  box-shadow: var(--shadow-md);
+  color: var(--text-primary);
+  line-height: 1.5;
+  pointer-events: none;
+}
+.dm-card-head {
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: 10px;
+  margin-bottom: 8px;
+}
+.dm-card-head .dm-status {
+  padding: 0 8px;
+}
+.dm-card-name {
+  min-width: 0;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+.dm-card-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  font-size: 0.82rem;
+}
+.dm-card-rows > div {
+  display: grid;
+  grid-template-columns: 4.5em minmax(0, 1fr);
+  column-gap: 8px;
+}
+.dm-card-rows dt {
+  color: var(--text-muted);
+  font-weight: 600;
+}
+.dm-card-rows dd {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.dm-card-prop {
+  font-weight: 700;
+}
+.dm-card-progress {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.dm-card-bar {
+  position: relative;
+  width: 100px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--bg-tertiary);
+  overflow: hidden;
+}
+.dm-card-bar i {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: #059669;
+}
+
+/* 左を担当ごとのカードにした分、少し広げる */
+.dm-view {
+  grid-template-columns: 420px minmax(0, 1fr);
+}
+.dm-board .timeline-container.is-embedded {
+  height: auto;
+}
+.dm-head-extra {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+.dm-fold-all {
+  margin-left: auto;
+}
+@media (max-width: 900px) {
+  .dm-view {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

@@ -1,0 +1,104 @@
+/* 対応状況の切替メニュー（カードの番号の丸から開く） */
+.pm-panel {
+  position: fixed;
+  z-index: 1000;
+  width: 260px;
+  padding: 10px;
+  border: 1px solid var(--border-glass);
+  border-radius: 12px;
+  background: var(--bg-secondary);
+  box-shadow: var(--shadow-lg);
+  color: var(--text-primary);
+  line-height: 1.4;
+}
+.pm-options {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+.pm-option {
+  --c: var(--primary);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  height: 32px;
+  border: 1px solid color-mix(in srgb, var(--c) 40%, transparent);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--c);
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 700;
+  line-height: 1.4;
+  cursor: pointer;
+}
+.pm-option.p-working { --c: #dc2626; }
+.pm-option.p-done { --c: #059669; }
+.pm-option:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--c) 12%, transparent);
+  filter: brightness(1.12);
+}
+.pm-option.is-current {
+  background: color-mix(in srgb, var(--c) 16%, transparent);
+  cursor: default;
+}
+.pm-option:disabled:not(.is-current) {
+  opacity: 0.5;
+}
+.pm-history {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border-glass);
+}
+.pm-history-head {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+.pm-loading,
+.pm-empty {
+  display: flex;
+  justify-content: center;
+  padding: 8px 0 2px;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+}
+.pm-list {
+  max-height: 180px;
+  margin: 6px 0 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+.pm-list li {
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr);
+  column-gap: 6px;
+  padding: 3px 0;
+  font-size: 0.72rem;
+}
+.pm-at {
+  grid-row: 1 / span 2;
+  font-family: "BIZ UDGothic", "BIZ UDゴシック", sans-serif;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-secondary);
+}
+.pm-text {
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+.pm-by {
+  color: var(--text-muted);
+  overflow-wrap: anywhere;
+}
+
+.pm-title {
+  margin-bottom: 8px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}

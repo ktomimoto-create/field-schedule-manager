@@ -616,3 +616,87 @@
 
 
 
+
+/* 表示の切替（担当ごとのカード / 時間軸）: アイコンのみ＋ツールチップ */
+.timeline-stats .view-mode-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+}
+.timeline-stats .view-mode-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 30px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+.timeline-stats .view-mode-btn:hover {
+  filter: brightness(1.12);
+  color: var(--primary);
+}
+.timeline-stats .view-mode-btn.active {
+  border-color: rgba(79, 70, 229, 0.35);
+  background: rgba(79, 70, 229, 0.08);
+  color: var(--primary);
+}
+.timeline-axis-wrapper {
+  display: block;
+}
+
+/* 予定表の「担当ごと」表示として埋め込んだとき（見出しは予定表側） */
+.timeline-container.is-embedded {
+  gap: 0;
+  padding: 0;
+  height: 100%;
+}
+
+/* 担当ごとに縦に積んで、見出しを押すとたためる形（動態管理の左・スマホの自分の予定） */
+.timeline-container.is-stacked .card-board-wrapper {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+  min-height: 0;
+  padding: 0 6px 6px 0; /* カードのホバーで右へ 3px 動くので右に余白 */
+  overflow: visible;
+}
+.timeline-container.is-stacked .staff-board-column {
+  width: 100%;
+  min-width: 0;
+  max-height: none;
+  box-shadow: none;
+  border-radius: 10px;
+}
+.timeline-container.is-stacked .board-column-header {
+  padding: 8px 10px;
+  border-radius: 10px 10px 0 0;
+  cursor: pointer;
+  user-select: none;
+}
+.timeline-container.is-stacked .staff-board-column.is-collapsed .board-column-header {
+  border-bottom: 0;
+  border-radius: 10px;
+}
+.timeline-container.is-stacked .staff-board-column.is-selected {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 1px rgba(79, 70, 229, 0.35);
+}
+.timeline-container.is-stacked .board-cards-list {
+  padding: 8px;
+}
+.board-collapse-icon {
+  flex-shrink: 0;
+  color: var(--text-muted);
+  transition: transform 0.15s ease;
+}
+.staff-board-column.is-collapsed .board-collapse-icon {
+  transform: rotate(-90deg);
+}

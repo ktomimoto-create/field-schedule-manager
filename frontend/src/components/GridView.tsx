@@ -4,9 +4,19 @@ import type { Schedule, Staff, UserRole, WorkType } from '../types';
 import { getShortName, cleanMetadata, splitCoWorkers, canManageSchedules, normalizeTargetTime, compareSchedules, toHalfWidth, findStaffByName } from '../types';
 import { buildFcAutofillPatch } from '../utils/fcAutofill';
 
-import { Plus, ChevronLeft, ChevronRight, Calendar as CalendarIcon, Filter, CheckCircle2, Download, Eye, EyeOff, Printer, Lock, ArrowUpDown, RotateCcw, Edit2 } from 'lucide-react';
+import { Plus, ChevronLeft, ChevronRight, Calendar as CalendarIcon, Filter, CheckCircle2, Download, Printer, Lock, ArrowUpDown, RotateCcw, Edit2, LayoutList, ChartGantt, Table2, UserRound, CalendarCheck, WrapText } from 'lucide-react';
 import { PrintPreviewModal } from './PrintPreviewModal';
+import { StaffLaneBoard } from './StaffLaneBoard';
+import { StaffAvatar } from './ScheduleCards';
+import { StaffTimelineBoard } from './StaffTimelineBoard';
+import { useDayPlanContext } from '../utils/dayPlan';
+import { TimelineView } from './TimelineView';
+import type { StatusHistoryItem } from './ProgressMenu';
+import { progressOf, type Progress } from '../utils/scheduleDisplay';
+import { nowHmJst } from '../utils/timeline/dates';
+import { jstDate, type FeEvent } from '../utils/feEvents';
 import { Select } from './shared/Select';
+import DatePicker from './shared/DatePicker';
 import './GridView.css';
 
 const parseTSV = (text: string): string[][] => {
@@ -74,6 +84,7 @@ const formatTsvCell = (val: any): string => {
 
 const GRID_COLUMNS: (keyof Schedule)[] = [
   'division',
+  'request_number',
   'type',
   'box',
   'unit_number',
@@ -85,12 +96,15 @@ const GRID_COLUMNS: (keyof Schedule)[] = [
   'area',
   'transport',
   'co_worker',
-  'request_number',
   'result',
   'notes'
 ];
 
 interface GridViewProps {
+  /** 表示（カード一覧 / 時間軸 / 表）。渡したときは画面の中の切替ボタンを出さない */
+  viewMode?: 'card' | 'timeline' | 'table';
+  /** 開いたときに「自分の予定だけ」にする（作業者・FE 画面の「予定の詳細」から開いたとき） */
+  initialMyScheduleOnly?: boolean;
   schedules: Schedule[];
   staff: Staff[];
   workTypes?: WorkType[];
@@ -105,9 +119,21 @@ interface GridViewProps {
   onLockSchedule?: (id: number | string, mode?: 'modal' | 'inline') => void;
   onUnlockSchedule?: () => void;
   zoomLevel?: number;
+  feEvents?: FeEvent[];
+  /** 見ている日（画面を切り替えても同じ日を見続けるため App で持つ） */
+  viewDate?: string;
+  onViewDateChange?: (date: string) => void;
+  /** 「担当ごと」表示（旧 当日行動予定表）で使う: 結果の報告・並べ替え */
+  onUpdateResult?: (scheduleId: number | string, resultValue: string, startedAt?: string | null, completedAt?: string | null, reportNotes?: string | null) => Promise<void>;
+  onReorder?: (orders: { id: number | string; sort_order: number }[]) => Promise<void>;
+  /** 対応状況の切替（管理側・カードの右クリック）と、そのカードの変更履歴 */
+  onSetProgress?: (s: Schedule, p: Progress) => Promise<void>;
+  loadStatusHistory?: (s: Schedule) => Promise<StatusHistoryItem[]>;
 }
 
 export const GridView: React.FC<GridViewProps> = ({
+  viewMode: viewModeProp,
+  initialMyScheduleOnly = false,
   schedules,
   staff,
   onOpenAddModal,
@@ -119,21 +145,21 @@ export const GridView: React.FC<GridViewProps> = ({
   onLockSchedule: _onLockSchedule,
   onUnlockSchedule: _onUnlockSchedule,
   zoomLevel = 100,
+  feEvents = [],
+  viewDate,
+  onViewDateChange,
+  onUpdateResult,
+  onReorder,
+  onSetProgress,
+  loadStatusHistory,
 }) => {
-  const dateInputRef = useRef<HTMLInputElement>(null);
-  const [selectedDate, setSelectedDate] = useState<string>(
-    new Date().toISOString().split('T')[0]
-  );
-
-  const triggerDatePicker = () => {
-    if (dateInputRef.current) {
-      if (typeof dateInputRef.current.showPicker === 'function') {
-        dateInputRef.current.showPicker();
-      } else {
-        dateInputRef.current.click();
-      }
-    }
+  const [localDate, setLocalDate] = useState<string>(() => jstDate());
+  const selectedDate = viewDate ?? localDate;
+  const setSelectedDate = (d: string) => {
+    setLocalDate(d);
+    onViewDateChange?.(d);
   };
+
 
   const exportToExcel = () => {
     const headers = [
@@ -254,10 +280,86 @@ export const GridView: React.FC<GridViewProps> = ({
   };
 
   const [showFullText, setShowFullText] = useState(false);
-  const [myScheduleOnly, setMyScheduleOnly] = useState(false);
+  const [myScheduleOnly, setMyScheduleOnly] = useState(initialMyScheduleOnly);
+  // 権限の読み込みが終わって作業者／管理者が分かったとき・FE 画面から開いたときに、既定の絞り込みを付け直す
+  useEffect(() => {
+    setMyScheduleOnly(initialMyScheduleOnly);
+  }, [initialMyScheduleOnly]);
   const [filterStaff, setFilterStaff] = useState<string>('all');
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [isPrintPreviewOpen, setIsPrintPreviewOpen] = useState(false);
+
+  // 表示の切替: カード一覧（既定）/ 時間軸 / 表
+  const [ownViewMode, setViewMode] = useState<'card' | 'timeline' | 'table'>(() => {
+    try {
+      const saved = localStorage.getItem('field_app_grid_view_mode');
+      if (saved === 'card' || saved === 'timeline' || saved === 'table') return saved;
+    } catch { /* 保存できない環境では既定のカード */ }
+    return 'card';
+  });
+  useEffect(() => {
+    try { localStorage.setItem('field_app_grid_view_mode', ownViewMode); } catch { /* noop */ }
+  }, [ownViewMode]);
+  const viewMode = viewModeProp ?? ownViewMode;
+  // カード表示の中で、訪問を時刻の位置に置く（時間軸）か、順番どおりに詰めて並べるかを切り替える
+  const [cardTimeAxis, setCardTimeAxis] = useState(() => {
+    try { return localStorage.getItem('field_app_card_time_axis') === '1'; } catch { return false; }
+  });
+  useEffect(() => {
+    try { localStorage.setItem('field_app_card_time_axis', cardTimeAxis ? '1' : '0'); } catch { /* noop */ }
+  }, [cardTimeAxis]);
+  // 時間軸は予定管理者だけ。作業者には出さない（時刻の位置に置かれると縛られているように感じるため）
+  const canTimeAxis = canManageSchedules(currentUserRole);
+  const showTimeAxis = canTimeAxis && cardTimeAxis;
+
+  // 切り替えは流れるように: 同じ予定のカードを、前の位置・幅から新しい位置・幅へ滑らせる（FLIP）。
+  // 行・見出し・カードの大きさは両方の表示でそろえてあるので、動くのはカードの位置だけになる
+  const cardsWrapRef = useRef<HTMLDivElement>(null);
+  const morphFrom = useRef<Map<string, DOMRect> | null>(null);
+  const toggleCardTimeAxis = () => {
+    const wrap = cardsWrapRef.current;
+    if (wrap && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      const from = new Map<string, DOMRect>();
+      wrap.querySelectorAll<HTMLElement>('.lane-card[data-sid]').forEach(el => from.set(el.dataset.sid!, el.getBoundingClientRect()));
+      morphFrom.current = from;
+    }
+    setCardTimeAxis(v => !v);
+  };
+  useLayoutEffect(() => {
+    const from = morphFrom.current;
+    morphFrom.current = null;
+    const wrap = cardsWrapRef.current;
+    if (!from || !wrap) return;
+    wrap.classList.add('is-view-morph');
+    const view = wrap.getBoundingClientRect();
+    const near = (r: DOMRect) => r.bottom > view.top - 200 && r.top < view.bottom + 200;
+    const ease = 'cubic-bezier(0.32, 0.72, 0, 1)'; // iOS の画面遷移に近い、素早く出てなめらかに止まる動き
+    wrap.querySelectorAll<HTMLElement>('.lane-card[data-sid]').forEach(el => {
+      const to = el.getBoundingClientRect();
+      const at = from.get(el.dataset.sid!);
+      if (!at) {
+        if (near(to)) el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 320, easing: 'ease-out' });
+        return;
+      }
+      if (!near(at) && !near(to)) return;
+      // 位置（transform）だけを動かす。カードの大きさは両方の表示でそろえてあり、幅を動かすと毎コマ組み直しになってかくつく
+      el.animate(
+        [{ transform: `translate(${at.left - to.left}px, ${at.top - to.top}px)` }, { transform: 'translate(0, 0)' }],
+        { duration: 460, easing: ease },
+      );
+    });
+    const t = window.setTimeout(() => wrap.classList.remove('is-view-morph'), 700);
+    return () => window.clearTimeout(t);
+  }, [cardTimeAxis]);
+  // スマホ（幅 768px 以下）では、自分の予定を担当ごとのカードで出す
+  const [isPhone, setIsPhone] = useState(() => typeof window !== 'undefined' && window.matchMedia('(max-width: 768px)').matches);
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 768px)');
+    const onChange = () => setIsPhone(mq.matches);
+    mq.addEventListener('change', onChange);
+    return () => mq.removeEventListener('change', onChange);
+  }, []);
+  const phoneMine = isPhone && currentStaffId !== null;
 
   const changeDate = (days: number) => {
     const d = new Date(selectedDate);
@@ -266,7 +368,7 @@ export const GridView: React.FC<GridViewProps> = ({
   };
 
   const setToday = () => {
-    setSelectedDate(new Date().toISOString().split('T')[0]);
+    setSelectedDate(jstDate());
   };
 
   const daySchedules = schedules.filter(
@@ -278,13 +380,15 @@ export const GridView: React.FC<GridViewProps> = ({
   ).length;
 
   // 指定日に「休み」または「公休」が登録されているスタッフ名を集計
-  const holidayStaffNames = schedules
+  // 本日の公休（アバターを付けて出すので、名簿の人も一緒に持つ）
+  const holidayStaff = schedules
     .filter(s => s.date === selectedDate && s.work_type === '休暇')
     .map(s => {
-      const st = staff.find(st => st.id === s.staff_id);
-      return st ? getShortName(st.name) : getShortName(s.staff_name || '不明');
+      const st = staff.find(st => st.id === s.staff_id) ?? findStaffByName(staff, s.staff_name);
+      return { name: st ? getShortName(st.name) : getShortName(s.staff_name || '不明'), member: st };
     })
-    .filter(Boolean);
+    .filter(h => h.name)
+    .filter((h, i, all) => all.findIndex(x => x.name === h.name) === i);
 
   const filteredSchedules = schedules.filter(s => {
     if (s.work_type === '休暇') {
@@ -387,6 +491,10 @@ export const GridView: React.FC<GridViewProps> = ({
     return sortOrder === 'asc' ? cmp : -cmp;
   });
 
+  // 時間の置き方に使う位置・車の予約などは、カード表示と時間軸で 1 つを使い回す。
+  // 切り替えのたびに読み直すと、読み終わったところでカードの位置が組み直されて最後に「カクッ」と跳ぶため
+  const planCtx = useDayPlanContext(sortedSchedules, staff, selectedDate, feEvents);
+
   const handleSortToggle = (column: 'unit_number' | 'property_name' | 'target_time' | 'staff_name') => {
     clearSelectionOverlay();
     if (sortColumn === column) {
@@ -403,13 +511,22 @@ export const GridView: React.FC<GridViewProps> = ({
   };
 
 
+  // 表の「未対応／完了」ボタン。FE 画面や右クリックと同じく、完了にしたら完了の時刻（開始が空なら開始も）を記録し、
+  // 戻したら開始・完了の時刻も消す（開始だけ残ると「対応中」に見えるため）
   const handleQuickCompleteToggle = async (schedule: Schedule) => {
-    const newResult = schedule.result === '完了' ? '' : '完了';
+    const completing = schedule.result !== '完了';
+    const now = nowHmJst();
     try {
-      await onSave({
-        id: schedule.id,
-        result: newResult,
-      });
+      if (onUpdateResult) {
+        if (completing) await onUpdateResult(schedule.id, '完了', schedule.started_at || now, now);
+        else await onUpdateResult(schedule.id, '', null, null);
+      } else {
+        await onSave(
+          completing
+            ? { id: schedule.id, result: '完了', started_at: schedule.started_at || now, completed_at: now }
+            : { id: schedule.id, result: '', started_at: null, completed_at: null }
+        );
+      }
     } catch (error) {
       console.error('Failed to quick update status:', error);
     }
@@ -541,7 +658,7 @@ export const GridView: React.FC<GridViewProps> = ({
     return () => {
       wrapper.removeEventListener('scroll', handleScroll);
     };
-  }, []);
+  }, [viewMode]);
 
   useLayoutEffect(() => {
     const wrapper = tableWrapperRef.current;
@@ -865,29 +982,38 @@ export const GridView: React.FC<GridViewProps> = ({
               <button className="btn btn-secondary btn-sm-nav" onClick={() => changeDate(-1)} title="前日へ">
                 <ChevronLeft size={16} />
               </button>
-              <div className="date-picker-wrapper" onClick={triggerDatePicker} title="クリックして日付を選択" style={{ cursor: 'pointer' }}>
-                <input
-                  ref={dateInputRef}
-                  type="date"
-                  className="date-picker-input"
-                  value={selectedDate}
-                  onChange={(e) => {
-                    if (e.target.value) {
-                      setSelectedDate(e.target.value);
-                    }
-                  }}
-                />
-                <span className="current-date-display">
-                  <CalendarIcon size={16} style={{ marginRight: '6px' }} />
-                  {formatJapaneseDate(selectedDate)}
-                </span>
-              </div>
-              <button className="btn btn-secondary btn-sm-nav" onClick={setToday}>
-                今日
-              </button>
+              <DatePicker
+                value={selectedDate}
+                onChange={v => {
+                  if (v) setSelectedDate(v);
+                }}
+                noClear
+                trigger={
+                  <span className="current-date-display">
+                    <CalendarIcon size={16} style={{ marginRight: '6px' }} />
+                    {formatJapaneseDate(selectedDate)}
+                  </span>
+                }
+                triggerClassName="grid-date-trigger"
+                title="日付を選ぶ"
+                aria-label="日付を選ぶ"
+              />
               <button className="btn btn-secondary btn-sm-nav" onClick={() => changeDate(1)} title="翌日へ">
                 <ChevronRight size={16} />
               </button>
+              <button className="btn btn-secondary btn-sm-nav btn-today-icon" onClick={setToday} title="今日へ" aria-label="今日へ">
+                <CalendarCheck size={16} />
+              </button>
+              {isAdmin && (
+                <button
+                  className="btn btn-primary btn-add-schedule btn-add-inline"
+                  onClick={() => onOpenAddModal(selectedDate)}
+                  title="新規予定を追加"
+                >
+                  <Plus size={16} />
+                  予定を追加
+                </button>
+              )}
             </div>
           </div>
 
@@ -914,10 +1040,12 @@ export const GridView: React.FC<GridViewProps> = ({
                 }}
                 options={[
                   { value: 'all', label: 'すべての担当者' },
+                  // その日に予定がある人だけ（選んでいる人は残す）。顔写真つき
                   ...staff
-                    .filter(st => st.is_active !== 0 || String(st.id) === filterStaff)
-                    .map(st => ({ value: String(st.id), label: getShortName(st.name) })),
+                    .filter(st => String(st.id) === filterStaff || schedules.some(sc => sc.date === selectedDate && sc.staff_id === st.id && sc.status !== 'cancelled'))
+                    .map(st => ({ value: String(st.id), label: st.name, selectedLabel: getShortName(st.name), icon: <StaffAvatar member={st} name={st.name} size={20} /> })),
                 ]}
+                maxPanelHeight={360}
                 aria-label="担当者で絞り込み"
               />
             </div>
@@ -946,15 +1074,51 @@ export const GridView: React.FC<GridViewProps> = ({
                     setFilterStaff('all');
                   }
                 }}
-                title="ログインしているあなたの予定のみに一括で絞り込みます"
+                title={myScheduleOnly ? '自分の予定だけ表示中（押すと全員に戻す）' : '自分の予定だけ表示する'}
+                aria-label="自分の予定だけ表示"
+                aria-pressed={myScheduleOnly}
               >
-                自分の予定のみ表示
+                <UserRound size={16} />
+              </button>
+            )}
+
+            {viewMode === 'card' && !phoneMine && canTimeAxis && (
+              <button
+                type="button"
+                className={`btn btn-my-schedule ${cardTimeAxis ? 'active' : ''}`}
+                onClick={toggleCardTimeAxis}
+                title={cardTimeAxis ? '時間軸をやめて、訪問を順番どおりに詰めて並べる' : '時間軸で並べる（訪問を時刻の位置に置き、移動の見積もりを出す）'}
+                aria-label="時間軸で並べる"
+                aria-pressed={cardTimeAxis}
+              >
+                <ChartGantt size={16} />
               </button>
             )}
           </div>
 
           <div className="grid-actions-right">
-            {sortColumn !== 'default' && (
+            {!viewModeProp && (
+            <div className="view-mode-switch" role="group" aria-label="表示の切替">
+              {([
+                { key: 'card', icon: <LayoutList size={16} />, label: 'カード一覧' },
+                { key: 'timeline', icon: <ChartGantt size={16} />, label: '時間軸' },
+                { key: 'table', icon: <Table2 size={16} />, label: '表' },
+              ] as const).map(v => (
+                <button
+                  key={v.key}
+                  type="button"
+                  className={`view-mode-btn ${viewMode === v.key ? 'active' : ''}`}
+                  onClick={() => setViewMode(v.key)}
+                  title={`${v.label}で表示`}
+                  aria-pressed={viewMode === v.key}
+                >
+                  {v.icon}
+                </button>
+              ))}
+            </div>
+            )}
+
+            {viewMode === 'table' && sortColumn !== 'default' && (
               <button 
                 className="btn btn-secondary"
                 onClick={() => {
@@ -969,13 +1133,18 @@ export const GridView: React.FC<GridViewProps> = ({
               </button>
             )}
 
-            <button 
-              className={`btn btn-toggle-view ${showFullText ? 'active' : ''}`} 
+            {/* 全文表示（表のときだけ使える。ボタンの位置がずれないよう、表以外でも場所は取っておく） */}
+            <button
+              type="button"
+              className={`btn btn-toggle-view btn-icon-only ${showFullText ? 'active' : ''}${viewMode !== 'table' ? ' is-placeholder' : ''}`}
               onClick={() => setShowFullText(!showFullText)}
-              title={showFullText ? "2〜3行の標準折り返し表示に戻します" : "すべての予定の物件名・作業内容・備考のテキストを折り返して全行展開します"}
+              title={showFullText ? '全文表示中（押すと 2〜3 行の表示に戻す）' : '物件名・作業内容・備考を折り返して全文表示する'}
+              aria-label="全文表示"
+              aria-pressed={showFullText}
+              disabled={viewMode !== 'table'}
+              tabIndex={viewMode !== 'table' ? -1 : 0}
             >
-              {showFullText ? <EyeOff size={15} /> : <Eye size={15} />}
-              <span>{showFullText ? '標準表示に戻す' : '全文表示に切替'}</span>
+              <WrapText size={16} />
             </button>
 
             <button 
@@ -999,15 +1168,78 @@ export const GridView: React.FC<GridViewProps> = ({
         </div>
       </div>
 
-      {holidayStaffNames.length > 0 && (
-        <div className="holiday-summary-bar" style={{ margin: '0 1.5rem 1rem' }}>
+      {holidayStaff.length > 0 && (
+        <div className="holiday-summary-bar" style={{ margin: '0 0 0.75rem' }}>
           <span className="holiday-label">本日の公休：</span>
-          {holidayStaffNames.map(name => (
-            <span key={name} className="holiday-badge">{name}</span>
+          {holidayStaff.map(({ name, member }) => (
+            <span key={name} className="holiday-badge" style={{ gap: '6px' }}>
+              {/* 対応者・同行者と同じアバター（写真が無ければ頭文字） */}
+              {member?.avatar_url ? (
+                <img src={member.avatar_url} alt={name} style={{ width: '18px', height: '18px', borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
+              ) : (
+                <span style={{ width: '18px', height: '18px', borderRadius: '50%', backgroundColor: 'var(--primary, #4f46e5)', color: 'white', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.6rem', fontWeight: 'bold', flexShrink: 0 }}>
+                  {name.substring(0, 1)}
+                </span>
+              )}
+              {name}
+            </span>
           ))}
         </div>
       )}
 
+      {viewMode !== 'table' ? (
+        <div ref={cardsWrapRef} className="grid-table-wrapper grid-cards-wrapper">
+          {phoneMine ? (
+            <TimelineView
+              embedded
+              collapsible
+              onlyMine
+              schedules={schedules}
+              staff={staff}
+              onOpenEditModal={onOpenEditModal}
+              currentUserRole={currentUserRole}
+              currentStaffId={currentStaffId}
+              onUpdateResult={onUpdateResult ?? (async (id, result) => { await onSave({ id: Number(id), result }); })}
+              onReorder={onReorder ?? (async () => { /* 並べ替えは App から渡されたときだけ */ })}
+              zoomLevel={zoomLevel}
+              feEvents={feEvents}
+              viewDate={selectedDate}
+              onViewDateChange={setSelectedDate}
+            />
+          ) : viewMode === 'card' && !showTimeAxis ? (
+            <div style={zoomLevel !== 100 ? { zoom: `${zoomLevel}%` } : undefined}>
+              <StaffLaneBoard
+                schedules={sortedSchedules}
+                staff={staff}
+                planCtx={planCtx}
+                canEdit={isAdmin}
+                activeLocks={activeLocks}
+                onOpenEditModal={onOpenEditModal}
+                onReorder={onReorder}
+                feEvents={feEvents}
+                onSetProgress={isAdmin ? onSetProgress : undefined}
+                loadStatusHistory={loadStatusHistory}
+              />
+            </div>
+          ) : (
+            <div style={zoomLevel !== 100 ? { zoom: `${zoomLevel}%` } : undefined}>
+              <StaffTimelineBoard
+                schedules={sortedSchedules}
+                staff={staff}
+                date={selectedDate}
+                planCtx={planCtx}
+                canEdit={isAdmin}
+                activeLocks={activeLocks}
+                onOpenEditModal={onOpenEditModal}
+                onReorder={onReorder}
+                feEvents={feEvents}
+                onSetProgress={isAdmin ? onSetProgress : undefined}
+                loadStatusHistory={loadStatusHistory}
+              />
+            </div>
+          )}
+        </div>
+      ) : (
       <div ref={tableWrapperRef} className="grid-table-wrapper">
         <div
           ref={tableContainerRef}
@@ -1037,6 +1269,7 @@ export const GridView: React.FC<GridViewProps> = ({
           <thead>
             <tr>
               <th style={{ width: '42px', textAlign: 'center' }}>区分</th>
+              <th style={{ width: '100px' }}>依頼番号</th>
               <th style={{ width: '40px' }}>タイプ</th>
               <th style={{ width: '42px' }}>BOX</th>
               <th 
@@ -1072,7 +1305,7 @@ export const GridView: React.FC<GridViewProps> = ({
                 </div>
               </th>
               <th 
-                style={{ width: '85px', cursor: 'pointer', userSelect: 'none' }} 
+                style={{ width: '110px', cursor: 'pointer', userSelect: 'none' }} 
                 onClick={() => handleSortToggle('staff_name')}
                 title="クリックで対応者順に並び替え"
               >
@@ -1084,7 +1317,6 @@ export const GridView: React.FC<GridViewProps> = ({
               <th style={{ width: '75px' }}>エリア</th>
               <th style={{ width: '48px' }}>移動</th>
               <th style={{ width: '85px' }}>同行者</th>
-              <th style={{ width: '85px' }}>依頼番号</th>
               <th style={{ width: '72px', textAlign: 'center' }}>結果</th>
               <th style={{ width: '130px' }}>備考</th>
             </tr>
@@ -1100,6 +1332,8 @@ export const GridView: React.FC<GridViewProps> = ({
               sortedSchedules.map((schedule, rowIndex) => {
                 const staffMember = staff.find(st => st.id === schedule.staff_id);
                 const isCompleted = schedule.result === '完了';
+                // 行の色: 完了＝緑、対応中＝黄（結果の「完了」と同じ色の付け方。文字は薄くしない）
+                const rowProgress = progressOf(schedule, feEvents);
 
                 const isAdmin = canManageSchedules(currentUserRole);
                 const isLocked = typeof schedule.id === 'number' && Boolean(activeLocks[schedule.id]);
@@ -1115,7 +1349,7 @@ export const GridView: React.FC<GridViewProps> = ({
                       }
                       onOpenEditModal(schedule);
                     } : undefined}
-                    className={`spreadsheet-row ${isCompleted ? 'row-completed' : ''} ${isLocked ? 'locked-by-other-row' : ''}`}
+                    className={`spreadsheet-row ${rowProgress === 'done' ? 'row-completed' : rowProgress === 'working' ? 'row-working' : ''} ${isLocked ? 'locked-by-other-row' : ''}`}
                   >
                     <td 
                       id={`grid-cell-${rowIndex}-0`}
@@ -1133,7 +1367,7 @@ export const GridView: React.FC<GridViewProps> = ({
                       onMouseDown={(e) => handleCellMouseDown(e, rowIndex, 1)}
                       onMouseEnter={() => handleCellMouseEnter(rowIndex, 1)}
                     >
-                      {schedule.type}
+                      {schedule.request_number}
                       {isBottomRightSelectedCell(rowIndex, 1) && <div className="cell-fill-handle" />}
                     </td>
                     <td 
@@ -1142,7 +1376,7 @@ export const GridView: React.FC<GridViewProps> = ({
                       onMouseDown={(e) => handleCellMouseDown(e, rowIndex, 2)}
                       onMouseEnter={() => handleCellMouseEnter(rowIndex, 2)}
                     >
-                      {schedule.box}
+                      {schedule.type}
                       {isBottomRightSelectedCell(rowIndex, 2) && <div className="cell-fill-handle" />}
                     </td>
                     <td 
@@ -1151,15 +1385,24 @@ export const GridView: React.FC<GridViewProps> = ({
                       onMouseDown={(e) => handleCellMouseDown(e, rowIndex, 3)}
                       onMouseEnter={() => handleCellMouseEnter(rowIndex, 3)}
                     >
-                      {schedule.unit_number}
+                      {schedule.box}
                       {isBottomRightSelectedCell(rowIndex, 3) && <div className="cell-fill-handle" />}
                     </td>
                     <td 
                       id={`grid-cell-${rowIndex}-4`}
-                      className={getCellClassName(rowIndex, 4, 'bold-cell')}
-                      title={schedule.property_name}
+                      className={getCellClassName(rowIndex, 4, '')}
                       onMouseDown={(e) => handleCellMouseDown(e, rowIndex, 4)}
                       onMouseEnter={() => handleCellMouseEnter(rowIndex, 4)}
+                    >
+                      {schedule.unit_number}
+                      {isBottomRightSelectedCell(rowIndex, 4) && <div className="cell-fill-handle" />}
+                    </td>
+                    <td 
+                      id={`grid-cell-${rowIndex}-5`}
+                      className={getCellClassName(rowIndex, 5, 'bold-cell')}
+                      title={schedule.property_name}
+                      onMouseDown={(e) => handleCellMouseDown(e, rowIndex, 5)}
+                      onMouseEnter={() => handleCellMouseEnter(rowIndex, 5)}
                     >
                       <div className="property-cell-wrapper" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', gap: '4px' }}>
                         <div className="cell-clamp-2" style={{ flex: 1 }}>
@@ -1187,47 +1430,48 @@ export const GridView: React.FC<GridViewProps> = ({
                           {isLocked ? <Lock size={12} style={{ color: '#ef4444' }} /> : <Edit2 size={12} />}
                         </button>
                       </div>
-                      {isBottomRightSelectedCell(rowIndex, 4) && <div className="cell-fill-handle" />}
-                    </td>
-                    <td 
-                      id={`grid-cell-${rowIndex}-5`}
-                      className={getCellClassName(rowIndex, 5, '')}
-                      onMouseDown={(e) => handleCellMouseDown(e, rowIndex, 5)}
-                      onMouseEnter={() => handleCellMouseEnter(rowIndex, 5)}
-                    >
-                      {schedule.work_type}
                       {isBottomRightSelectedCell(rowIndex, 5) && <div className="cell-fill-handle" />}
                     </td>
                     <td 
                       id={`grid-cell-${rowIndex}-6`}
-                      className={getCellClassName(rowIndex, 6, 'description-cell')}
-                      title={schedule.description || ''}
+                      className={getCellClassName(rowIndex, 6, '')}
                       onMouseDown={(e) => handleCellMouseDown(e, rowIndex, 6)}
                       onMouseEnter={() => handleCellMouseEnter(rowIndex, 6)}
                     >
-                      <div className="cell-clamp-3">
-                        {schedule.description}
-                      </div>
+                      {schedule.work_type}
                       {isBottomRightSelectedCell(rowIndex, 6) && <div className="cell-fill-handle" />}
                     </td>
                     <td 
                       id={`grid-cell-${rowIndex}-7`}
-                      className={getCellClassName(rowIndex, 7, 'time-cell')}
+                      className={getCellClassName(rowIndex, 7, 'description-cell')}
+                      title={schedule.description || ''}
                       onMouseDown={(e) => handleCellMouseDown(e, rowIndex, 7)}
                       onMouseEnter={() => handleCellMouseEnter(rowIndex, 7)}
                     >
-                      {normalizeTargetTime(schedule.target_time)}
+                      <div className="cell-clamp-3">
+                        {schedule.description}
+                      </div>
                       {isBottomRightSelectedCell(rowIndex, 7) && <div className="cell-fill-handle" />}
                     </td>
                     <td 
                       id={`grid-cell-${rowIndex}-8`}
-                      className={getCellClassName(rowIndex, 8, '')}
-                      style={{ verticalAlign: 'middle' }}
+                      className={getCellClassName(rowIndex, 8, 'time-cell')}
                       onMouseDown={(e) => handleCellMouseDown(e, rowIndex, 8)}
                       onMouseEnter={() => handleCellMouseEnter(rowIndex, 8)}
                     >
+                      {normalizeTargetTime(schedule.target_time)}
+                      {isBottomRightSelectedCell(rowIndex, 8) && <div className="cell-fill-handle" />}
+                    </td>
+                    <td 
+                      id={`grid-cell-${rowIndex}-9`}
+                      className={getCellClassName(rowIndex, 9, '')}
+                      style={{ verticalAlign: 'middle' }}
+                      onMouseDown={(e) => handleCellMouseDown(e, rowIndex, 9)}
+                      onMouseEnter={() => handleCellMouseEnter(rowIndex, 9)}
+                    >
+                      {/* 名前は 1 行で省かずに出す。列に入らない長い名前は文字を小さくする（--len＝名前の文字数。アバター 22px＋すき間・札の余白の分を引く） */}
                       {staffMember ? (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', width: '100%' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', width: '100%', containerType: 'inline-size' }}>
                           {staffMember.avatar_url ? (
                             <img 
                               src={staffMember.avatar_url} 
@@ -1251,28 +1495,21 @@ export const GridView: React.FC<GridViewProps> = ({
                               {getShortName(staffMember.name).substring(0, 1)}
                             </div>
                           )}
-                          <span className="staff-indicator-tag" style={{ borderLeft: '3px solid var(--primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          <span className="staff-indicator-tag" style={{ borderLeft: '3px solid var(--primary)', whiteSpace: 'nowrap', fontSize: `min(0.8rem, calc((100cqw - 46px) / ${[...getShortName(staffMember.name)].length}))` }}>
                             {getShortName(staffMember.name)}
                           </span>
                         </div>
                       ) : (
                         schedule.staff_name ? (
-                          <span className="staff-indicator-tag" style={{ borderLeft: '3px solid #6b7280' }}>
-                            {getShortName(schedule.staff_name)}
-                          </span>
+                          <div style={{ width: '100%', containerType: 'inline-size' }}>
+                            <span className="staff-indicator-tag" style={{ borderLeft: '3px solid #6b7280', whiteSpace: 'nowrap', fontSize: `min(0.8rem, calc((100cqw - 18px) / ${[...getShortName(schedule.staff_name)].length}))` }}>
+                              {getShortName(schedule.staff_name)}
+                            </span>
+                          </div>
                         ) : (
                           <span style={{ color: '#94a3b8', fontStyle: 'italic', fontSize: '0.85rem' }}>未設定</span>
                         )
                       )}
-                      {isBottomRightSelectedCell(rowIndex, 8) && <div className="cell-fill-handle" />}
-                    </td>
-                    <td 
-                      id={`grid-cell-${rowIndex}-9`}
-                      className={getCellClassName(rowIndex, 9, '')}
-                      onMouseDown={(e) => handleCellMouseDown(e, rowIndex, 9)}
-                      onMouseEnter={() => handleCellMouseEnter(rowIndex, 9)}
-                    >
-                      {schedule.area}
                       {isBottomRightSelectedCell(rowIndex, 9) && <div className="cell-fill-handle" />}
                     </td>
                     <td 
@@ -1281,7 +1518,7 @@ export const GridView: React.FC<GridViewProps> = ({
                       onMouseDown={(e) => handleCellMouseDown(e, rowIndex, 10)}
                       onMouseEnter={() => handleCellMouseEnter(rowIndex, 10)}
                     >
-                      {schedule.transport}
+                      {schedule.area}
                       {isBottomRightSelectedCell(rowIndex, 10) && <div className="cell-fill-handle" />}
                     </td>
                     <td 
@@ -1290,19 +1527,7 @@ export const GridView: React.FC<GridViewProps> = ({
                       onMouseDown={(e) => handleCellMouseDown(e, rowIndex, 11)}
                       onMouseEnter={() => handleCellMouseEnter(rowIndex, 11)}
                     >
-                      {(() => {
-                        const coWorkersStr = schedule.co_worker || '';
-                        const coWorkersList = splitCoWorkers(coWorkersStr, staff);
-                        return (
-                          <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
-                            {coWorkersList.map((name, idx) => (
-                              <span key={idx} className="staff-indicator-tag" style={{ borderLeft: '3px solid var(--primary)' }}>
-                                {getShortName(name)}
-                              </span>
-                            ))}
-                          </div>
-                        );
-                      })()}
+                      {schedule.transport}
                       {isBottomRightSelectedCell(rowIndex, 11) && <div className="cell-fill-handle" />}
                     </td>
                     <td 
@@ -1311,10 +1536,35 @@ export const GridView: React.FC<GridViewProps> = ({
                       onMouseDown={(e) => handleCellMouseDown(e, rowIndex, 12)}
                       onMouseEnter={() => handleCellMouseEnter(rowIndex, 12)}
                     >
-                      {schedule.request_number}
+                      {(() => {
+                        const coWorkersStr = schedule.co_worker || '';
+                        const coWorkersList = splitCoWorkers(coWorkersStr, staff);
+                        return (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap' }}>
+                            {/* 同行者も対応者と同じくアバター付き（月間予定の表と同じ出し方） */}
+                            {coWorkersList.map((name, idx) => {
+                              const member = findStaffByName(staff, name);
+                              const shortName = getShortName(name);
+                              return (
+                                <span key={idx} style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                  {member?.avatar_url ? (
+                                    <img src={member.avatar_url} alt={shortName} style={{ width: '18px', height: '18px', borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
+                                  ) : (
+                                    <span style={{ width: '18px', height: '18px', borderRadius: '50%', backgroundColor: 'var(--primary, #4f46e5)', color: 'white', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.6rem', fontWeight: 'bold', flexShrink: 0 }}>
+                                      {shortName.substring(0, 1)}
+                                    </span>
+                                  )}
+                                  <span className="staff-indicator-tag" style={{ borderLeft: '3px solid var(--primary)' }}>
+                                    {shortName}
+                                  </span>
+                                </span>
+                              );
+                            })}
+                          </div>
+                        );
+                      })()}
                       {isBottomRightSelectedCell(rowIndex, 12) && <div className="cell-fill-handle" />}
                     </td>
-                    
                     <td 
                       id={`grid-cell-${rowIndex}-13`}
                       className={getCellClassName(rowIndex, 13, '')}
@@ -1365,7 +1615,6 @@ export const GridView: React.FC<GridViewProps> = ({
                       )}
                       {isBottomRightSelectedCell(rowIndex, 13) && <div className="cell-fill-handle" />}
                     </td>
-
                     <td 
                       id={`grid-cell-${rowIndex}-14`}
                       className={getCellClassName(rowIndex, 14, 'notes-cell')}
@@ -1386,20 +1635,10 @@ export const GridView: React.FC<GridViewProps> = ({
         </table>
         </div>
       </div>
+      )}
 
       <div className="grid-view-footer">
-        {isAdmin ? (
-          <button 
-            className="btn btn-primary btn-add-schedule"
-            onClick={() => onOpenAddModal(selectedDate)}
-            title="新規予定を追加"
-          >
-            <Plus size={16} />
-            予定を追加
-          </button>
-        ) : (
-          <div></div>
-        )}
+        <div></div>
         <span className="grid-row-count">
           表示件数: {filteredSchedules.length} 件
         </span>

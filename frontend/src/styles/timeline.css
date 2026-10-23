@@ -1,0 +1,167 @@
+/* 行動予定・月間予定（2026-10 刷新）の共通トークンと部品。
+   色の対応（種別・進み具合・混み具合）はここで一元管理し、カード・ガント・月間・ヒートマップで同じ色を使う。 */
+:root {
+  --tl-font: "BIZ UDPGothic", "BIZ UDPゴシック", sans-serif;
+  --tl-font-num: "BIZ UDGothic", "BIZ UDゴシック", sans-serif;
+
+  --wt-teiki: #2563eb;
+  --wt-shogai: #dc2626;
+  --wt-koji: #ea580c;
+  --wt-hoshu: #16a34a;
+  --wt-internal: #64748b;
+  --wt-other: #7c3aed;
+
+  --pg-done: #16a34a;
+  --pg-active: #2563eb;
+  --pg-todo: #94a3b8;
+  --pg-cancelled: #dc2626;
+
+  --tl-urgent: #dc2626;
+
+  --heat-0: var(--bg-empty);
+  --heat-1: #dbeafe;
+  --heat-2: #93c5fd;
+  --heat-3: #3b82f6;
+  --heat-4: #1e3a8a;
+  --heat-ink-3: #ffffff;
+  --heat-ink-4: #ffffff;
+}
+
+.dark-theme {
+  --heat-0: var(--bg-empty);
+  --wt-teiki: #60a5fa;
+  --wt-shogai: #f87171;
+  --wt-koji: #fb923c;
+  --wt-hoshu: #4ade80;
+  --wt-internal: #94a3b8;
+  --wt-other: #a78bfa;
+
+  --pg-done: #4ade80;
+  --pg-active: #60a5fa;
+  --pg-todo: #64748b;
+  --pg-cancelled: #f87171;
+
+  --tl-urgent: #ef4444;
+
+  --heat-1: #1e3a5f;
+  --heat-2: #1d4ed8;
+  --heat-3: #3b82f6;
+  --heat-4: #93c5fd;
+  --heat-ink-3: #ffffff;
+  --heat-ink-4: #0b0f19;
+}
+
+.tl-root {
+  font-family: var(--tl-font);
+  line-height: 1.5;
+  color: var(--text-primary);
+}
+
+.tl-root button,
+.tl-root input,
+.tl-root code {
+  font-family: inherit;
+  line-height: 1.4;
+}
+
+.tl-num {
+  font-family: var(--tl-font-num);
+  font-variant-numeric: tabular-nums;
+}
+
+/* 種別の色（--wt）を要素に渡す */
+.tl-wt-teiki { --wt: var(--wt-teiki); }
+.tl-wt-shogai { --wt: var(--wt-shogai); }
+.tl-wt-koji { --wt: var(--wt-koji); }
+.tl-wt-hoshu { --wt: var(--wt-hoshu); }
+.tl-wt-internal { --wt: var(--wt-internal); }
+.tl-wt-other { --wt: var(--wt-other); }
+
+/* バッジ: 高さ 28px・アイコン 12px・横並び・短い語だけ */
+.tl-badge {
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  box-sizing: border-box;
+  padding: 0 10px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.tl-badge svg {
+  width: 12px;
+  height: 12px;
+  flex-shrink: 0;
+}
+
+.tl-wt-badge {
+  color: var(--wt);
+  background: color-mix(in srgb, var(--wt) 12%, transparent);
+  border-color: color-mix(in srgb, var(--wt) 32%, transparent);
+}
+
+/* ゴーストボタン（塗りつぶさない）。色は --accent-c で渡す */
+.tl-ghost-btn {
+  --accent-c: var(--primary);
+  position: relative;
+  top: 0;
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 32px;
+  box-sizing: border-box;
+  padding: 0 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid color-mix(in srgb, var(--accent-c) 35%, transparent);
+  background: transparent;
+  color: var(--accent-c);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background-color var(--transition-fast), filter var(--transition-fast);
+}
+
+.tl-ghost-btn:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--accent-c) 10%, transparent);
+  filter: brightness(1.12);
+}
+
+.tl-ghost-btn:active:not(:disabled) {
+  top: 1px;
+}
+
+.tl-ghost-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.tl-ghost-btn.is-on {
+  background: color-mix(in srgb, var(--accent-c) 14%, transparent);
+  border-color: var(--accent-c);
+}
+
+.tl-ghost-btn svg {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+
+.tl-icon-btn {
+  width: 32px;
+  padding: 0;
+}
+
+/* 空の表示（行動予定・ガント・カードで共用） */
+.ac-empty {
+  padding: 32px;
+  text-align: center;
+  color: var(--text-muted);
+}
