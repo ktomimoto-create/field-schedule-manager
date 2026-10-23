@@ -129,8 +129,8 @@
 .cp-cell {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  min-height: 56px;
+  gap: 3px;
+  min-height: 36px;
   padding: 4px 6px 4px 4px; /* 右はホバーの 3px 移動ぶん多めに */
   border-right: 1px solid var(--border-cell);
   border-bottom: 1px solid var(--border-cell);
@@ -141,13 +141,15 @@
   background: color-mix(in srgb, var(--text-muted) 8%, transparent);
 }
 
+/* 1 行（種別・物件名・時刻）にして、1 画面に出せる件数を増やす */
 .cp-chip {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 6px;
   width: 100%;
   box-sizing: border-box;
-  padding: 4px 6px;
+  padding: 3px 6px;
   border-radius: 6px;
   border: 1px solid color-mix(in srgb, var(--wt) 35%, transparent);
   border-left: 3px solid var(--wt);
@@ -175,13 +177,8 @@
   text-decoration: line-through;
 }
 
-.cp-chip-top {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
 .cp-wt {
+  max-width: 6em; /* 「依頼者承認済」まで収まる幅 */
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -193,7 +190,6 @@
 .cp-time {
   flex-shrink: 0;
   white-space: nowrap;
-  margin-left: auto;
   padding: 0 4px;
   border-radius: 4px;
   background: var(--tl-urgent);
@@ -202,24 +198,15 @@
 }
 
 .cp-prop {
-  font-weight: 700;
-  overflow-wrap: anywhere;
-}
-
-.cp-unit {
-  color: var(--text-secondary);
-  overflow-wrap: anywhere;
-}
-
-.cp-desc {
-  color: var(--text-muted);
-  display: -webkit-box;
-  -webkit-line-clamp: 1;
-  -webkit-box-orient: vertical;
+  min-width: 0;
   overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 700;
 }
 
 .cp-holiday {
+  display: flex;
   align-items: center;
   color: var(--text-muted);
 }

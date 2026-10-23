@@ -68,13 +68,10 @@ function CalendarChip({ schedule: s, onOpen, onHover }: ChipProps) {
       onClick={() => onOpen(s)}
       {...hoverProps}
     >
-      <span className="cp-chip-top">
-        <span className="cp-wt">{s.work_type || '種別なし'}</span>
-        {badge && <span className="cp-time">{badge}</span>}
-      </span>
+      {/* 1 行に種別・物件名・時刻。号機や作業内容は乗せたときの吹き出しで見る */}
+      <span className="cp-wt">{s.work_type || '種別なし'}</span>
       <span className="cp-prop">{s.property_name || '（物件名なし）'}</span>
-      {s.unit_number && <span className="cp-unit">{s.unit_number}</span>}
-      {s.description && <span className="cp-desc">{s.description}</span>}
+      {badge && <span className="cp-time">{badge}</span>}
     </button>
   )
 }
@@ -167,7 +164,7 @@ export function CalendarPane({ days, rows, cells, today, transferring, onTransfe
 
   return (
     <div className="mv-scroll">
-      <div className="mv-grid" style={{ gridTemplateColumns: `120px repeat(${days.length}, 180px)` }}>
+      <div className="mv-grid" style={{ gridTemplateColumns: `120px repeat(${days.length}, 240px)` }}>
         <div className="mv-corner mv-sticky-col mv-sticky-row" />
         {days.map(d => {
           const wd = weekdayOf(d)
