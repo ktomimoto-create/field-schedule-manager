@@ -5,7 +5,10 @@ import type { LatLng } from './geocode';
 import { isSameSite, sameBuilding, travelLeg, travelModeOf, useHomeBase, useSitePositions, WORK_MIN, type LegKind, type TravelMode } from './route';
 import { hmToMin, parseTimeSlot } from './scheduleDisplay';
 import { useFunnaviReservations, usesVehicle, type FunnaviReservation } from './vehicleUsers';
-import { isHoliday, workTone } from './timeline/workTone';
+import { isInOffice } from './timeline/workTone';
+
+// isInOffice は FE の画面（feEvents）でも使うので workTone に置いた。ここからも今までどおり読める
+export { isInOffice };
 
 // 1 人の 1 日の訪問を時間の軸に置く（行動予定のガントと予定表の時間軸で共通）。
 // 時間の指定を守る順に枠を押さえ、移動は訪問先の位置（号機 → 物件マスタの住所）からの距離で見積もり、昼休憩を入れる。
@@ -62,9 +65,6 @@ export interface PlanInput {
   atBase?: (s: Schedule) => boolean;
 }
 
-/** 物件名も号機も無い予定、または種別が社内・ミーティングなどは社内（拠点で行う） */
-export const isInOffice = (s: Schedule) =>
-  (!(s.property_name || '').trim() && !(s.unit_number || '').trim()) || (workTone(s.work_type) === 'internal' && !isHoliday(s));
 
 export const planStaffDay = ({ items, posOf, base, mode, departRec, atBase }: PlanInput): DayPlan => {
   const fromBase = (x: Schedule) => (atBase?.(x) ? { min: 0, kind: 'same' as LegKind } : travelLeg(base, posOf(x), mode));

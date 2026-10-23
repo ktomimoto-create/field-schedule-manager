@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { CheckCircle2, ChevronDown, ChevronUp, Circle, LogIn, LogOut, MapPin, Navigation, Search, Undo2, Wrench, type LucideIcon } from 'lucide-react';
+import { CheckCircle2, ChevronDown, ChevronUp, Circle, LogIn, LogOut, MapPin, Navigation, Play, Search, Undo2, Wrench, type LucideIcon } from 'lucide-react';
 import type { Schedule, Staff } from '../types';
 import { getShortName, normalizeTargetTime, compareSchedules } from '../types';
 import {
@@ -38,6 +38,12 @@ const BUTTON: Record<FeEventKind, { icon: LucideIcon; text: string }> = {
   finish: { icon: CheckCircle2, text: '作業を完了した' },
   shift_end: { icon: LogOut, text: '勤務を終了する' },
 };
+// 研修・会議など社内の予定は、出発・到着ではなく「開始」「完了」で進める（開始は到着と同じ記録）
+const IN_OFFICE_BUTTON: Partial<Record<FeEventKind, { icon: LucideIcon; text: string }>> = {
+  arrive: { icon: Play, text: '開始する' },
+  finish: { icon: CheckCircle2, text: '完了する' },
+};
+const IN_OFFICE_LABEL: Partial<Record<FeEventKind, string>> = { arrive: '開始', finish: '完了' };
 
 interface Props {
   schedules: Schedule[];
@@ -141,7 +147,8 @@ export const FeActionView: React.FC<Props> = ({ schedules, staff, currentStaffId
 
   const undo = async () => {
     if (staffId == null || busy || !day.lastEvent) return;
-    const label = FE_EVENT_LABELS[day.lastEvent.kind];
+    const lastVisit = day.visits.find(v => v.schedule.id === day.lastEvent!.schedule_id);
+    const label = (lastVisit?.inOffice && IN_OFFICE_LABEL[day.lastEvent.kind]) || FE_EVENT_LABELS[day.lastEvent.kind];
     if (!window.confirm(`直前の「${label}」（${jstHm(day.lastEvent.occurred_at)}）を取り消しますか？`)) return;
     setBusy(true);
     try {
@@ -194,7 +201,8 @@ export const FeActionView: React.FC<Props> = ({ schedules, staff, currentStaffId
   }
 
   const next = day.next;
-  const NextIcon = next ? BUTTON[next.kind].icon : CheckCircle2;
+  const nextButton = next ? (next.visit?.inOffice && IN_OFFICE_BUTTON[next.kind]) || BUTTON[next.kind] : null;
+  const NextIcon = nextButton ? nextButton.icon : CheckCircle2;
   const blockedDemo = !isSandbox && isDemoLogin;
   const disabled = busy || (!isSandbox && feUnavailable) || blockedDemo || !next;
   const doneCount = day.visits.filter(v => v.stage === 'done').length;
@@ -224,7 +232,7 @@ export const FeActionView: React.FC<Props> = ({ schedules, staff, currentStaffId
       <div className="fe-next">
         {next?.visit ? (
           <div className="fe-next-target">
-            <span className="fe-next-caption">{next.kind === 'depart' ? '次の訪問' : 'いまの訪問'}</span>
+            <span className="fe-next-caption">{next.visit.stage === 'todo' ? (next.visit.inOffice ? '次の予定' : '次の訪問') : next.visit.inOffice ? 'いまの予定' : 'いまの訪問'}</span>
             <VisitSummary schedule={next.visit.schedule} />
           </div>
         ) : (
@@ -236,7 +244,7 @@ export const FeActionView: React.FC<Props> = ({ schedules, staff, currentStaffId
         )}
         <button type="button" className={`fe-big-btn kind-${next?.kind ?? 'none'}`} onClick={press} disabled={disabled}>
           {busy ? <span className="fe-spinner" aria-label="記録中" /> : <NextIcon size={22} />}
-          <span>{next ? BUTTON[next.kind].text : '今日の記録は終わりです'}</span>
+          <span>{nextButton ? nextButton.text : '今日の記録は終わりです'}</span>
         </button>
         <div className="fe-next-foot">
           <span className="fe-pos">
@@ -272,8 +280,8 @@ export const FeActionView: React.FC<Props> = ({ schedules, staff, currentStaffId
               <div className="fe-visit-body">
                 <VisitSummary schedule={v.schedule} />
                 <div className="fe-visit-times">
-                  <span>出発 <b className="sc-num">{v.departAt ? jstHm(v.departAt) : '—'}</b></span>
-                  <span>到着 <b className="sc-num">{v.arriveAt ? jstHm(v.arriveAt) : v.schedule.started_at || '—'}</b></span>
+                  {!v.inOffice && <span>出発 <b className="sc-num">{v.departAt ? jstHm(v.departAt) : '—'}</b></span>}
+                  <span>{v.inOffice ? '開始' : '到着'} <b className="sc-num">{v.arriveAt ? jstHm(v.arriveAt) : v.schedule.started_at || '—'}</b></span>
                   <span>完了 <b className="sc-num">{v.finishAt ? jstHm(v.finishAt) : v.schedule.completed_at || '—'}</b></span>
                 </div>
               </div>

@@ -1,5 +1,6 @@
 import { supabase } from '../supabaseClient';
 import type { Schedule } from '../types';
+import { isInOffice } from './timeline/workTone';
 
 // FE のボタン記録（勤務開始 → 出発 → 到着 → 作業完了 → 勤務終了）の読み書き。
 // DB: sql/fe_events.sql（fe_events テーブルと fe_record_event / fe_undo_last_event）。
@@ -202,6 +203,8 @@ export interface VisitState {
   departAt: string | null;
   arriveAt: string | null;
   finishAt: string | null;
+  /** 研修・会議など社内の予定（物件名も号機も無い・種別が社内系）。出発・到着は無く「開始（＝到着の記録）」と「完了」だけ */
+  inOffice: boolean;
 }
 
 export interface DayState {
@@ -226,7 +229,7 @@ export const buildDayState = (visitsInOrder: Schedule[], events: FeEvent[]): Day
     const finishAt = last('finish');
     // 記録が無くても、結果が「完了」の予定は済んだものとして扱う（今までの結果報告との共存）
     const stage: VisitStage = finishAt || s.result === '完了' ? 'done' : arriveAt ? 'working' : departAt ? 'moving' : 'todo';
-    return { schedule: s, stage, departAt, arriveAt, finishAt };
+    return { schedule: s, stage, departAt, arriveAt, finishAt, inOffice: isInOffice(s) };
   });
 
   let next: DayState['next'] = null;
@@ -236,7 +239,9 @@ export const buildDayState = (visitsInOrder: Schedule[], events: FeEvent[]): Day
     const active = visits.find(v => v.stage === 'moving' || v.stage === 'working');
     const target = active || visits.find(v => v.stage === 'todo') || null;
     if (target) {
-      next = { kind: target.stage === 'todo' ? 'depart' : target.stage === 'moving' ? 'arrive' : 'finish', visit: target };
+      // 社内の予定は出発を飛ばし、いきなり開始（到着の記録）にする
+      const first: FeEventKind = target.inOffice ? 'arrive' : 'depart';
+      next = { kind: target.stage === 'todo' ? first : target.stage === 'moving' ? 'arrive' : 'finish', visit: target };
     } else {
       next = { kind: 'shift_end', visit: null };
     }

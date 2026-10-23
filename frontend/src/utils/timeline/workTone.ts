@@ -28,3 +28,7 @@ export const isHoliday = (s: Pick<Schedule, 'work_type'>): boolean => (s.work_ty
 /** 現地の作業として件数・進み具合に数えるか（キャンセルと社内の予定は数えない） */
 export const isFieldJob = (s: Pick<Schedule, 'status' | 'result' | 'work_type'>): boolean =>
   progressOf(s) !== 'cancelled' && workTone(s.work_type) !== 'internal'
+
+/** 物件名も号機も無い予定、または種別が社内・ミーティングなどは社内（拠点で行う） */
+export const isInOffice = (s: Schedule) =>
+  (!(s.property_name || '').trim() && !(s.unit_number || '').trim()) || (workTone(s.work_type) === 'internal' && !isHoliday(s))
