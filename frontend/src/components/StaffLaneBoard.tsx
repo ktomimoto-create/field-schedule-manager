@@ -1,9 +1,10 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import { BadgeCheck, ClipboardList, HardHat, Lock, PackagePlus, Repeat2, Stethoscope, Tag } from 'lucide-react';
 import type { Schedule, Staff } from '../types';
-import { compareSchedules, findStaffByName, normalizeTargetTime } from '../types';
+import { compareSchedules, findScheduleStaff, normalizeTargetTime } from '../types';
 import { progressOf, statusMeta, summarizeDescription, workTypeKey, type Progress } from '../utils/scheduleDisplay';
 import type { FeEvent } from '../utils/feEvents';
+import { planPersonDay, type DayPlanContext } from '../utils/dayPlan';
 import { StaffAvatar } from './ScheduleCards';
 import { usePlaceLabel } from '../utils/usePlaceLabel';
 import { ProgressMenu, type StatusHistoryItem } from './ProgressMenu';
@@ -80,6 +81,8 @@ type LockInfo = { userEmail: string; userName: string; startedAt: number; sessio
 interface Props {
   schedules: Schedule[];
   staff: Staff[];
+  /** 時間軸と同じ「時刻の指定を守る順」に並べるための材料（GridView が 1 つ持ち、時間軸と使い回す） */
+  planCtx: DayPlanContext;
   canEdit: boolean;
   activeLocks: Record<number, LockInfo>;
   onOpenEditModal: (s: Schedule) => void;
@@ -98,7 +101,9 @@ interface Lane {
   items: Schedule[];
 }
 
-export const StaffLaneBoard: React.FC<Props> = ({ schedules, staff, canEdit, activeLocks, onOpenEditModal, onReorder, feEvents = [], onSetProgress, loadStatusHistory }) => {
+const NO_EVENTS: FeEvent[] = [];
+
+export const StaffLaneBoard: React.FC<Props> = ({ schedules, staff, planCtx, canEdit, activeLocks, onOpenEditModal, onReorder, feEvents = NO_EVENTS, onSetProgress, loadStatusHistory }) => {
   const [drag, setDrag] = useState<{ lane: string; id: number | string } | null>(null);
   const [overId, setOverId] = useState<number | string | null>(null);
   const placeOf = usePlaceLabel(schedules);
@@ -116,7 +121,7 @@ export const StaffLaneBoard: React.FC<Props> = ({ schedules, staff, canEdit, act
     const map = new Map<string, Lane>();
     for (const s of schedules) {
       // 担当の ID が無くても、名前がマスタの人に当たればその人（例: 高田）
-      const member = staff.find(st => st.id === s.staff_id) ?? findStaffByName(staff, s.staff_name);
+      const member = findScheduleStaff(staff, s);
       const name = member ? member.name : s.staff_name || UNASSIGNED;
       const key = member ? `id-${member.id}` : `n-${name}`;
       if (!map.has(key)) {
@@ -125,11 +130,17 @@ export const StaffLaneBoard: React.FC<Props> = ({ schedules, staff, canEdit, act
       }
       map.get(key)!.items.push(s);
     }
-    for (const l of map.values()) l.items.sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0) || compareSchedules(a, b));
+    for (const l of map.values()) {
+      l.items.sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0) || compareSchedules(a, b));
+      // 時間軸と同じ「時刻の指定を守る順」（実際に回る順）に並べ、番号もそろえる。切り替えてもカードの順番が入れ替わらない
+      const planned = [...planPersonDay(l.name, l.member, l.items, planCtx).placed].sort((a, b) => a.no - b.no).map(p => p.schedule);
+      const rest = l.items.filter(x => !planned.includes(x));
+      l.items = [...planned, ...rest];
+    }
     // 自社の技術員（マスタに登録のある人）をコース順 → 協力会社など → 担当未定
     const rank = (l: Lane) => (l.member ? 0 : l.name === UNASSIGNED ? 2 : 1);
     return [...map.values()].sort((a, b) => rank(a) - rank(b) || a.course - b.course || a.name.localeCompare(b.name, 'ja'));
-  }, [schedules, staff]);
+  }, [schedules, staff, planCtx]);
 
   if (lanes.length === 0) return <div className="lane-empty">登録された予定はありません</div>;
 
@@ -149,6 +160,11 @@ export const StaffLaneBoard: React.FC<Props> = ({ schedules, staff, canEdit, act
 
   return (
     <div className="lane-board">
+      {/* 時間軸と同じ高さの見出し行（切り替えても行の位置が動かないように） */}
+      <div className="lane-head">
+        <span className="lane-head-person">担当</span>
+        <span className="lane-head-note">訪問（順番どおり）</span>
+      </div>
       {lanes.map(lane => {
         const done = lane.items.filter(x => x.result === '完了').length;
         const live = lane.items.filter(x => x.status !== 'cancelled').length;
@@ -172,6 +188,7 @@ export const StaffLaneBoard: React.FC<Props> = ({ schedules, staff, canEdit, act
                 return (
                   <div
                     key={s.id}
+                    data-sid={String(s.id)}
                     className={`lane-card tone-${meta.tone} p-${progress}${isDone ? ' is-done' : ''}${overId === s.id && drag?.lane === lane.key ? ' is-drop' : ''}`}
                     draggable={draggable}
                     onDragStart={e => {

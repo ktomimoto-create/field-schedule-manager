@@ -46,9 +46,6 @@
   font-size: 0.72rem;
   font-weight: 700;
 }
-.stl-head-person {
-  padding-left: 10px;
-}
 .stl-head-axis {
   position: relative;
   height: 16px;
@@ -94,9 +91,6 @@
 }
 .lane-card.stl-card.is-late {
   box-shadow: inset 0 0 0 1px var(--danger);
-}
-.stl-property {
-  -webkit-line-clamp: 1;
 }
 .stl-actual {
   position: absolute;
@@ -193,8 +187,13 @@
 }
 .stl-route-all {
   margin-left: auto;
-  height: 28px;
-  padding: 0 10px;
+  height: 22px;
+  padding: 0 6px;
+}
+.stl-legend-tip {
+  display: inline-flex;
+  color: var(--text-muted);
+  cursor: help;
 }
 .stl-route-btn {
   flex-shrink: 0;
@@ -379,11 +378,35 @@
   overflow: clip;
 }
 .stl-row .lane-person,
-.stl-head-person {
+.stl-head .lane-head-person {
   position: sticky;
   left: 0;
   z-index: 6;
 }
-.stl-head-person {
+/* ダークでは見出し色が半透明で、下を流れるカードが透けて重なって見えるため、下に不透明な色を敷く */
+.stl-row .lane-person {
+  background: linear-gradient(var(--bg-column-header), var(--bg-column-header)), var(--bg-secondary);
+}
+.stl-head .lane-head-person {
   background: var(--bg-primary);
+}
+
+/* カード表示 ⇄ 時間軸の切り替え: カードは GridView が滑らせ、線や目盛りはあとからふわっと出す */
+.is-view-morph .stl-track > :not(.stl-card),
+.is-view-morph .stl-head-axis,
+.is-view-morph .lane-head-note,
+.is-view-morph .stl-travel {
+  animation: view-morph-fade 320ms ease-out 140ms both;
+}
+@keyframes view-morph-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .is-view-morph .stl-track > :not(.stl-card),
+  .is-view-morph .stl-head-axis,
+  .is-view-morph .lane-head-note,
+  .is-view-morph .stl-travel {
+    animation: none;
+  }
 }

@@ -12,6 +12,26 @@
   text-align: center;
   color: var(--text-muted);
 }
+/* 見出し行（時間軸の表示と同じ高さ。切り替えても行の位置が動かない） */
+.lane-head {
+  display: grid;
+  grid-template-columns: 150px minmax(0, 1fr);
+  align-items: center;
+  height: 28px;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+.lane-head-person {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 100%;
+  padding: 0 8px 0 10px;
+}
+.lane-head-note {
+  padding-left: 8px;
+}
 .lane-row {
   display: grid;
   grid-template-columns: 150px minmax(0, 1fr);
@@ -51,12 +71,17 @@
 .lane-cards {
   display: flex;
   gap: 6px;
-  padding: 6px 8px;
+  /* 時間軸の表示と同じ高さ・同じカードの上端（上は移動の線の分）。横スクロールのバーも下の余白に収める */
+  height: 130px;
+  box-sizing: border-box;
+  padding: 26px 8px 0;
   overflow-x: auto;
   min-width: 0;
 }
 .lane-card {
   flex: 0 0 190px;
+  height: 86px;
+  box-sizing: border-box;
   display: flex;
   flex-direction: column;
   gap: 3px;

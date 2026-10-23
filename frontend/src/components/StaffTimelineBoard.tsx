@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { CarFront, Footprints, Route, TrainFront, UtensilsCrossed } from 'lucide-react';
+import { CarFront, Footprints, Info, Route, TrainFront, UtensilsCrossed } from 'lucide-react';
 import type { Schedule, Staff } from '../types';
-import { compareSchedules, findStaffByName, normalizeTargetTime } from '../types';
+import { compareSchedules, findScheduleStaff, normalizeTargetTime } from '../types';
 import { hmToMin, progressOf, statusMeta } from '../utils/scheduleDisplay';
 import { jstHm, type FeEvent } from '../utils/feEvents';
 import { StaffAvatar } from './ScheduleCards';
@@ -10,7 +10,7 @@ import { usePlaceLabel } from '../utils/usePlaceLabel';
 import { ProgressMenu, type StatusHistoryItem } from './ProgressMenu';
 import type { Progress } from '../utils/scheduleDisplay';
 import { planRoute, totalTravel, WORK_MIN, type LegKind, type TravelMode } from '../utils/route';
-import { planPersonDay, useDayPlanContext, type PlannedVisit } from '../utils/dayPlan';
+import { planPersonDay, type DayPlanContext, type PlannedVisit } from '../utils/dayPlan';
 import './StaffLaneBoard.css';
 import './StaffTimelineBoard.css';
 
@@ -25,8 +25,9 @@ type LockInfo = { userEmail: string; userName: string; startedAt: number; sessio
 const STACK_SHIFT = 6;
 const STACK_MAX = 2;
 /** カードの下に、移動・待ちの見込み（点線）と実績（帯）を置く。重なりの有無で線の高さが変わらないように固定の位置 */
-/** 1 時間の幅（px）。訪問 1 件（60 分）のカードがこの幅になるので、物件名が読める幅にする。画面に入らなければ横にスクロール */
-const HOUR_W = 170;
+/** 1 時間の幅（px）。訪問 1 件（60 分）のカードが、カード表示と同じ 210px（＋すき間 4px）になる幅。
+ *  切り替えてもカードの大きさが変わらず、物件名もカード表示と同じだけ読める。画面に入らなければ横にスクロール */
+const HOUR_W = 214;
 const PERSON_W = 150;
 const CARD_H = 86;
 // 線はカードの上に置く（カードは重なっても上端がずれないので、どの行も同じ高さに並ぶ）
@@ -65,6 +66,8 @@ interface Props {
   schedules: Schedule[];
   staff: Staff[];
   date: string;
+  /** 時間の置き方の材料（GridView が 1 つ持ち、カード表示と使い回す。切り替えのたびに読み直さない） */
+  planCtx: DayPlanContext;
   canEdit: boolean;
   activeLocks: Record<number, LockInfo>;
   onOpenEditModal: (s: Schedule) => void;
@@ -85,7 +88,7 @@ const todayStr = () => {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 };
 
-export const StaffTimelineBoard: React.FC<Props> = ({ schedules, staff, date, canEdit, activeLocks, onOpenEditModal, onReorder, feEvents = [], onSetProgress, loadStatusHistory }) => {
+export const StaffTimelineBoard: React.FC<Props> = ({ schedules, staff, date, planCtx, canEdit, activeLocks, onOpenEditModal, onReorder, feEvents = [], onSetProgress, loadStatusHistory }) => {
   const [now, setNow] = useState(nowMin);
   const placeOf = usePlaceLabel(schedules);
   // 右クリックで開く対応状況のメニュー
@@ -97,7 +100,6 @@ export const StaffTimelineBoard: React.FC<Props> = ({ schedules, staff, date, ca
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [menuId, loadStatusHistory]);
   const closeMenu = useCallback(() => setMenu(null), []);
-  const planCtx = useDayPlanContext(schedules, staff, date, feEvents);
   const reservations = planCtx.reservations;
   const [busy, setBusy] = useState(false);
   // 横に広げている重なりの組（クリックで広げる・もう一度か外をクリックで閉じる）
@@ -126,7 +128,7 @@ export const StaffTimelineBoard: React.FC<Props> = ({ schedules, staff, date, ca
     const map = new Map<string, { key: string; name: string; member?: Staff; course: number; items: Schedule[] }>();
     for (const s of schedules) {
       // 担当の ID が無くても、名前がマスタの人に当たればその人（例: 高田）
-      const member = staff.find(st => st.id === s.staff_id) ?? findStaffByName(staff, s.staff_name);
+      const member = findScheduleStaff(staff, s);
       const name = member ? member.name : s.staff_name || UNASSIGNED;
       const key = member ? `id-${member.id}` : `n-${name}`;
       if (!map.has(key)) {
@@ -180,8 +182,9 @@ export const StaffTimelineBoard: React.FC<Props> = ({ schedules, staff, date, ca
         live: g.items.filter(x => x.status !== 'cancelled').length,
       });
     }
-    // 時間軸は自社の技術員（マスタに登録のある人）だけ。協力会社・担当未定は出さない
-    return out.filter(r => r.member).sort((a, b) => a.course - b.course || a.name.localeCompare(b.name, 'ja'));
+    // カード表示と同じ行・同じ順（自社の技術員をコース順 → 協力会社など → 担当未定）。切り替えても行が動かないようにする
+    const rank = (r: Row) => (r.member ? 0 : r.name === UNASSIGNED ? 2 : 1);
+    return out.sort((a, b) => rank(a) - rank(b) || a.course - b.course || a.name.localeCompare(b.name, 'ja'));
   }, [schedules, staff, feEvents, date, planCtx]);
 
   // 実績（FE のボタン記録・開始/完了時刻）
@@ -222,8 +225,6 @@ export const StaffTimelineBoard: React.FC<Props> = ({ schedules, staff, date, ca
     return byId;
   }, [feEvents, schedules, date]);
 
-  // 時間軸に出さない予定（協力会社・担当未定）
-  const hiddenCount = schedules.filter(x => x.status !== 'cancelled' && !(staff.find(st => st.id === x.staff_id) ?? findStaffByName(staff, x.staff_name))).length;
   if (rows.length === 0) return <div className="lane-empty">登録された予定はありません</div>;
 
   let start = 8 * 60;
@@ -256,36 +257,40 @@ export const StaffTimelineBoard: React.FC<Props> = ({ schedules, staff, date, ca
     }
   };
 
+  const legendText = [
+    '見方',
+    '・点線の枠: 時間指定なし（順番から出した見込みの位置）',
+    '・赤い枠: 指定の時刻・締切に間に合わない見込み',
+    '・青い縦線「出動」: 勤務開始（記録が無ければ 9:00 の見込み）',
+    '・カードの上の点線: 移動の見込み（車／電車・バス／徒歩）',
+    '・カードの上の帯: 青＝移動（実績）、緑＝作業（実績）',
+    ...(showNow ? ['・赤い縦線: いま'] : []),
+    `出動から 1 件 ${WORK_MIN} 分・移動は距離からの見込み（Fun-navi の予約がある人・専用車の人は車、それ以外は電車・徒歩）＋10 分で置いています${reservations == null ? '（予約を読めないため専用車の人だけ車）' : ''}`,
+  ].join('\n');
+
   return (
     <div className="stl-board" style={{ minWidth: PERSON_W + hours.length * HOUR_W + 32 }}>
-      <div className="stl-legend">
-        <span><i className="stl-lg is-confirmed" />確定</span>
-        <span><i className="stl-lg is-draft" />仮</span>
-        <span><i className="stl-lg is-free" />通常</span>
-        <span><i className="stl-lg is-est" />時間指定なし（順番から出した見込み）</span>
-        <span><i className="stl-lg is-depart" />出動（勤務開始。記録が無ければ 9:00 の見込み）</span>
-        <span><i className="stl-lg is-late" />指定の時刻・締切に間に合わない見込み</span>
-        <span><CarFront size={12} /><TrainFront size={12} /><Footprints size={12} />移動の見込み（車／電車・バス／徒歩）</span>
-        <span><i className="stl-lg is-move" />移動（実績）</span>
-        <span><i className="stl-lg is-work" />作業（実績）</span>
-        {showNow && <span><i className="stl-lg is-now" />いま</span>}
-        <span className="stl-note">出動から 1 件 {WORK_MIN} 分・移動は距離からの見込み（Fun-navi の予約がある人・専用車の人は車、それ以外は電車・徒歩）＋10 分で置いています{reservations == null && '（予約を読めないため専用車の人だけ車）'}{hiddenCount > 0 && `。協力会社・${UNASSIGNED}の ${hiddenCount} 件はカード表示だけに出しています`}</span>
-        {canRoute && (
-          <button
-            type="button"
-            className="stl-route-all"
-            onClick={() => void applyRoute(improvable)}
-            disabled={busy || improvable.length === 0}
-            title={improvable.length ? `${improvable.length} 人の順番を、時間指定を守って移動が短くなる順にします` : '並べ替えで短くなる人はいません'}
-          >
-            <Route size={14} />
-            近い順に並べ替え{improvable.length > 0 && <b className="stl-num">{improvable.length}人</b>}
-          </button>
-        )}
-      </div>
-
-      <div className="stl-head">
-        <span className="stl-head-person">担当</span>
+      {/* 見出しはカード表示と同じ高さの 1 行（凡例は ⓘ に乗せると出る）。切り替えても行の位置が動かないようにする */}
+      <div className="lane-head stl-head">
+        <span className="lane-head-person">
+          担当
+          <span className="stl-legend-tip" title={legendText}>
+            <Info size={12} />
+          </span>
+          {canRoute && (
+            <button
+              type="button"
+              className="stl-route-all"
+              onClick={() => void applyRoute(improvable)}
+              disabled={busy || improvable.length === 0}
+              title={improvable.length ? `近い順に並べ替え: ${improvable.length} 人の順番を、時間指定を守って移動が短くなる順にします` : '近い順に並べ替え: 短くなる人はいません'}
+              aria-label="近い順に並べ替え"
+            >
+              <Route size={12} />
+              {improvable.length > 0 && <b className="stl-num">{improvable.length}</b>}
+            </button>
+          )}
+        </span>
         <span className="stl-head-axis">
           {hours.map(h => (
             <span key={h} className="stl-tick" style={{ left: `${pct(h)}%` }}>{fmt(h)}</span>
@@ -363,13 +368,14 @@ export const StaffTimelineBoard: React.FC<Props> = ({ schedules, staff, date, ca
               const wait = moveFrom - p.waitFrom;
               return (
                 <React.Fragment key={s.id}>
-                {p.stackIndex === 0 && wait >= 15 && (
+                {/* 待ち: 線が途切れないよう点線は必ず引き、15 分以上は「待ち ◯分」（ガントと同じ） */}
+                {p.stackIndex === 0 && wait > 0 && p.legKind !== 'same' && (
                   <span
                     className="stl-wait"
                     style={{ left: `${pct(p.waitFrom)}%`, width: `${pct(moveFrom) - pct(p.waitFrom)}%`, top: MOVE_Y }}
                     title={`待ち ${fmtDur(wait)}（${time || ''} の指定に合わせて出る見込み）`}
                   >
-                    <span>待ち {fmtDur(wait)}</span>
+                    {wait >= 15 && <span>待ち {fmtDur(wait)}</span>}
                   </span>
                 )}
                 {p.move > 0 && p.stackIndex === 0 && (
@@ -385,6 +391,7 @@ export const StaffTimelineBoard: React.FC<Props> = ({ schedules, staff, date, ca
                   </span>
                 )}
                 <div
+                  data-sid={String(s.id)}
                   className={`lane-card stl-card tone-${meta.tone} p-${progress}${isDone ? ' is-done' : ''}${p.estimated ? ' is-est' : ''}${p.late ? ' is-late' : ''}${k > 0 && !isSpread ? ' is-stacked' : ''}${p.stackSize > 1 ? ' in-stack' : ''}${isSpread ? ' is-spread' : ''}`}
                   style={{ left, width: `calc(${w}% - 4px)`, top, zIndex: isSpread ? 30 + k : 1 + k }}
                   draggable={isSpread && canEdit && !!onReorder}

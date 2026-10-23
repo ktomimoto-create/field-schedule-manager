@@ -14,7 +14,7 @@ import { AnalyticsView } from './components/AnalyticsView';
 import { ScheduleModal } from './components/ScheduleModal';
 import { PasteImportModal } from './components/PasteImportModal';
 import { HelpGuideModal } from './components/HelpGuideModal';
-import { Calendar, CalendarDays, Layers, ListChecks, RefreshCw, AlertCircle, Settings, Sun, Moon, BarChart3, HelpCircle, ZoomIn, ZoomOut, Smartphone, ChartGantt, LayoutList, Table2, Grid3x3, MapPinned, Download, FlaskConical, Check } from 'lucide-react';
+import { Calendar, CalendarDays, ListChecks, RefreshCw, AlertCircle, Settings, Sun, Moon, BarChart3, HelpCircle, ZoomIn, ZoomOut, Smartphone, ChartGantt, LayoutList, Table2, Grid3x3, MapPinned, Download, FlaskConical, Check } from 'lucide-react';
 import { HeaderMoreMenu, type HeaderMoreItem } from './components/shared/HeaderMoreMenu';
 import { ViewTabs, type ViewTabItem } from './components/shared/ViewTabs';
 import { useViewport } from './hooks/useViewport';
@@ -38,7 +38,7 @@ import './styles/timeline.css';
 type AppTab = 'action' | 'month' | 'map' | 'fe' | 'master_management' | 'analytics';
 // 行動予定・月間予定の中の表示は、アイコンの下のタブで切り替える
 // gantt=DayScreen（PC はガント・携帯はカード）、card / timeline / table=予定表（GridView）
-type DayViewKey = 'gantt' | 'card' | 'timeline' | 'table';
+type DayViewKey = 'gantt' | 'card' | 'table';
 // calendar / heatmap=MonthView、card / table=月間予定表（CalendarView）
 type MonthViewKey = 'calendar' | 'heatmap' | 'card' | 'table';
 
@@ -279,7 +279,16 @@ frontend/public/_sandbox/${viewDate}.json を置いてください。`);
 
   // 行動予定タブの日付と、ヒートマップから飛んできたときの担当
   const { isMobile } = useViewport();
-  const [dayView, setDayView] = useState<DayViewKey>(() => readStored('field_app_day_view', ['gantt', 'card', 'timeline', 'table'] as const, 'gantt'));
+  const [dayView, setDayView] = useState<DayViewKey>(() => {
+    // 「時間軸」はタブから「カード」の中の切り替えへ移した。前に時間軸を開いていた人は、カードを時間軸で開く
+    try {
+      if (localStorage.getItem('field_app_day_view') === 'timeline') {
+        localStorage.setItem('field_app_card_time_axis', '1');
+        return 'card';
+      }
+    } catch { /* 保存できない環境では既定 */ }
+    return readStored('field_app_day_view', ['gantt', 'card', 'table'] as const, 'gantt');
+  });
   const [monthView, setMonthView] = useState<MonthViewKey>(() => readStored('field_app_month_view', ['calendar', 'heatmap', 'card', 'table'] as const, 'calendar'));
   useEffect(() => {
     try { localStorage.setItem('field_app_day_view', dayView); } catch { /* noop */ }
@@ -1433,8 +1442,7 @@ frontend/public/_sandbox/${viewDate}.json を置いてください。`);
     canManageSchedules(currentUserRole) && !isMobile
       ? { key: 'gantt', icon: <ChartGantt size={16} />, label: 'ガント', title: '全員の 1 日を担当×時間で見る' }
       : { key: 'gantt', icon: <ListChecks size={16} />, label: '自分の予定', title: '自分の予定を進む順にカードで見る（開始・完了を押せる）' },
-    { key: 'card', icon: <LayoutList size={16} />, label: 'カード', title: '担当ごとに訪問を順番どおり横に並べる' },
-    { key: 'timeline', icon: <Layers size={16} />, label: '時間軸', title: '担当ごとに訪問を時刻の位置に置く（移動の見積もりつき）' },
+    { key: 'card', icon: <LayoutList size={16} />, label: 'カード', title: '担当ごとに訪問を横に並べる（中のボタンで時間軸に切り替え）' },
     { key: 'table', icon: <Table2 size={16} />, label: '表', title: '表で見る・編集する' },
   ];
   const monthViewItems: ViewTabItem<MonthViewKey>[] = [

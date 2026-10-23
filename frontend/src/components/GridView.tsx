@@ -9,6 +9,7 @@ import { PrintPreviewModal } from './PrintPreviewModal';
 import { StaffLaneBoard } from './StaffLaneBoard';
 import { StaffAvatar } from './ScheduleCards';
 import { StaffTimelineBoard } from './StaffTimelineBoard';
+import { useDayPlanContext } from '../utils/dayPlan';
 import { TimelineView } from './TimelineView';
 import type { StatusHistoryItem } from './ProgressMenu';
 import type { Progress } from '../utils/scheduleDisplay';
@@ -292,6 +293,53 @@ export const GridView: React.FC<GridViewProps> = ({
     try { localStorage.setItem('field_app_grid_view_mode', ownViewMode); } catch { /* noop */ }
   }, [ownViewMode]);
   const viewMode = viewModeProp ?? ownViewMode;
+  // カード表示の中で、訪問を時刻の位置に置く（時間軸）か、順番どおりに詰めて並べるかを切り替える
+  const [cardTimeAxis, setCardTimeAxis] = useState(() => {
+    try { return localStorage.getItem('field_app_card_time_axis') === '1'; } catch { return false; }
+  });
+  useEffect(() => {
+    try { localStorage.setItem('field_app_card_time_axis', cardTimeAxis ? '1' : '0'); } catch { /* noop */ }
+  }, [cardTimeAxis]);
+
+  // 切り替えは流れるように: 同じ予定のカードを、前の位置・幅から新しい位置・幅へ滑らせる（FLIP）。
+  // 行・見出し・カードの大きさは両方の表示でそろえてあるので、動くのはカードの位置だけになる
+  const cardsWrapRef = useRef<HTMLDivElement>(null);
+  const morphFrom = useRef<Map<string, DOMRect> | null>(null);
+  const toggleCardTimeAxis = () => {
+    const wrap = cardsWrapRef.current;
+    if (wrap && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      const from = new Map<string, DOMRect>();
+      wrap.querySelectorAll<HTMLElement>('.lane-card[data-sid]').forEach(el => from.set(el.dataset.sid!, el.getBoundingClientRect()));
+      morphFrom.current = from;
+    }
+    setCardTimeAxis(v => !v);
+  };
+  useLayoutEffect(() => {
+    const from = morphFrom.current;
+    morphFrom.current = null;
+    const wrap = cardsWrapRef.current;
+    if (!from || !wrap) return;
+    wrap.classList.add('is-view-morph');
+    const view = wrap.getBoundingClientRect();
+    const near = (r: DOMRect) => r.bottom > view.top - 200 && r.top < view.bottom + 200;
+    const ease = 'cubic-bezier(0.32, 0.72, 0, 1)'; // iOS の画面遷移に近い、素早く出てなめらかに止まる動き
+    wrap.querySelectorAll<HTMLElement>('.lane-card[data-sid]').forEach(el => {
+      const to = el.getBoundingClientRect();
+      const at = from.get(el.dataset.sid!);
+      if (!at) {
+        if (near(to)) el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 320, easing: 'ease-out' });
+        return;
+      }
+      if (!near(at) && !near(to)) return;
+      // 位置（transform）だけを動かす。カードの大きさは両方の表示でそろえてあり、幅を動かすと毎コマ組み直しになってかくつく
+      el.animate(
+        [{ transform: `translate(${at.left - to.left}px, ${at.top - to.top}px)` }, { transform: 'translate(0, 0)' }],
+        { duration: 460, easing: ease },
+      );
+    });
+    const t = window.setTimeout(() => wrap.classList.remove('is-view-morph'), 700);
+    return () => window.clearTimeout(t);
+  }, [cardTimeAxis]);
   // スマホ（幅 768px 以下）では、自分の予定を担当ごとのカードで出す
   const [isPhone, setIsPhone] = useState(() => typeof window !== 'undefined' && window.matchMedia('(max-width: 768px)').matches);
   useEffect(() => {
@@ -429,6 +477,10 @@ export const GridView: React.FC<GridViewProps> = ({
     const cmp = valA.localeCompare(valB, 'ja', { numeric: true });
     return sortOrder === 'asc' ? cmp : -cmp;
   });
+
+  // 時間の置き方に使う位置・車の予約などは、カード表示と時間軸で 1 つを使い回す。
+  // 切り替えのたびに読み直すと、読み終わったところでカードの位置が組み直されて最後に「カクッ」と跳ぶため
+  const planCtx = useDayPlanContext(sortedSchedules, staff, selectedDate, feEvents);
 
   const handleSortToggle = (column: 'unit_number' | 'property_name' | 'target_time' | 'staff_name') => {
     clearSelectionOverlay();
@@ -1007,6 +1059,19 @@ export const GridView: React.FC<GridViewProps> = ({
                 <UserRound size={16} />
               </button>
             )}
+
+            {viewMode === 'card' && !phoneMine && (
+              <button
+                type="button"
+                className={`btn btn-my-schedule ${cardTimeAxis ? 'active' : ''}`}
+                onClick={toggleCardTimeAxis}
+                title={cardTimeAxis ? '時間軸をやめて、訪問を順番どおりに詰めて並べる' : '時間軸で並べる（訪問を時刻の位置に置き、移動の見積もりを出す）'}
+                aria-label="時間軸で並べる"
+                aria-pressed={cardTimeAxis}
+              >
+                <ChartGantt size={16} />
+              </button>
+            )}
           </div>
 
           <div className="grid-actions-right">
@@ -1091,7 +1156,7 @@ export const GridView: React.FC<GridViewProps> = ({
       )}
 
       {viewMode !== 'table' ? (
-        <div className="grid-table-wrapper grid-cards-wrapper">
+        <div ref={cardsWrapRef} className="grid-table-wrapper grid-cards-wrapper">
           {phoneMine ? (
             <TimelineView
               embedded
@@ -1109,11 +1174,12 @@ export const GridView: React.FC<GridViewProps> = ({
               viewDate={selectedDate}
               onViewDateChange={setSelectedDate}
             />
-          ) : viewMode === 'card' ? (
+          ) : viewMode === 'card' && !cardTimeAxis ? (
             <div style={zoomLevel !== 100 ? { zoom: `${zoomLevel}%` } : undefined}>
               <StaffLaneBoard
                 schedules={sortedSchedules}
                 staff={staff}
+                planCtx={planCtx}
                 canEdit={isAdmin}
                 activeLocks={activeLocks}
                 onOpenEditModal={onOpenEditModal}
@@ -1129,6 +1195,7 @@ export const GridView: React.FC<GridViewProps> = ({
                 schedules={sortedSchedules}
                 staff={staff}
                 date={selectedDate}
+                planCtx={planCtx}
                 canEdit={isAdmin}
                 activeLocks={activeLocks}
                 onOpenEditModal={onOpenEditModal}
