@@ -68,7 +68,8 @@
   background: color-mix(in srgb, var(--primary) 8%, var(--bg-secondary));
 }
 
-.dg-row.is-off {
+.dg-row.is-off .dg-name,
+.dg-row.is-off .dg-bar {
   opacity: 0.55;
 }
 
@@ -192,6 +193,29 @@
   height: 36px;
 }
 
+/* 待ち（前が終わってから移動を始めるまで）。移動の線と見分けるため薄い点線 */
+.dg-wait {
+  position: absolute;
+  top: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 36px;
+}
+
+.dg-wait-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  border-top: 1px dotted var(--text-muted);
+}
+
+.dg-wait-label {
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
 .dg-travel-line {
   position: absolute;
   left: 0;
@@ -219,11 +243,12 @@
   height: 12px;
 }
 
+/* いまの線: 移動・昼の線やラベルより上、帯（z-index 1・後ろに置く）より下。行の境目（1px）もまたいで途切れさせない */
 .dg-now {
   position: absolute;
   top: 0;
-  bottom: 0;
-  z-index: 0;
+  bottom: -1px;
+  z-index: 1;
   width: 2px;
   background: var(--danger);
   pointer-events: none;

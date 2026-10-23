@@ -1,4 +1,5 @@
 import type { Schedule } from '../../types'
+import { normalizeTargetTime } from '../../types'
 import type { DayPlan } from '../dayPlan'
 import type { LegKind, TravelMode as RouteMode } from '../route'
 import type { Travel } from './estimateTravelTime'
@@ -28,9 +29,19 @@ export interface TravelGap {
   travel: Travel
 }
 
+/** 待ち（前が終わってから、次の訪問へ移動を始めるまで） */
+export interface WaitGap {
+  from: number
+  to: number
+  /** 次の訪問の時間の指定（説明に出す） */
+  target: string
+}
+
 export interface DayLayout {
   bars: GanttBar[]
   gaps: TravelGap[]
+  /** 前の訪問（昼休憩）が終わってから移動を始めるまでの待ち。時刻指定の訪問の前などで空く */
+  waits: WaitGap[]
   laneCount: number
   /** 昼休憩（その後に訪問が無ければ null） */
   lunch: [number, number] | null
@@ -64,5 +75,9 @@ export const layoutFromPlan = (plan: Pick<DayPlan, 'placed' | 'lunch'> & { mode:
   const gaps: TravelGap[] = visits
     .filter(p => p.move > 0 && p.legKind !== 'same')
     .map(p => ({ from: p.start - p.move, to: p.start, travel: { minutes: p.move, mode: gapMode(p.legKind, plan.mode) } }))
-  return { bars, gaps, laneCount: Math.max(1, laneEnds.length), lunch: plan.lunch }
+  // 待ち: 前が終わってから移動を始めるまで（線が途切れないよう、薄い点線でつなぐ）
+  const waits: WaitGap[] = visits
+    .filter(p => p.legKind !== 'same' && p.start - p.move > p.waitFrom)
+    .map(p => ({ from: p.waitFrom, to: p.start - p.move, target: normalizeTargetTime(p.schedule.target_time) }))
+  return { bars, gaps, waits, laneCount: Math.max(1, laneEnds.length), lunch: plan.lunch }
 }

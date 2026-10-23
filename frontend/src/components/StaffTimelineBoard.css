@@ -115,9 +115,12 @@
   height: 86px;
 }
 .stl-lg.is-confirmed, .stl-lg.is-draft, .stl-lg.is-free { display: none; }
-/* いまの線はカードの下を通す */
+/* いまの線はカードの下を通す。行の間（6px）もまたいで途切れさせない */
 .stl-now {
   z-index: 0;
+  top: -4px;
+  bottom: -4px;
+  pointer-events: none;
 }
 /* 出動（勤務開始）の印。ここから 1 件目への移動が始まる */
 .stl-depart {
@@ -376,6 +379,8 @@
 /* 横にスクロールしても担当の列は左に残す（overflow: clip は sticky を止めない） */
 .stl-row {
   overflow: clip;
+  /* いまの赤線だけは行の間（6px）にはみ出して、上下の行とつなげる */
+  overflow-clip-margin: 4px;
 }
 .stl-row .lane-person,
 .stl-head .lane-head-person {

@@ -27,6 +27,8 @@ interface Props {
   onOpen: (s: Schedule) => void
 }
 
+const fmtDur = (m: number) => (m >= 60 ? `${Math.floor(m / 60)}時間${m % 60 ? `${m % 60}分` : ''}` : `${m}分`)
+
 export function GanttRow({ row, x, now, focused, rowRef, onOpen }: Props) {
   const jobs = row.items.filter(isFieldJob)
   const done = jobs.filter(s => progressOf(s) === 'done').length
@@ -46,9 +48,9 @@ export function GanttRow({ row, x, now, focused, rowRef, onOpen }: Props) {
         )}
       </div>
       <div className="dg-track">
-        {/* いまの線は帯・移動の下を通す（先に置いて z-index 0） */}
+        {/* いまの線は帯の下を通す（帯と同じ z-index 1 で先に置く）。どの行も同じ太さになるよう整数の px に */}
         {now !== null && now >= DAY_START_MIN && now <= DAY_END_MIN && (
-          <span className="dg-now" style={{ left: x(now) }} aria-hidden="true" />
+          <span className="dg-now" style={{ left: Math.round(x(now)) }} aria-hidden="true" />
         )}
         {row.layout.lunch && (
           <div
@@ -60,6 +62,17 @@ export function GanttRow({ row, x, now, focused, rowRef, onOpen }: Props) {
             <span className="dg-travel-label"><UtensilsCrossed size={12} /></span>
           </div>
         )}
+        {/* 待ち: 予定表の時間軸と同じく点線、15 分以上は「待ち ◯分」 */}
+        {row.layout.waits.map(w => {
+          const label = `待ち ${fmtDur(w.to - w.from)}`
+          const width = x(w.to) - x(w.from)
+          return (
+            <div key={`w${w.from}-${w.to}`} className="dg-wait" style={{ left: x(w.from), width }} title={`${label}（${w.target} の指定に合わせて出る見込み）`}>
+              <span className="dg-wait-line" />
+              {w.to - w.from >= 15 && width >= 56 && <span className="dg-travel-label dg-wait-label">{label}</span>}
+            </div>
+          )
+        })}
         {row.layout.gaps.map(gap => (
           <TravelOverlay key={`${gap.from}-${gap.to}`} gap={gap} left={x(gap.from)} width={x(gap.to) - x(gap.from)} />
         ))}

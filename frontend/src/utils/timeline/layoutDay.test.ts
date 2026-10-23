@@ -76,6 +76,11 @@ describe('layoutFromPlan（ガントの帯・段・移動）', () => {
     expect(gaps).toContainEqual({ from: 900 - M, to: 900, travel: { minutes: M, mode: 'train' } })
   })
 
+  it('移動を始めるまでの空きは待ちとして置き、移動の線につなぐ', () => {
+    const { waits } = layout([visit(1, { target_time: '9:30' }), visit(2, { target_time: '11:30' })])
+    expect(waits).toContainEqual({ from: 630, to: 690 - M, target: '11:30' })
+  })
+
   it('重なる帯は段を分ける', () => {
     const { bars, laneCount } = layout([visit(1, { property_name: '同じ棟' }), visit(2, { property_name: '同じ棟' })])
     expect(laneCount).toBe(2)
