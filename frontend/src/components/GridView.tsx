@@ -380,13 +380,15 @@ export const GridView: React.FC<GridViewProps> = ({
   ).length;
 
   // 指定日に「休み」または「公休」が登録されているスタッフ名を集計
-  const holidayStaffNames = schedules
+  // 本日の公休（アバターを付けて出すので、名簿の人も一緒に持つ）
+  const holidayStaff = schedules
     .filter(s => s.date === selectedDate && s.work_type === '休暇')
     .map(s => {
-      const st = staff.find(st => st.id === s.staff_id);
-      return st ? getShortName(st.name) : getShortName(s.staff_name || '不明');
+      const st = staff.find(st => st.id === s.staff_id) ?? findStaffByName(staff, s.staff_name);
+      return { name: st ? getShortName(st.name) : getShortName(s.staff_name || '不明'), member: st };
     })
-    .filter(Boolean);
+    .filter(h => h.name)
+    .filter((h, i, all) => all.findIndex(x => x.name === h.name) === i);
 
   const filteredSchedules = schedules.filter(s => {
     if (s.work_type === '休暇') {
@@ -1166,11 +1168,21 @@ export const GridView: React.FC<GridViewProps> = ({
         </div>
       </div>
 
-      {holidayStaffNames.length > 0 && (
+      {holidayStaff.length > 0 && (
         <div className="holiday-summary-bar" style={{ margin: '0 0 0.75rem' }}>
           <span className="holiday-label">本日の公休：</span>
-          {holidayStaffNames.map(name => (
-            <span key={name} className="holiday-badge">{name}</span>
+          {holidayStaff.map(({ name, member }) => (
+            <span key={name} className="holiday-badge" style={{ gap: '6px' }}>
+              {/* 対応者・同行者と同じアバター（写真が無ければ頭文字） */}
+              {member?.avatar_url ? (
+                <img src={member.avatar_url} alt={name} style={{ width: '18px', height: '18px', borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
+              ) : (
+                <span style={{ width: '18px', height: '18px', borderRadius: '50%', backgroundColor: 'var(--primary, #4f46e5)', color: 'white', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.6rem', fontWeight: 'bold', flexShrink: 0 }}>
+                  {name.substring(0, 1)}
+                </span>
+              )}
+              {name}
+            </span>
           ))}
         </div>
       )}
