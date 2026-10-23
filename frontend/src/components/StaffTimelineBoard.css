@@ -223,6 +223,17 @@
   align-items: center;
   gap: 6px;
 }
+/* 移動の合計の行は、名前・件数の下に重ねて置き、高さに数えない。
+   行が 1 つ増えて名前が上にずれると、カード表示と切り替えたときに名前の位置が動いてしまうため */
+.stl-row .lane-person-text {
+  position: relative;
+}
+.stl-row .stl-travel {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  margin-top: 2px;
+}
 .stl-route-btn {
   width: auto;
   height: 20px;
