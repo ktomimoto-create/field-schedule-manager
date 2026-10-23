@@ -25,6 +25,9 @@ const textOf = (el: HTMLElement): string => {
   return el.getAttribute('data-tip') || '';
 };
 
+// メニューを開いている間（aria-expanded="true"）は、その要素の説明を出さない（中のメニューに乗るたびに出て邪魔なため）
+const isExpanded = (el: HTMLElement) => el.getAttribute('aria-expanded') === 'true';
+
 export default function TooltipLayer() {
   const [tip, setTip] = useState<Tip | null>(null);
   const timer = useRef<number | null>(null);
@@ -42,10 +45,10 @@ export default function TooltipLayer() {
       if (!el || el === current.current) return;
       const text = textOf(el);
       clear();
-      if (!text) return;
+      if (!text || isExpanded(el)) return;
       current.current = el;
       timer.current = window.setTimeout(() => {
-        if (current.current !== el || !el.isConnected) return;
+        if (current.current !== el || !el.isConnected || isExpanded(el)) return;
         const r = el.getBoundingClientRect();
         const below = r.bottom + 8 + 40 < window.innerHeight;
         setTip({ text, x: r.left + r.width / 2, y: below ? r.bottom + 6 : r.top - 6, place: below ? 'below' : 'above' });

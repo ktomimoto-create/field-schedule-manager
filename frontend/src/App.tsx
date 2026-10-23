@@ -1671,6 +1671,7 @@ frontend/public/_sandbox/${viewDate}.json を置いてください。`);
                   className="user-profile-trigger" 
                   onClick={() => setShowUserMenu(!showUserMenu)}
                   title={`アカウント: ${user.user_metadata?.full_name || user.email}`}
+                  aria-expanded={showUserMenu}
                 >
                   {(() => {
                     const loginEmail = (user.email || '').toLowerCase().trim();
